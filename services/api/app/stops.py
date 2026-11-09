@@ -1,8 +1,10 @@
-"""Stop search, nearby stops, stop details and scheduled departures (static GTFS only).
+"""Stop search, nearby stops, stop details and departure boards.
 
-Every time returned here is a *scheduled* time from the operator's static timetable.
-Frequency-based services (Metro, EMT) have no exact times; they are returned
-separately as "every ~N min" so the app never shows a headway estimate as a time.
+`Departure.time` is always the *scheduled* time from the operator's static timetable. Live
+information is added next to it (`status`, `realtime`), never in its place, so a client
+cannot mistake one for the other. Frequency-based services (Metro, EMT) have no exact
+times; they are returned separately as "every ~N min", and EMT live predictions as
+`live_arrivals`.
 """
 
 from collections import defaultdict
@@ -17,6 +19,11 @@ from app.dbpool import get_pool
 from app.feeds import ExpiryState, expiry_state
 from app.ingest.gtfs import fold
 from app.ingest.sources import SOURCES_BY_KEY
+from app.realtime import board as live
+from app.realtime import emt, renfe
+from app.realtime.board import SourceStatus
+from app.realtime.models import RealtimeInfo, ServiceAlert
+from app.realtime.service import Realtime, get_realtime
 from app.timetable import (
     MADRID,
     MODE_ORDER,
@@ -29,6 +36,9 @@ from app.timetable import (
 
 router = APIRouter(tags=["stops"])
 Pool = Annotated[asyncpg.Pool, Depends(get_pool)]
+RT = Annotated[Realtime, Depends(get_realtime)]
+# On a live board, also look this far back so a late train scheduled earlier still shows.
+LOOKBACK = timedelta(minutes=45)
 
 
 class Line(BaseModel):
@@ -62,13 +72,35 @@ class DataNotice(BaseModel):
 
 
 class Departure(BaseModel):
-    kind: Literal["scheduled"] = "scheduled"
-    time: datetime
+    kind: Literal["scheduled"] = "scheduled"  # a timetable row (with or without live data)
+    time: datetime  # scheduled time, always
     line: Line
     headsign: str | None
     stop_id: str
     trip_id: str
     wheelchair_accessible: bool | None
+    # scheduled: no usable live data; live: realtime.predicted_time is the best estimate;
+    # cancelled: the operator cancelled this trip.
+    status: Literal["scheduled", "live", "cancelled"] = "scheduled"
+    realtime: RealtimeInfo | None = None
+
+    @property
+    def best_time(self) -> datetime:
+        if self.realtime and self.realtime.predicted_time:
+            return self.realtime.predicted_time
+        return self.time
+
+
+class LiveArrival(BaseModel):
+    """A live prediction with no timetable row behind it (EMT buses run by headway)."""
+
+    kind: Literal["live"] = "live"
+    line: Line
+    headsign: str | None
+    stop_id: str
+    time: datetime | None  # None: beyond the source's horizon (EMT: more than 45 min)
+    distance_m: int | None
+    realtime: RealtimeInfo
 
 
 class FrequencyService(BaseModel):
@@ -86,10 +118,14 @@ class StopBoard(BaseModel):
     generated_at: datetime
     window_start: datetime
     window_end: datetime
-    data_quality: Literal["scheduled"] = "scheduled"
+    # scheduled: nothing live on this board; partly_live: some entries are live.
+    data_quality: Literal["scheduled", "partly_live"] = "scheduled"
     departures: list[Departure]
     frequencies: list[FrequencyService]
+    live_arrivals: list[LiveArrival] = []
     notices: list[DataNotice]
+    realtime: list[SourceStatus] = []  # one per operator serving this stop
+    alerts: list[ServiceAlert] = []
 
 
 # ---------------------------------------------------------------------------
@@ -424,29 +460,35 @@ async def get_stop(pool: Pool, stop_id: str) -> StopSummary:
 @router.get("/stops/{stop_id}/departures", response_model=StopBoard)
 async def stop_departures(
     pool: Pool,
+    rt: RT,
     stop_id: str,
     at: Annotated[datetime | None, Query(description="Start time; default now")] = None,
     minutes: Annotated[int, Query(ge=5, le=240)] = 90,
     limit: Annotated[int, Query(ge=1, le=200)] = 40,
 ) -> StopBoard:
-    """Scheduled departures from a stop or station (all its platforms) in a time window."""
+    """Departures from a stop or station (all its platforms) in a time window, with live
+    data where MadridGo has an authorized source for the operator."""
     summary, sources = await _stop_summary(pool, stop_id)
     now = datetime.now(MADRID)
     start = (
         (at.astimezone(MADRID) if at and at.tzinfo else at.replace(tzinfo=MADRID)) if at else now
     )
     end = start + timedelta(minutes=minutes)
+    has_rail = "cercanias" in sources
+    # Live boards (no `at`) look back so delayed trains scheduled before now still appear.
+    query_start = start - LOOKBACK if (at is None and has_rail) else start
+    query_limit = limit + 150 if query_start < start else limit
 
     departures: list[Departure] = []
     freq_rows: list[asyncpg.Record] = []
     freq_day = start.date()
     # Trips after midnight belong to the previous service day (times > 24:00:00).
     for day in (start.date() - timedelta(days=1), start.date()):
-        a, b = seconds_into(day, start), seconds_into(day, end)
+        a, b = seconds_into(day, query_start), seconds_into(day, end)
         if b < 0:
             continue
         args = (stop_id, day, day.isoweekday(), a, b)
-        for r in await pool.fetch(_DEPARTURES_SQL, *args, limit):
+        for r in await pool.fetch(_DEPARTURES_SQL, *args, query_limit):
             departures.append(
                 Departure(
                     time=at_service_time(day, r["departure_s"]),
@@ -463,20 +505,145 @@ async def stop_departures(
             )
         if day == start.date():
             # Fetch windows to the end of the service day so back-to-back windows can be merged.
-            freq_args = (stop_id, day, day.isoweekday(), a, max(b, 30 * 3600))
+            sa = seconds_into(day, start)
+            freq_args = (stop_id, day, day.isoweekday(), sa, max(b, 30 * 3600))
             freq_rows = list(await pool.fetch(_FREQUENCIES_SQL, *freq_args))
-    departures.sort(key=lambda d: d.time)
+
+    statuses: list[SourceStatus] = []
+    if has_rail:
+        departures, status = await _overlay_renfe(rt, departures, now)
+        statuses.append(status)
+    departures = [d for d in departures if d.best_time >= start]
+    departures.sort(key=lambda d: (d.best_time, d.time))
+
+    live_arrivals: list[LiveArrival] = []
+    if "emt" in sources:
+        live_arrivals, status = await _emt_arrivals(rt, summary, now)
+        statuses.append(status)
+    for src in set(sources) - {"cercanias", "emt"}:
+        statuses.append(live.no_realtime_status(src, _operator(src)))
+    statuses.sort(key=lambda st: (_feed_order(st.feed), st.feed))
 
     service_end = {
         r["source"]: r["service_end"]
         for r in await pool.fetch("SELECT source, service_end FROM feed_version WHERE is_active")
     }
+    shown = departures[:limit]
+    any_live = any(d.status != "scheduled" for d in shown) or bool(live_arrivals)
     return StopBoard(
         stop=summary,
         generated_at=now,
         window_start=start,
         window_end=end,
-        departures=departures[:limit],
+        data_quality="partly_live" if any_live else "scheduled",
+        departures=shown,
         frequencies=_merge_frequencies(freq_rows, freq_day, start, end),
+        live_arrivals=live_arrivals,
         notices=_notices(sources, service_end, now.date()),
+        realtime=statuses,
+        alerts=await _alerts(rt, summary, shown, now),
     )
+
+
+# ---------------------------------------------------------------------------
+# Live overlays
+
+
+def _feed_order(feed: str) -> int:
+    src = SOURCES_BY_KEY.get(feed)
+    return MODE_ORDER.get(src.mode, 9) if src else 9
+
+
+def _operator(feed: str) -> str:
+    src = SOURCES_BY_KEY.get(feed)
+    return src.operator_name if src else feed
+
+
+def _native(global_id: str) -> str:
+    return global_id.split(":", 1)[-1]
+
+
+async def _overlay_renfe(
+    rt: Realtime, departures: list[Departure], now: datetime
+) -> tuple[list[Departure], SourceStatus]:
+    snap = await rt.renfe_snapshot()
+    fresh = live.renfe_freshness(snap, now)
+    out = []
+    for d in departures:
+        if d.line.source != "cercanias":
+            out.append(d)
+            continue
+        train = live.renfe_train(d.trip_id, _native(d.stop_id), d.time, snap, fresh)
+        if train.passed:
+            continue
+        if train.info is not None:
+            label = "cancelled" if train.info.classification == "CANCELLED" else "live"
+            d = d.model_copy(update={"status": label, "realtime": train.info})
+        out.append(d)
+    status = live.live_status(
+        "cercanias",
+        _operator("cercanias"),
+        renfe.SOURCE,
+        renfe.ATTRIBUTION,
+        fresh,
+        snap.retrieved_at if snap else None,
+        snap.source_timestamp if snap else None,
+    )
+    return out, status
+
+
+async def _emt_arrivals(
+    rt: Realtime, summary: StopSummary, now: datetime
+) -> tuple[list[LiveArrival], SourceStatus]:
+    fetch = await rt.emt_arrivals(_native(summary.id)) if summary.id.startswith("emt:") else None
+    data = fetch.data if fetch else None
+    fresh = live.emt_freshness(data, now)
+    lines = {ln.short_name.upper(): ln for ln in summary.lines if ln.source == "emt"}
+    arrivals = []
+    for a, when, info in live.emt_live(data, fresh, now):
+        line = lines.get(a.line.upper()) or Line(
+            source="emt",
+            route_id=a.line,
+            short_name=a.line,
+            long_name=None,
+            mode="bus",
+            color=None,
+            text_color=None,
+        )
+        arrivals.append(
+            LiveArrival(
+                line=line,
+                headsign=display_name(a.destination) if a.destination else None,
+                stop_id=summary.id,
+                time=when,
+                distance_m=a.distance_m,
+                realtime=info,
+            )
+        )
+    status = live.live_status(
+        "emt",
+        _operator("emt"),
+        emt.SOURCE,
+        emt.ATTRIBUTION,
+        fresh,
+        data.retrieved_at if data else None,
+        None,
+        error=fetch.error if fetch else None,
+    )
+    return arrivals, status
+
+
+async def _alerts(
+    rt: Realtime, summary: StopSummary, departures: list[Departure], now: datetime
+) -> list[ServiceAlert]:
+    snapshots = await rt.alert_snapshots()
+    if not snapshots:
+        return []
+    lines_by_feed: dict[str, set[str]] = defaultdict(set)
+    for ln in summary.lines:
+        lines_by_feed[ln.source].add(ln.short_name)
+    ids = {summary.id, *(d.stop_id for d in departures)}
+    stops_by_feed = {"cercanias": {_native(s) for s in ids if s.startswith("renfe:")}}
+    if summary.id.startswith("emt:"):
+        stops_by_feed["emt"] = {_native(summary.id)}
+    return live.alerts_for_stop(snapshots, lines_by_feed, stops_by_feed, now)

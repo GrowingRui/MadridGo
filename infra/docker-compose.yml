@@ -37,9 +37,28 @@ services:
       MADRIDGO_DATABASE_URL: postgresql://${POSTGRES_USER:-madridgo}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-madridgo}
       MADRIDGO_REDIS_URL: redis://redis:6379/0
       MADRIDGO_CORS_ORIGINS: ${MADRIDGO_CORS_ORIGINS:-http://localhost:8081}
+      # EMT MobilityLabs application credentials (backend only; never in the app).
+      EMT_CLIENT_ID: ${EMT_CLIENT_ID:-}
+      EMT_PASS_KEY: ${EMT_PASS_KEY:-}
     ports:
       # Exposed on the LAN so a phone running the Expo app can reach it during development.
       - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Real-time worker (Phase 3): polls Renfe GTFS-RT every 30 s and alerts every 2 min into
+  # Redis, and records each poll in adapter_health (for `python -m app.realtime calibrate`).
+  realtime:
+    build: ../services/api
+    command: ["python", "-m", "app.realtime", "run"]
+    environment:
+      MADRIDGO_ENVIRONMENT: ${MADRIDGO_ENVIRONMENT:-development}
+      MADRIDGO_DATABASE_URL: postgresql://${POSTGRES_USER:-madridgo}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-madridgo}
+      MADRIDGO_REDIS_URL: redis://redis:6379/0
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy

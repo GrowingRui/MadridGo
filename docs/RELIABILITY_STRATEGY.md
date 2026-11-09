@@ -50,6 +50,12 @@ Initial thresholds (configurable per adapter in `config/freshness.yaml`):
 
 **Calibration task (Phase 3):** poll each source for 7 days, record the distribution of `source_timestamp` deltas, and set FRESH = p95 interval × 2, DELAYED = p99 × 3.
 
+**Implementation notes (Phase 3):**
+- Thresholds live in `services/api/app/realtime/freshness.py` (`THRESHOLDS`), not a YAML file.
+- A source timestamp more than 30 s in the future is not trusted: the age falls back to the retrieval time and the anomaly is flagged (R5).
+- Cached snapshots are kept for 15 min, longer than the STALE threshold, so the app can say "outdated, last update 12 min ago" instead of "no data". Freshness is computed on every read and STALE data is never shown as live.
+- Renfe sends one stop update per train (its next stop) and a trip delay. Later stops get the same delay, marked `estimated_from_trip_delay` ("Live · est." in the app). Stops before the update stop are treated as passed and removed.
+
 ## 4. Prediction accuracy framework
 - **Ground truth:**
   - Cercanías: a vehicle position at a stop (`currentStatus = STOPPED_AT`, vehicle timestamp) gives an approximate actual arrival.

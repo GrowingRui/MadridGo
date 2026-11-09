@@ -11,6 +11,8 @@ dependencies = [
   "redis>=5.0,<7.0",
   "httpx>=0.27",      # feed downloads (also used by the test client)
   "tzdata>=2024.1",   # Europe/Madrid on systems without a zoneinfo database (Windows, slim images)
+  "gtfs-realtime-bindings>=1.0",  # Renfe GTFS-RT protobuf
+  "defusedxml>=0.7",  # EMT incidents RSS (untrusted XML)
 ]
 
 [project.optional-dependencies]
@@ -49,7 +51,7 @@ strict = true
 packages = ["app"]
 
 [[tool.mypy.overrides]]
-module = ["asyncpg", "asyncpg.*"]
+module = ["asyncpg", "asyncpg.*", "google.transit", "google.transit.*", "defusedxml", "defusedxml.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

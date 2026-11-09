@@ -46,6 +46,14 @@
 - **Exit:** reliability scenarios R1–R9, R13–R15 pass.
 - Depends on: Phase 2; EMT registration.
 
+**Status (2026-11-09): in progress, pending review.**
+- Done: adapter framework (`app/realtime/`: timeouts, 2 retries with backoff, 429 back-off, circuit breaker, shared Redis cache, request coalescing); Renfe GTFS-RT worker (`python -m app.realtime run`, compose service `realtime`, 30 s); OTP GTFS-RT updaters (trip updates, alerts, vehicle positions; OTP applies all Madrid trips); EMT on-demand adapter; alerts (Renfe GTFS-RT, EMT RSS) on stop boards and `GET /alerts`; `GET /realtime/status`; app shows live/delay/cancelled/platform and per-operator data status.
+- Tests: R1–R9 and R13–R15 pass (`tests/test_reliability_scenarios.py`), against recorded Renfe feeds from 2026-11-09. R6 covers the stop-board notice; blocking routing on expired feeds is part of Phase 4 `/journeys`. R1's transfer label is Phase 4.
+- First live poll: 75 Madrid trip updates, feed 8 s old, 100 % trip match.
+- **Blocked: EMT login.** MobilityLabs refuses the application credentials (HTTP 403, code 84, undocumented) on both v1 and v2 login, because EMT has not yet approved the MadridGo application (confirmed by the project owner, 2026-11-09). The EMT adapter is built and tested against EMT's documented response format; boards show "EMT live data unavailable" until the account or app is activated. Field verification (§3 of DATA_SOURCE_ANALYSIS.md) is still open.
+- **Open: 7-day freshness calibration.** Every poll is recorded in `adapter_health`; run `python -m app.realtime calibrate` after 7 days of the worker running.
+- **Deferred:** CRTM adapter, until CRTM replies (their answer decides the interface); prediction-accuracy sampling (Phase 6 input).
+
 ## Phase 4 — Journey planner API (M)
 - `/journeys` with ranking options (fastest, fewest transfers, least walking, earliest arrival).
 - Transfer reliability labels; EMT stop-level live overlay on journey legs.

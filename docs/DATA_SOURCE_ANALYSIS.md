@@ -79,6 +79,8 @@ Licence for every item inspected: **https://www.crtm.es/licencia-de-uso** [V]. K
 - Other EMT resources: GTFS `gtfs_emt.zip` (last-modified 2026-11-06, 21 MB) [V]; incidents RSS `http://servicios.emtmadrid.es:8080/rss/emtrss.xml` [V, listed on portal]; examples at https://gitlab.com/mobilitylabsmadrid [V].
 - Madrid City open-data portal also catalogues the EMT real-time dataset: https://datos.madrid.es/dataset/900029-0-emt-autobus-tiempo-real [V].
 
+**Phase 3 findings (2026-11-09):** login with the registered application's `X-ClientId` + `passKey` returns HTTP 403 `{"code": "84"}` on v1 and v2 (code 84 is not documented) [V]. Cause: EMT has not yet approved the application (project owner, 2026-11-09) [V]. The arrivals response has no observation timestamp, only the server's answer time (`datetime`, local time without offset) [V, apidoc]; MadridGo therefore measures EMT ages from retrieval. Incidents RSS: 184 items, lines as `<category>`, validity in `rssAfectaDesde`/`rssAfectaHasta` (Madrid local time) [V].
+
 **Unknown [U]:** update cadence of predictions; whether responses carry an observation timestamp or flag estimates vs. schedule; vehicle position availability; quotas. These must be measured in Phase 3 with a registered key.
 
 ---

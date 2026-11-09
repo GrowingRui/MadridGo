@@ -1,10 +1,10 @@
 {
-  "configVersion": "madridgo-phase2",
+  "configVersion": "madridgo-phase3",
   "server": {
     "apiProcessingTimeout": "7s"
   },
   "routingDefaults": {
-    "walkSpeed": 1.25,
+    "walk": { "speed": 1.25 },
     "transferSlack": "2m",
     "numItineraries": 5,
     "searchWindow": "60m"
@@ -12,5 +12,26 @@
   "transit": {
     "maxNumberOfTransfers": 6
   },
-  "updaters": []
+  "updaters": [
+    {
+      "type": "stop-time-updater",
+      "feedId": "cercanias",
+      "url": "https://gtfsrt.renfe.com/trip_updates.pb",
+      "frequency": "30s",
+      "backwardsDelayPropagationType": "required-no-data"
+    },
+    {
+      "type": "real-time-alerts",
+      "feedId": "cercanias",
+      "url": "https://gtfsrt.renfe.com/alerts.pb",
+      "frequency": "2m"
+    },
+    {
+      "type": "vehicle-positions",
+      "feedId": "cercanias",
+      "url": "https://gtfsrt.renfe.com/vehicle_positions.pb",
+      "frequency": "30s",
+      "features": ["position", "stop-position"]
+    }
+  ]
 }

@@ -3,7 +3,8 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { Departure, FrequencyService, Line, Mode } from '../api/stops';
+import type { Departure, FrequencyService, Line, LiveArrival, Mode } from '../api/stops';
+import { bestTime } from '../api/stops';
 import { colors, space, type } from '../theme';
 import { countdown, formatTime } from '../utils/time';
 import { LinePill, LinePills, ModeIcon, StatusBadge } from './transit';
@@ -46,26 +47,67 @@ export function StopRow({
   );
 }
 
-/** One scheduled departure: time | line | destination and label | countdown ("6 min"). */
+/** Minutes of delay to show, rounded; 0 hides the delay. */
+function delayMinutes(dep: Departure): number {
+  const d = dep.realtime?.delay_s;
+  return d ? Math.round(d / 60) : 0;
+}
+
+/**
+ * One departure: scheduled time (+ delay) | line | destination and label | countdown.
+ * The scheduled time is always shown; a live estimate is shown next to it, never instead.
+ */
 export function DepartureRow({ dep, now }: { dep: Departure; now: number }) {
-  const soon = countdown(dep.time, now);
+  const cancelled = dep.status === 'cancelled';
+  const live = dep.status === 'live' && dep.realtime;
+  const delay = live ? delayMinutes(dep) : 0;
+  const soon = cancelled ? null : countdown(bestTime(dep), now);
+  const platform = dep.realtime?.platform;
+  const label = cancelled
+    ? `${dep.line.short_name} to ${dep.headsign ?? 'unknown'}, scheduled ${formatTime(dep.time)}, cancelled`
+    : live
+      ? `${dep.line.short_name} to ${dep.headsign ?? 'unknown'}, scheduled ${formatTime(dep.time)}, ${
+          delay > 0 ? `${delay} minutes late` : delay < 0 ? `${-delay} minutes early` : 'on time'
+        }`
+      : `${dep.line.short_name} to ${dep.headsign ?? 'unknown'}, scheduled ${formatTime(dep.time)}`;
   return (
     <View
-      style={styles.dep}
+      style={[styles.dep, cancelled && styles.depCancelled]}
       accessible
-      accessibilityLabel={`${dep.line.short_name} to ${dep.headsign ?? 'unknown'}, scheduled ${formatTime(dep.time)}`}>
+      accessibilityLabel={label}>
       <View style={styles.depTime}>
-        <Text style={[type.timeL, { color: colors.text }]}>{formatTime(dep.time)}</Text>
+        <Text style={[type.timeL, { color: colors.text }, cancelled && styles.struck]}>
+          {formatTime(dep.time)}
+        </Text>
+        {delay !== 0 ? (
+          <Text style={[type.smallStrong, delay > 0 ? styles.late : styles.early]}>
+            {delay > 0 ? '+' : '−'}
+            {Math.abs(delay)}′
+          </Text>
+        ) : null}
       </View>
       <View style={styles.depLine}>
         <LinePill line={dep.line} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.depHeadsign} numberOfLines={2}>
+        <Text style={[styles.depHeadsign, cancelled && styles.struck]} numberOfLines={2}>
           {dep.headsign ?? '—'}
         </Text>
         <View style={styles.depBadges}>
-          <StatusBadge status="scheduled" />
+          {cancelled ? (
+            <StatusBadge status="cancelled" />
+          ) : live ? (
+            <StatusBadge
+              status="live"
+              text={dep.realtime?.estimated_from_trip_delay ? 'Live · est.' : 'Live'}
+            />
+          ) : (
+            <StatusBadge status="scheduled" />
+          )}
+          {live && delay !== 0 && dep.realtime?.predicted_time ? (
+            <Text style={styles.until}>now {formatTime(dep.realtime.predicted_time)}</Text>
+          ) : null}
+          {platform ? <Text style={styles.until}>Platform {platform}</Text> : null}
           {dep.wheelchair_accessible ? (
             <MaterialCommunityIcons
               name="wheelchair-accessibility"
@@ -79,6 +121,36 @@ export function DepartureRow({ dep, now }: { dep: Departure; now: number }) {
       <Text style={[styles.countdown, !soon && styles.countdownEmpty]}>
         {soon?.replace('in ', '') ?? ''}
       </Text>
+    </View>
+  );
+}
+
+/** A live EMT prediction: minutes away, with no timetable behind it. */
+export function LiveArrivalRow({ a, now }: { a: LiveArrival; now: number }) {
+  const mins = a.time ? Math.max(0, Math.floor((Date.parse(a.time) - now) / 60_000)) : null;
+  const text = mins === null ? '>45′' : mins === 0 ? 'now' : `${mins}′`;
+  return (
+    <View
+      style={styles.dep}
+      accessible
+      accessibilityLabel={`${a.line.short_name} to ${a.headsign ?? 'unknown'}, live, ${
+        mins === null ? 'more than 45 minutes' : mins === 0 ? 'arriving now' : `in ${mins} minutes`
+      }`}>
+      <View style={styles.depTime}>
+        <Text style={[type.timeL, { color: colors.live }]}>{text}</Text>
+      </View>
+      <View style={styles.depLine}>
+        <LinePill line={a.line} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.depHeadsign} numberOfLines={2}>
+          {a.headsign ?? '—'}
+        </Text>
+        <View style={styles.depBadges}>
+          <StatusBadge status="live" />
+          {a.time ? <Text style={styles.until}>about {formatTime(a.time)}</Text> : null}
+        </View>
+      </View>
     </View>
   );
 }
@@ -132,6 +204,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   depTime: { width: 60 },
+  depCancelled: { opacity: 0.75 },
+  struck: { textDecorationLine: 'line-through', color: colors.textMuted },
+  late: { color: colors.delay },
+  early: { color: colors.live },
   countdown: {
     ...type.time,
     color: colors.brand,
