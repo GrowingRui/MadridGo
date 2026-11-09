@@ -1,0 +1,50 @@
+# MadridGo local development stack.
+# Usage (from repo root):  docker compose -f infra/docker-compose.yml --env-file .env up -d --build
+name: madridgo
+
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-madridgo}
+      POSTGRES_USER: ${POSTGRES_USER:-madridgo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:5432:5432"   # localhost only
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]  # cache only, no persistence
+    ports:
+      - "127.0.0.1:6379:6379"   # localhost only
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ../services/api
+    environment:
+      MADRIDGO_ENVIRONMENT: ${MADRIDGO_ENVIRONMENT:-development}
+      MADRIDGO_DATABASE_URL: postgresql://${POSTGRES_USER:-madridgo}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-madridgo}
+      MADRIDGO_REDIS_URL: redis://redis:6379/0
+      MADRIDGO_CORS_ORIGINS: ${MADRIDGO_CORS_ORIGINS:-http://localhost:8081}
+    ports:
+      # Exposed on the LAN so a phone running the Expo app can reach it during development.
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  db-data:
