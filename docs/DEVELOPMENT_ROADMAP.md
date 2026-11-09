@@ -74,6 +74,15 @@
 - Screens: Home/Planner, Results, Details, Stop board, Map (MapLibre + OpenFreeMap), Favorites, Settings, Attribution/About.
 - On-device favorites, recents, Home and Work. ES/EN i18n. Accessibility pass.
 - **Website:** the same screens, with a responsive layout for desktop widths and a web map (MapLibre GL JS if the RN module lacks web support).
+- **Live train position in the journey timeline** (requested 2026-11-09, like SBB Mobile): a small moving point on the line of the journey timeline shows where the train is now.
+  - Before boarding: the point sits on the line above the boarding stop, with "Train is 2 stops away · Getafe Centro".
+  - While riding: the leg's intermediate stops open automatically and the point sits at the station where the train stands, or between the two stations it is travelling between (placed from its GPS position along the line).
+  - The age is shown ("position 20 s ago"). Positions follow the freshness rules: when the data is STALE (over 3 min) the point is hidden, never shown in an old place.
+  - Backend: a light endpoint (for example `GET /trips/{trip_id}/position`) read from the cached Renfe snapshot: status (stopped at, arriving, between stations), previous and next stop, position between them, freshness. The app polls it every 30 s while a journey is open, without re-running the route search.
+  - Coverage: **Cercanías now** (Renfe GTFS-RT vehicle positions: on 2026-11-09, 70 of 70 trains had GPS and matched their timetable trip, data 17 s old). EMT buses once EMT approves the MobilityLabs application, if its API includes bus positions (to verify). Interurban and urban buses only if CRTM authorizes real-time data. Metro and Metro Ligero publish no positions.
+  - **Open decision:** Renfe updates every 20–30 s. Either the point glides to each new position when an update arrives (only real data, recommended), or it keeps moving between updates at the expected speed (smoother, but invented movement: if the train stops at a signal, the point keeps going). To decide before building.
+  - The same data drives moving trains on the Map screen.
+  - Estimate: 1–2 days.
 - **Exit:** usability test with 5 users; all labels per RELIABILITY_STRATEGY.md visible.
 
 ## Phase 6 — Reliability and notifications (L)
