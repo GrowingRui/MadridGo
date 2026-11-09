@@ -1,0 +1,902 @@
+{
+ "_meta": {
+  "recorded_at": "2026-11-09T20:36:20+01:00",
+  "otp": "2.10.0",
+  "variables": {
+   "origin": {
+    "label": "Start",
+    "location": {
+     "coordinate": {
+      "latitude": 40.4168,
+      "longitude": -3.7038
+     }
+    }
+   },
+   "destination": {
+    "label": "Destination",
+    "location": {
+     "coordinate": {
+      "latitude": 40.4531,
+      "longitude": -3.6883
+     }
+    }
+   },
+   "dateTime": {
+    "earliestDeparture": "2026-11-09T20:36:20+01:00"
+   },
+   "first": 5
+  }
+ },
+ "data": {
+  "planConnection": {
+   "searchDateTime": "2026-11-09T20:36:20+01:00",
+   "routingErrors": [],
+   "pageInfo": {
+    "startCursor": "MnxQUkVWSU9VU19QQUdFfDIwMjYtMTEtMDlUMTg6NTY6MjBafHw0MG18U1RSRUVUX0FORF9BUlJJVkFMX1RJTUV8ZmFsc2V8MjAyNi0xMS0wOVQxOTo0NTo1OVp8MjAyNi0xMS0wOVQyMDoxMDoyNlp8MHwzMjQ3fDkxOTJ8",
+    "endCursor": "MnxORVhUX1BBR0V8MjAyNi0xMS0wOVQxOTo1NDo1OVp8fDQwbXxTVFJFRVRfQU5EX0FSUklWQUxfVElNRXxmYWxzZXwyMDI2LTExLTA5VDE5OjQ1OjU5WnwyMDI2LTExLTA5VDIwOjEwOjI2WnwwfDMyNDd8OTE5Mnw=",
+    "hasNextPage": true,
+    "hasPreviousPage": true,
+    "searchWindowUsed": "PT1H"
+   },
+   "edges": [
+    {
+     "node": {
+      "start": "2026-11-09T20:36:20+01:00",
+      "end": "2026-11-09T21:46:24+01:00",
+      "duration": 4204,
+      "numberOfTransfers": 0,
+      "walkTime": 4204,
+      "walkDistance": 4809.62,
+      "waitingTime": 0,
+      "legs": [
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 4204.0,
+        "distance": 4809.62,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Start",
+         "lat": 40.4168,
+         "lon": -3.7038,
+         "stop": null
+        },
+        "to": {
+         "name": "Destination",
+         "lat": 40.4531,
+         "lon": -3.6883,
+         "stop": null
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:36:20+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:46:24+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       }
+      ]
+     }
+    },
+    {
+     "node": {
+      "start": "2026-11-09T20:42:59+01:00",
+      "end": "2026-11-09T21:06:45+01:00",
+      "duration": 1426,
+      "numberOfTransfers": 1,
+      "walkTime": 514,
+      "walkDistance": 549.05,
+      "waitingTime": 360,
+      "legs": [
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 121.0,
+        "distance": 126.45,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Start",
+         "lat": 40.4168,
+         "lon": -3.7038,
+         "stop": null
+        },
+        "to": {
+         "name": "Sol",
+         "lat": 40.4168665,
+         "lon": -3.7028765,
+         "stop": {
+          "gtfsId": "cercanias:18101",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:42:59+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T20:45:00+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       },
+       {
+        "mode": "RAIL",
+        "transitLeg": true,
+        "duration": 300.0,
+        "distance": 3427.0,
+        "headsign": null,
+        "serviceDate": "2026-11-09",
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Sol",
+         "lat": 40.4168665,
+         "lon": -3.7028765,
+         "stop": {
+          "gtfsId": "cercanias:18101",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Madrid-Nuevos Ministerios",
+         "lat": 40.4466271,
+         "lon": -3.6923468,
+         "stop": {
+          "gtfsId": "cercanias:18002",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:38:00+01:00",
+         "estimated": {
+          "time": "2026-11-09T20:45:00+01:00",
+          "delay": "PT7M"
+         }
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T20:43:00+01:00",
+         "estimated": {
+          "time": "2026-11-09T20:50:00+01:00",
+          "delay": "PT7M"
+         }
+        },
+        "route": {
+         "gtfsId": "cercanias:10T0008C3",
+         "shortName": "C3",
+         "longName": "Aranjuez                                -Chamartín - Clara Campoamor",
+         "type": 2,
+         "color": "952585",
+         "textColor": "FFFFFF",
+         "agency": {
+          "gtfsId": "cercanias:1071VC"
+         }
+        },
+        "trip": {
+         "gtfsId": "cercanias:1012L27077C3",
+         "tripHeadsign": null
+        },
+        "intermediatePlaces": []
+       },
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 138.0,
+        "distance": 122.68,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Madrid-Nuevos Ministerios",
+         "lat": 40.4466271,
+         "lon": -3.6923468,
+         "stop": {
+          "gtfsId": "cercanias:18002",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Nuevos Ministerios",
+         "lat": 40.44617,
+         "lon": -3.69237,
+         "stop": {
+          "gtfsId": "emt:2696",
+          "code": "2696",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:50:00+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T20:52:18+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       },
+       {
+        "mode": "BUS",
+        "transitLeg": true,
+        "duration": 252.0,
+        "distance": 888.0,
+        "headsign": "Plaza Castilla",
+        "serviceDate": "2026-11-09",
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Nuevos Ministerios",
+         "lat": 40.44617,
+         "lon": -3.69237,
+         "stop": {
+          "gtfsId": "emt:2696",
+          "code": "2696",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Santiago Bernabéu",
+         "lat": 40.45308,
+         "lon": -3.69037,
+         "stop": {
+          "gtfsId": "emt:44",
+          "code": "44",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:58:18+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:02:30+01:00",
+         "estimated": null
+        },
+        "route": {
+         "gtfsId": "emt:881",
+         "shortName": "S10",
+         "longName": "Plaza Castilla - N. Ministerios",
+         "type": 3,
+         "color": "0178BC",
+         "textColor": "FFFFFF",
+         "agency": {
+          "gtfsId": "emt:EMT"
+         }
+        },
+        "trip": {
+         "gtfsId": "emt:FE8810069",
+         "tripHeadsign": "Plaza Castilla"
+        },
+        "intermediatePlaces": [
+         {
+          "name": "Lima - Santiago Bernabéu",
+          "stop": {
+           "gtfsId": "emt:42"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T20:57:42+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:01:42+01:00"
+          }
+         }
+        ]
+       },
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 255.0,
+        "distance": 299.92,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Santiago Bernabéu",
+         "lat": 40.45308,
+         "lon": -3.69037,
+         "stop": {
+          "gtfsId": "emt:44",
+          "code": "44",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Destination",
+         "lat": 40.4531,
+         "lon": -3.6883,
+         "stop": null
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T21:02:30+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:06:45+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       }
+      ]
+     }
+    },
+    {
+     "node": {
+      "start": "2026-11-09T20:42:59+01:00",
+      "end": "2026-11-09T21:07:26+01:00",
+      "duration": 1467,
+      "numberOfTransfers": 0,
+      "walkTime": 1167,
+      "walkDistance": 1306.6100000000001,
+      "waitingTime": 0,
+      "legs": [
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 121.0,
+        "distance": 126.45,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Start",
+         "lat": 40.4168,
+         "lon": -3.7038,
+         "stop": null
+        },
+        "to": {
+         "name": "Sol",
+         "lat": 40.4168665,
+         "lon": -3.7028765,
+         "stop": {
+          "gtfsId": "cercanias:18101",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:42:59+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T20:45:00+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       },
+       {
+        "mode": "RAIL",
+        "transitLeg": true,
+        "duration": 300.0,
+        "distance": 3427.0,
+        "headsign": null,
+        "serviceDate": "2026-11-09",
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Sol",
+         "lat": 40.4168665,
+         "lon": -3.7028765,
+         "stop": {
+          "gtfsId": "cercanias:18101",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Madrid-Nuevos Ministerios",
+         "lat": 40.4466271,
+         "lon": -3.6923468,
+         "stop": {
+          "gtfsId": "cercanias:18002",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:38:00+01:00",
+         "estimated": {
+          "time": "2026-11-09T20:45:00+01:00",
+          "delay": "PT7M"
+         }
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T20:43:00+01:00",
+         "estimated": {
+          "time": "2026-11-09T20:50:00+01:00",
+          "delay": "PT7M"
+         }
+        },
+        "route": {
+         "gtfsId": "cercanias:10T0008C3",
+         "shortName": "C3",
+         "longName": "Aranjuez                                -Chamartín - Clara Campoamor",
+         "type": 2,
+         "color": "952585",
+         "textColor": "FFFFFF",
+         "agency": {
+          "gtfsId": "cercanias:1071VC"
+         }
+        },
+        "trip": {
+         "gtfsId": "cercanias:1012L27077C3",
+         "tripHeadsign": null
+        },
+        "intermediatePlaces": []
+       },
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 1046.0,
+        "distance": 1180.16,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Madrid-Nuevos Ministerios",
+         "lat": 40.4466271,
+         "lon": -3.6923468,
+         "stop": {
+          "gtfsId": "cercanias:18002",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Destination",
+         "lat": 40.4531,
+         "lon": -3.6883,
+         "stop": null
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:50:00+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:07:26+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       }
+      ]
+     }
+    },
+    {
+     "node": {
+      "start": "2026-11-09T20:45:59+01:00",
+      "end": "2026-11-09T21:09:45+01:00",
+      "duration": 1426,
+      "numberOfTransfers": 1,
+      "walkTime": 514,
+      "walkDistance": 549.05,
+      "waitingTime": 360,
+      "legs": [
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 121.0,
+        "distance": 126.45,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Start",
+         "lat": 40.4168,
+         "lon": -3.7038,
+         "stop": null
+        },
+        "to": {
+         "name": "Sol",
+         "lat": 40.4168665,
+         "lon": -3.7028765,
+         "stop": {
+          "gtfsId": "cercanias:18101",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:45:59+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T20:48:00+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       },
+       {
+        "mode": "RAIL",
+        "transitLeg": true,
+        "duration": 300.0,
+        "distance": 3428.0,
+        "headsign": null,
+        "serviceDate": "2026-11-09",
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Sol",
+         "lat": 40.4168665,
+         "lon": -3.7028765,
+         "stop": {
+          "gtfsId": "cercanias:18101",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Madrid-Nuevos Ministerios",
+         "lat": 40.4466271,
+         "lon": -3.6923468,
+         "stop": {
+          "gtfsId": "cercanias:18002",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:44:00+01:00",
+         "estimated": {
+          "time": "2026-11-09T20:48:00+01:00",
+          "delay": "PT4M"
+         }
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T20:49:00+01:00",
+         "estimated": {
+          "time": "2026-11-09T20:53:00+01:00",
+          "delay": "PT4M"
+         }
+        },
+        "route": {
+         "gtfsId": "cercanias:10T0016C4b",
+         "shortName": "C4b",
+         "longName": "Parla                                   -Colmenar Viejo",
+         "type": 2,
+         "color": "2C2A86",
+         "textColor": "FFFFFF",
+         "agency": {
+          "gtfsId": "cercanias:1071VC"
+         }
+        },
+        "trip": {
+         "gtfsId": "cercanias:1012L27497C4b",
+         "tripHeadsign": null
+        },
+        "intermediatePlaces": []
+       },
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 138.0,
+        "distance": 122.68,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Madrid-Nuevos Ministerios",
+         "lat": 40.4466271,
+         "lon": -3.6923468,
+         "stop": {
+          "gtfsId": "cercanias:18002",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Nuevos Ministerios",
+         "lat": 40.44617,
+         "lon": -3.69237,
+         "stop": {
+          "gtfsId": "emt:2696",
+          "code": "2696",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:53:00+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T20:55:18+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       },
+       {
+        "mode": "BUS",
+        "transitLeg": true,
+        "duration": 252.0,
+        "distance": 888.0,
+        "headsign": "Plaza Castilla",
+        "serviceDate": "2026-11-09",
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Nuevos Ministerios",
+         "lat": 40.44617,
+         "lon": -3.69237,
+         "stop": {
+          "gtfsId": "emt:2696",
+          "code": "2696",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Santiago Bernabéu",
+         "lat": 40.45308,
+         "lon": -3.69037,
+         "stop": {
+          "gtfsId": "emt:44",
+          "code": "44",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T21:01:18+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:05:30+01:00",
+         "estimated": null
+        },
+        "route": {
+         "gtfsId": "emt:881",
+         "shortName": "S10",
+         "longName": "Plaza Castilla - N. Ministerios",
+         "type": 3,
+         "color": "0178BC",
+         "textColor": "FFFFFF",
+         "agency": {
+          "gtfsId": "emt:EMT"
+         }
+        },
+        "trip": {
+         "gtfsId": "emt:FE8810069",
+         "tripHeadsign": "Plaza Castilla"
+        },
+        "intermediatePlaces": [
+         {
+          "name": "Lima - Santiago Bernabéu",
+          "stop": {
+           "gtfsId": "emt:42"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:00:42+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:04:42+01:00"
+          }
+         }
+        ]
+       },
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 255.0,
+        "distance": 299.92,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Santiago Bernabéu",
+         "lat": 40.45308,
+         "lon": -3.69037,
+         "stop": {
+          "gtfsId": "emt:44",
+          "code": "44",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Destination",
+         "lat": 40.4531,
+         "lon": -3.6883,
+         "stop": null
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T21:05:30+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:09:45+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       }
+      ]
+     }
+    },
+    {
+     "node": {
+      "start": "2026-11-09T20:45:59+01:00",
+      "end": "2026-11-09T21:10:26+01:00",
+      "duration": 1467,
+      "numberOfTransfers": 0,
+      "walkTime": 1167,
+      "walkDistance": 1306.6100000000001,
+      "waitingTime": 0,
+      "legs": [
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 121.0,
+        "distance": 126.45,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Start",
+         "lat": 40.4168,
+         "lon": -3.7038,
+         "stop": null
+        },
+        "to": {
+         "name": "Sol",
+         "lat": 40.4168665,
+         "lon": -3.7028765,
+         "stop": {
+          "gtfsId": "cercanias:18101",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:45:59+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T20:48:00+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       },
+       {
+        "mode": "RAIL",
+        "transitLeg": true,
+        "duration": 300.0,
+        "distance": 3428.0,
+        "headsign": null,
+        "serviceDate": "2026-11-09",
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Sol",
+         "lat": 40.4168665,
+         "lon": -3.7028765,
+         "stop": {
+          "gtfsId": "cercanias:18101",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Madrid-Nuevos Ministerios",
+         "lat": 40.4466271,
+         "lon": -3.6923468,
+         "stop": {
+          "gtfsId": "cercanias:18002",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:44:00+01:00",
+         "estimated": {
+          "time": "2026-11-09T20:48:00+01:00",
+          "delay": "PT4M"
+         }
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T20:49:00+01:00",
+         "estimated": {
+          "time": "2026-11-09T20:53:00+01:00",
+          "delay": "PT4M"
+         }
+        },
+        "route": {
+         "gtfsId": "cercanias:10T0016C4b",
+         "shortName": "C4b",
+         "longName": "Parla                                   -Colmenar Viejo",
+         "type": 2,
+         "color": "2C2A86",
+         "textColor": "FFFFFF",
+         "agency": {
+          "gtfsId": "cercanias:1071VC"
+         }
+        },
+        "trip": {
+         "gtfsId": "cercanias:1012L27497C4b",
+         "tripHeadsign": null
+        },
+        "intermediatePlaces": []
+       },
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 1046.0,
+        "distance": 1180.16,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Madrid-Nuevos Ministerios",
+         "lat": 40.4466271,
+         "lon": -3.6923468,
+         "stop": {
+          "gtfsId": "cercanias:18002",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Destination",
+         "lat": 40.4531,
+         "lon": -3.6883,
+         "stop": null
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:53:00+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:10:26+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       }
+      ]
+     }
+    }
+   ]
+  }
+ }
+}

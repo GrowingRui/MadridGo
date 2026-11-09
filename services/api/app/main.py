@@ -9,11 +9,12 @@ import asyncpg
 from fastapi import Depends, FastAPI, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import __version__, stops
+from app import __version__, journeys, stops
 from app.config import Settings, get_settings
 from app.dbpool import close_pool, get_pool
 from app.feeds import FeedStatus, feed_statuses
 from app.health import Check, HealthResponse, make_database_check, make_redis_check, run_checks
+from app.otp import close_otp
 from app.realtime import api as realtime_api
 from app.realtime.cache import close_kv
 from app.realtime.service import close_realtime
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
+        await close_otp()
         await close_realtime()
         await close_kv()
         await close_pool()
@@ -67,6 +69,7 @@ def create_app() -> FastAPI:
         return await feed_statuses(pool, datetime.now(MADRID).date())
 
     app.include_router(stops.router)
+    app.include_router(journeys.router)
     app.include_router(realtime_api.router)
     return app
 

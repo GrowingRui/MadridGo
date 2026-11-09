@@ -1,7 +1,8 @@
 """Reliability scenarios R1-R9 and R13-R15 (docs/RELIABILITY_TEST_PLAN.md §4).
 
-R10-R12 (transfers, re-planning) belong to Phases 4 and 6. Transfer labels in R1 are part
-of the Phase 4 journey API; here R1 covers the departure time and delay.
+Journey-level parts are in tests/test_journeys.py (Phase 4): R1 transfer labels, R2 flagged
+journeys, R6 routing blocked on expired feeds and R10 missed transfers. R11-R12 (re-planning)
+are Phase 6. Here R1 covers the departure time and delay.
 """
 
 import asyncio
@@ -207,7 +208,7 @@ def test_r6_expired_feed_produces_a_notice() -> None:
     notices = stops._notices(["metro"], {"metro": today - timedelta(days=167)}, today)
     assert notices[0].expiry == "expired"
     assert "No scheduled times" in notices[0].message
-    # Routing on expired feeds is blocked by the Phase 4 journey API (not yet built).
+    # Routing on expired feeds is blocked by /journeys: tests/test_journeys.py (R6).
 
 
 # --- R7 Timeout --------------------------------------------------------------------------------

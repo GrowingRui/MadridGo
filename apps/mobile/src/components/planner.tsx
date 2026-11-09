@@ -1,16 +1,24 @@
 // Planner building blocks: the From/To card on the navy header (stacked in the app, in one row on
-// the website), departure-time chips, the "pearl chain" journey line and the connection row.
+// the website) with the date and time row inside it, the "pearl chain" journey line and the
+// connection row.
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Fragment, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { Journey, Leg } from '../api/journeys';
-import { delayMin } from '../api/journeys';
+import { delayMin, shownTime } from '../api/journeys';
 import type { Place } from '../state/planner';
 import { colors, modeColors, radius, space, type } from '../theme';
 import { countdown, formatDuration, formatTime } from '../utils/time';
-import { LinePill, ModeIcon, StatusBadge, TimeWithDelay, lineColors } from './transit';
+import {
+  LinePill,
+  ModeIcon,
+  StatusBadge,
+  TimeWithDelay,
+  TransferBadge,
+  lineColors,
+} from './transit';
 import type { PressState } from '../hooks';
 
 // ---------------------------------------------------------------------------
@@ -34,6 +42,7 @@ export function PlannerCard({
   onClose,
   layout = 'stacked',
   dropdown,
+  footer,
 }: {
   from: Place | null;
   to: Place | null;
@@ -45,6 +54,8 @@ export function PlannerCard({
   onClose: () => void;
   layout?: 'stacked' | 'row';
   dropdown?: ReactNode;
+  /** A row under the fields, inside the card (the date and time row). */
+  footer?: ReactNode;
 }) {
   const field = (name: PlaceFieldName) => (
     <PlaceField
@@ -61,40 +72,46 @@ export function PlannerCard({
 
   if (layout === 'row') {
     return (
-      <View style={styles.plannerRow}>
-        {(['from', 'to'] as const).map((name, i) => (
-          <Fragment key={name}>
-            {i === 1 ? <SwapButton onSwap={onSwap} icon="swap-horizontal" /> : null}
-            <View style={[styles.rowField, editing === name && styles.rowFieldActive]}>
-              <View
-                style={[
-                  styles.railDot,
-                  name === 'from' ? styles.railDotOpen : styles.railDotFilled,
-                ]}
-              />
-              {field(name)}
-              {editing === name && dropdown ? (
-                <View style={styles.dropdown}>{dropdown}</View>
-              ) : null}
-            </View>
-          </Fragment>
-        ))}
+      <View style={styles.cardWide}>
+        <View style={styles.plannerRow}>
+          {(['from', 'to'] as const).map((name, i) => (
+            <Fragment key={name}>
+              {i === 1 ? <SwapButton onSwap={onSwap} icon="swap-horizontal" /> : null}
+              <View style={[styles.rowField, editing === name && styles.rowFieldActive]}>
+                <View
+                  style={[
+                    styles.railDot,
+                    name === 'from' ? styles.railDotOpen : styles.railDotFilled,
+                  ]}
+                />
+                {field(name)}
+                {editing === name && dropdown ? (
+                  <View style={styles.dropdown}>{dropdown}</View>
+                ) : null}
+              </View>
+            </Fragment>
+          ))}
+        </View>
+        {footer}
       </View>
     );
   }
   return (
-    <View style={styles.planner}>
-      <View style={styles.rail}>
-        <View style={[styles.railDot, styles.railDotOpen]} />
-        <View style={styles.railLine} />
-        <View style={[styles.railDot, styles.railDotFilled]} />
+    <View style={styles.card}>
+      <View style={styles.planner}>
+        <View style={styles.rail}>
+          <View style={[styles.railDot, styles.railDotOpen]} />
+          <View style={styles.railLine} />
+          <View style={[styles.railDot, styles.railDotFilled]} />
+        </View>
+        <View style={{ flex: 1 }}>
+          {field('from')}
+          <View style={styles.fieldDivider} />
+          {field('to')}
+        </View>
+        {editing ? null : <SwapButton onSwap={onSwap} icon="swap-vertical" />}
       </View>
-      <View style={{ flex: 1 }}>
-        {field('from')}
-        <View style={styles.fieldDivider} />
-        {field('to')}
-      </View>
-      {editing ? null : <SwapButton onSwap={onSwap} icon="swap-vertical" />}
+      {footer}
     </View>
   );
 }
@@ -186,44 +203,6 @@ function PlaceField({
 }
 
 // ---------------------------------------------------------------------------
-// Departure time
-
-export const OFFSETS = [
-  { label: 'Now', min: 0 },
-  { label: '+15 min', min: 15 },
-  { label: '+30 min', min: 30 },
-  { label: '+1 h', min: 60 },
-];
-
-/** "Now / +15 / +30 / +1 h" chips on the navy header. */
-export function WhenChips({
-  active,
-  onChange,
-}: {
-  active: number;
-  onChange: (offsetMin: number) => void;
-}) {
-  return (
-    <View style={styles.whenRow} accessibilityRole="radiogroup" accessibilityLabel="Departure">
-      <MaterialCommunityIcons name="clock-outline" size={18} color={colors.onBrandMuted} />
-      {OFFSETS.map((o) => {
-        const on = o.min === active;
-        return (
-          <Pressable
-            key={o.label}
-            onPress={() => onChange(o.min)}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: on }}
-            style={[styles.chip, on && styles.chipActive]}>
-            <Text style={[styles.chipText, on && styles.chipTextActive]}>{o.label}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Pearl chain
 
 /**
@@ -265,6 +244,7 @@ export function PearlChain({ legs }: { legs: Leg[] }) {
 
 export function journeyStatus(j: Journey) {
   const transit = j.legs.filter((l) => l.mode !== 'walk');
+  if (transit.some((l) => l.departure.status === 'cancelled')) return 'cancelled' as const;
   if (transit.some((l) => l.departure.status === 'live')) return 'live' as const;
   if (transit.some((l) => l.departure.status === 'frequency')) return 'frequency' as const;
   return 'scheduled' as const;
@@ -302,9 +282,11 @@ export function ConnectionCard({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      accessibilityLabel={`Departs ${formatTime(journey.departure.scheduled)}, arrives ${formatTime(
-        journey.arrival.scheduled,
-      )}, ${formatDuration(journey.duration_min)}, ${changesLabel(journey.transfers)}`}
+      accessibilityLabel={`${journey.feasible ? '' : 'Not possible. '}Departs ${formatTime(
+        shownTime(journey.departure),
+      )}, arrives ${formatTime(shownTime(journey.arrival))}, ${formatDuration(
+        journey.duration_min,
+      )}, ${changesLabel(journey.transfers)}`}
       style={({ pressed, hovered }: PressState) => [
         styles.conn,
         (pressed || hovered) && { backgroundColor: '#F7F8FA' },
@@ -348,28 +330,31 @@ export function ConnectionCard({
       {delay > 0 ? (
         <Text style={styles.delayNote}>Arrives about {delay} min late (live data)</Text>
       ) : null}
+      {!journey.feasible ? (
+        <Text style={styles.delayNote}>
+          {journey.issues[0] ?? 'This connection is not possible.'}
+        </Text>
+      ) : journey.reliability && journey.reliability !== 'comfortable' ? (
+        <TransferBadge label={journey.reliability} />
+      ) : null}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   // From / To
+  card: { backgroundColor: colors.surface, borderRadius: radius.md, marginTop: space.lg },
+  cardWide: { flex: 1, backgroundColor: colors.surface, borderRadius: radius.md, zIndex: 20 },
   planner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
     paddingVertical: space.xs,
     paddingLeft: space.md,
     paddingRight: space.sm,
-    marginTop: space.lg,
   },
   plannerRow: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
     padding: space.xs,
     minHeight: 64,
     zIndex: 20,
@@ -436,25 +421,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-
-  // Time
-  whenRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    marginTop: space.md,
-    flexWrap: 'wrap',
-  },
-  chip: {
-    paddingHorizontal: space.md,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.onBrandMuted,
-  },
-  chipActive: { backgroundColor: colors.surface, borderColor: colors.surface },
-  chipText: { ...type.smallStrong, color: colors.onBrand },
-  chipTextActive: { color: colors.brand },
 
   // Pearl chain
   chain: { flexDirection: 'row', alignItems: 'center', height: 14 },

@@ -3,8 +3,8 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { StyleSheet, Text, View } from 'react-native';
 
-import type { LegTime, TimeStatus } from '../api/journeys';
-import { delayMin } from '../api/journeys';
+import type { LegTime, TimeStatus, TransferLabel } from '../api/journeys';
+import { delayMin, shownTime } from '../api/journeys';
 import type { Line, Mode } from '../api/stops';
 import { colors, modeColors, radius, type } from '../theme';
 import { formatTime } from '../utils/time';
@@ -105,7 +105,7 @@ export function LinePills({
   );
 }
 
-export type BadgeStatus = TimeStatus | 'cancelled';
+export type BadgeStatus = TimeStatus;
 
 const STATUS_STYLE: Record<BadgeStatus, { fg: string; bg: string; label: string }> = {
   live: { fg: colors.live, bg: colors.liveBg, label: 'Live' },
@@ -125,13 +125,37 @@ export function StatusBadge({ status, text }: { status: BadgeStatus; text?: stri
   );
 }
 
-/** A time with its delay: "17:54 +4'" where the delay is red. Struck-through when replaced. */
+const TRANSFER_STYLE: Record<TransferLabel, { fg: string; bg: string; label: string }> = {
+  comfortable: { fg: colors.live, bg: colors.liveBg, label: 'Comfortable change' },
+  tight: { fg: colors.warning, bg: colors.warningBg, label: 'Tight change' },
+  at_risk: { fg: colors.delay, bg: colors.delayBg, label: 'Change at risk' },
+  not_feasible: { fg: colors.delay, bg: colors.delayBg, label: 'Change not possible' },
+  uncertain: { fg: colors.scheduled, bg: colors.scheduledBg, label: 'Change uncertain' },
+};
+
+/** How safe a change is (RELIABILITY_STRATEGY.md §5). Words only, never a percentage. */
+export function TransferBadge({ label }: { label: TransferLabel }) {
+  const s = TRANSFER_STYLE[label];
+  return (
+    <View style={[styles.badge, { backgroundColor: s.bg }]}>
+      <Text style={[styles.badgeText, { color: s.fg }]}>{s.label}</Text>
+    </View>
+  );
+}
+
+/** A time with its delay: "17:54 +4'" where the delay is red. Struck-through when cancelled. */
 export function TimeWithDelay({ time, big }: { time: LegTime; big?: boolean }) {
   const d = delayMin(time);
+  const cancelled = time.status === 'cancelled';
   return (
     <View style={styles.timeRow}>
-      <Text style={[big ? type.timeXL : type.timeL, { color: colors.text }]}>
-        {formatTime(time.scheduled)}
+      <Text
+        style={[
+          big ? type.timeXL : type.timeL,
+          { color: cancelled ? colors.textFaint : colors.text },
+          cancelled && { textDecorationLine: 'line-through' },
+        ]}>
+        {formatTime(shownTime(time))}
       </Text>
       {d > 0 ? (
         <Text style={[type.smallStrong, styles.delay]} accessibilityLabel={`${d} minutes late`}>

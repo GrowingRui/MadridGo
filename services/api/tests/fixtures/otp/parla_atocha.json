@@ -1,0 +1,1397 @@
+{
+ "_meta": {
+  "recorded_at": "2026-11-09T20:36:20+01:00",
+  "otp": "2.10.0",
+  "variables": {
+   "origin": {
+    "label": "Av. Leguario - Luis Chamizo",
+    "location": {
+     "coordinate": {
+      "latitude": 40.2252446507748,
+      "longitude": -3.7745438982466
+     }
+    }
+   },
+   "destination": {
+    "label": "Madrid - Atocha Cercanías",
+    "location": {
+     "coordinate": {
+      "latitude": 40.4066191,
+      "longitude": -3.6894391
+     }
+    }
+   },
+   "dateTime": {
+    "earliestDeparture": "2026-11-09T20:36:20+01:00"
+   },
+   "first": 5
+  }
+ },
+ "data": {
+  "planConnection": {
+   "searchDateTime": "2026-11-09T20:36:20+01:00",
+   "routingErrors": [],
+   "pageInfo": {
+    "startCursor": "MnxQUkVWSU9VU19QQUdFfDIwMjYtMTEtMDlUMTg6NTY6MjBafHw0MG18U1RSRUVUX0FORF9BUlJJVkFMX1RJTUV8ZmFsc2V8MjAyNi0xMS0wOVQxOTo1Mjo1M1p8MjAyNi0xMS0wOVQyMDo1MTowMFp8MHw2Mzk3fHw=",
+    "endCursor": "MnxORVhUX1BBR0V8MjAyNi0xMS0wOVQyMDowMDo1M1p8fDQwbXxTVFJFRVRfQU5EX0FSUklWQUxfVElNRXxmYWxzZXwyMDI2LTExLTA5VDE5OjUyOjUzWnwyMDI2LTExLTA5VDIwOjUxOjAwWnwwfDYzOTd8fA==",
+    "hasNextPage": true,
+    "hasPreviousPage": true,
+    "searchWindowUsed": "PT1H"
+   },
+   "edges": [
+    {
+     "node": {
+      "start": "2026-11-09T20:40:49+01:00",
+      "end": "2026-11-09T21:31:00+01:00",
+      "duration": 3011,
+      "numberOfTransfers": 1,
+      "walkTime": 756,
+      "walkDistance": 902.26,
+      "waitingTime": 201,
+      "legs": [
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 73.0,
+        "distance": 83.15,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Av. Leguario - Luis Chamizo",
+         "lat": 40.2252447,
+         "lon": -3.7745439,
+         "stop": null
+        },
+        "to": {
+         "name": "AV.LEGUARIO-PARQUE DE LOS ESCRITORES",
+         "lat": 40.2248714,
+         "lon": -3.7737757,
+         "stop": {
+          "gtfsId": "urban:par_8_16826",
+          "code": "16826",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:40:49+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T20:42:02+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       },
+       {
+        "mode": "BUS",
+        "transitLeg": true,
+        "duration": 374.0,
+        "distance": 1473.0,
+        "headsign": "9 DE JUNIO-HOSPITAL INFANTA CRISTINA",
+        "serviceDate": "2026-11-09",
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "AV.LEGUARIO-PARQUE DE LOS ESCRITORES",
+         "lat": 40.2248714,
+         "lon": -3.7737757,
+         "stop": {
+          "gtfsId": "urban:par_8_16826",
+          "code": "16826",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "REAL-OLIVO",
+         "lat": 40.2345442,
+         "lon": -3.7728866,
+         "stop": {
+          "gtfsId": "urban:par_8_20776",
+          "code": "20776",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:42:02+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T20:48:16+01:00",
+         "estimated": null
+        },
+        "route": {
+         "gtfsId": "urban:9__1__106_",
+         "shortName": "1",
+         "longName": "CIRCULAR 1",
+         "type": 3,
+         "color": "E60003",
+         "textColor": "FFFFFF",
+         "agency": {
+          "gtfsId": "urban:CRTM"
+         }
+        },
+        "trip": {
+         "gtfsId": "urban:1555229_9__1__106_-11031062",
+         "tripHeadsign": "9 DE JUNIO-HOSPITAL INFANTA CRISTINA"
+        },
+        "intermediatePlaces": [
+         {
+          "name": "AV.LEGUARIO-COLEGIO",
+          "stop": {
+           "gtfsId": "urban:par_8_16003"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T20:43:14+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T20:43:14+01:00"
+          }
+         },
+         {
+          "name": "AV.JUAN CARLOS I-JUZGADOS",
+          "stop": {
+           "gtfsId": "urban:par_8_11739"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T20:45:25+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T20:45:25+01:00"
+          }
+         },
+         {
+          "name": "AV.JUAN CARLOS I-PABLO CASAL",
+          "stop": {
+           "gtfsId": "urban:par_8_07820"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T20:47:32+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T20:47:32+01:00"
+          }
+         }
+        ]
+       },
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 683.0,
+        "distance": 819.11,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "REAL-OLIVO",
+         "lat": 40.2345442,
+         "lon": -3.7728866,
+         "stop": {
+          "gtfsId": "urban:par_8_20776",
+          "code": "20776",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Parla",
+         "lat": 40.2410986,
+         "lon": -3.7692699,
+         "stop": {
+          "gtfsId": "cercanias:37012",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:48:16+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T20:59:39+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       },
+       {
+        "mode": "RAIL",
+        "transitLeg": true,
+        "duration": 1680.0,
+        "distance": 21033.0,
+        "headsign": null,
+        "serviceDate": "2026-11-09",
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Parla",
+         "lat": 40.2410986,
+         "lon": -3.7692699,
+         "stop": {
+          "gtfsId": "cercanias:37012",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Madrid-Atocha Cercanías",
+         "lat": 40.4066191,
+         "lon": -3.6894391,
+         "stop": {
+          "gtfsId": "cercanias:18000",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T21:03:00+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:31:00+01:00",
+         "estimated": null
+        },
+        "route": {
+         "gtfsId": "cercanias:10T0014C4a",
+         "shortName": "C4a",
+         "longName": "Parla                                   -Alcobendas-S.Sebast. de los Reyes",
+         "type": 2,
+         "color": "2C2A86",
+         "textColor": "FFFFFF",
+         "agency": {
+          "gtfsId": "cercanias:1071VC"
+         }
+        },
+        "trip": {
+         "gtfsId": "cercanias:1012L27301C4a",
+         "tripHeadsign": null
+        },
+        "intermediatePlaces": [
+         {
+          "name": "Getafe-Sector 3",
+          "stop": {
+           "gtfsId": "cercanias:37011"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:09:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:09:00+01:00"
+          }
+         },
+         {
+          "name": "Getafe-Centro",
+          "stop": {
+           "gtfsId": "cercanias:37002"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:12:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:12:00+01:00"
+          }
+         },
+         {
+          "name": "Las Margaritas",
+          "stop": {
+           "gtfsId": "cercanias:37010"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:14:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:14:00+01:00"
+          }
+         },
+         {
+          "name": "Madrid-Villaverde Alto",
+          "stop": {
+           "gtfsId": "cercanias:37001"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:18:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:18:00+01:00"
+          }
+         },
+         {
+          "name": "Madrid-Villaverde Bajo",
+          "stop": {
+           "gtfsId": "cercanias:60100"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:22:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:22:00+01:00"
+          }
+         }
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "node": {
+      "start": "2026-11-09T20:46:10+01:00",
+      "end": "2026-11-09T21:41:00+01:00",
+      "duration": 3290,
+      "numberOfTransfers": 1,
+      "walkTime": 1040,
+      "walkDistance": 1248.71,
+      "waitingTime": 178,
+      "legs": [
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 772.0,
+        "distance": 932.49,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Av. Leguario - Luis Chamizo",
+         "lat": 40.2252447,
+         "lon": -3.7745439,
+         "stop": null
+        },
+        "to": {
+         "name": "AV.JUAN CARLOS I-FERNANDO III EL SANTO",
+         "lat": 40.2317351,
+         "lon": -3.7712678,
+         "stop": {
+          "gtfsId": "interurban:par_8_19131",
+          "code": "19131",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:46:10+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T20:59:02+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       },
+       {
+        "mode": "BUS",
+        "transitLeg": true,
+        "duration": 392.0,
+        "distance": 2549.0,
+        "headsign": "INTERCAMBIADOR DE PLAZA ELÍPTICA",
+        "serviceDate": "2026-11-09",
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "AV.JUAN CARLOS I-FERNANDO III EL SANTO",
+         "lat": 40.2317351,
+         "lon": -3.7712678,
+         "stop": {
+          "gtfsId": "interurban:par_8_19131",
+          "code": "19131",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "RÍO GUADIANA-RÍO EBRO",
+         "lat": 40.2432785,
+         "lon": -3.7695295,
+         "stop": {
+          "gtfsId": "interurban:par_8_07792",
+          "code": "07792",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:59:02+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:05:34+01:00",
+         "estimated": null
+        },
+        "route": {
+         "gtfsId": "interurban:8__461___",
+         "shortName": "461",
+         "longName": "MADRID (Plaza Elíptica)-PARLA",
+         "type": 3,
+         "color": "8EBF42",
+         "textColor": "FFFFFF",
+         "agency": {
+          "gtfsId": "interurban:CRTM"
+         }
+        },
+        "trip": {
+         "gtfsId": "interurban:1555266_8__461___-11031104",
+         "tripHeadsign": "INTERCAMBIADOR DE PLAZA ELÍPTICA"
+        },
+        "intermediatePlaces": [
+         {
+          "name": "ALFONSO XIII-PZA.LIBERTAD",
+          "stop": {
+           "gtfsId": "interurban:par_8_07822"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:00:07+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:00:07+01:00"
+          }
+         },
+         {
+          "name": "ALFONSO XIII-BIBLIOTECA",
+          "stop": {
+           "gtfsId": "interurban:par_8_07827"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:00:40+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:00:40+01:00"
+          }
+         },
+         {
+          "name": "ISABEL II-CENTRO DE SALUD",
+          "stop": {
+           "gtfsId": "interurban:par_8_08841"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:00:52+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:00:52+01:00"
+          }
+         },
+         {
+          "name": "ISABEL II-GOBERNADOR",
+          "stop": {
+           "gtfsId": "interurban:par_8_07828"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:01:20+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:01:20+01:00"
+          }
+         },
+         {
+          "name": "TORREJÓN-PINTO",
+          "stop": {
+           "gtfsId": "interurban:par_8_07838"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:02:09+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:02:09+01:00"
+          }
+         },
+         {
+          "name": "PINTO-CENTRO DE DÍA",
+          "stop": {
+           "gtfsId": "interurban:par_8_07841"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:03:01+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:03:01+01:00"
+          }
+         },
+         {
+          "name": "JUAN XXIII-PIO XII",
+          "stop": {
+           "gtfsId": "interurban:par_8_07845"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:03:20+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:03:20+01:00"
+          }
+         },
+         {
+          "name": "VALLADOLID-ZAMORA",
+          "stop": {
+           "gtfsId": "interurban:par_8_07850"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:04:07+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:04:07+01:00"
+          }
+         },
+         {
+          "name": "VALLADOLID-ESC.OFICIAL DE IDIOMAS",
+          "stop": {
+           "gtfsId": "interurban:par_8_07854"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:04:52+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:04:52+01:00"
+          }
+         }
+        ]
+       },
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 268.0,
+        "distance": 316.22,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "RÍO GUADIANA-RÍO EBRO",
+         "lat": 40.2432785,
+         "lon": -3.7695295,
+         "stop": {
+          "gtfsId": "interurban:par_8_07792",
+          "code": "07792",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Parla",
+         "lat": 40.2410986,
+         "lon": -3.7692699,
+         "stop": {
+          "gtfsId": "cercanias:37012",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T21:05:34+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:10:02+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       },
+       {
+        "mode": "RAIL",
+        "transitLeg": true,
+        "duration": 1680.0,
+        "distance": 21033.0,
+        "headsign": null,
+        "serviceDate": "2026-11-09",
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Parla",
+         "lat": 40.2410986,
+         "lon": -3.7692699,
+         "stop": {
+          "gtfsId": "cercanias:37012",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Madrid-Atocha Cercanías",
+         "lat": 40.4066191,
+         "lon": -3.6894391,
+         "stop": {
+          "gtfsId": "cercanias:18000",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T21:13:00+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:41:00+01:00",
+         "estimated": null
+        },
+        "route": {
+         "gtfsId": "cercanias:10T0016C4b",
+         "shortName": "C4b",
+         "longName": "Parla                                   -Colmenar Viejo",
+         "type": 2,
+         "color": "2C2A86",
+         "textColor": "FFFFFF",
+         "agency": {
+          "gtfsId": "cercanias:1071VC"
+         }
+        },
+        "trip": {
+         "gtfsId": "cercanias:1012L27503C4b",
+         "tripHeadsign": null
+        },
+        "intermediatePlaces": [
+         {
+          "name": "Getafe-Sector 3",
+          "stop": {
+           "gtfsId": "cercanias:37011"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:19:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:19:00+01:00"
+          }
+         },
+         {
+          "name": "Getafe-Centro",
+          "stop": {
+           "gtfsId": "cercanias:37002"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:22:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:22:00+01:00"
+          }
+         },
+         {
+          "name": "Las Margaritas",
+          "stop": {
+           "gtfsId": "cercanias:37010"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:24:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:24:00+01:00"
+          }
+         },
+         {
+          "name": "Madrid-Villaverde Alto",
+          "stop": {
+           "gtfsId": "cercanias:37001"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:28:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:28:00+01:00"
+          }
+         },
+         {
+          "name": "Madrid-Villaverde Bajo",
+          "stop": {
+           "gtfsId": "cercanias:60100"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:32:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:32:00+01:00"
+          }
+         }
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "node": {
+      "start": "2026-11-09T20:42:53+01:00",
+      "end": "2026-11-09T21:41:00+01:00",
+      "duration": 3487,
+      "numberOfTransfers": 0,
+      "walkTime": 1807,
+      "walkDistance": 2176.77,
+      "waitingTime": 0,
+      "legs": [
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 1807.0,
+        "distance": 2176.77,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Av. Leguario - Luis Chamizo",
+         "lat": 40.2252447,
+         "lon": -3.7745439,
+         "stop": null
+        },
+        "to": {
+         "name": "Parla",
+         "lat": 40.2410986,
+         "lon": -3.7692699,
+         "stop": {
+          "gtfsId": "cercanias:37012",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:42:53+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:13:00+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       },
+       {
+        "mode": "RAIL",
+        "transitLeg": true,
+        "duration": 1680.0,
+        "distance": 21033.0,
+        "headsign": null,
+        "serviceDate": "2026-11-09",
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Parla",
+         "lat": 40.2410986,
+         "lon": -3.7692699,
+         "stop": {
+          "gtfsId": "cercanias:37012",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Madrid-Atocha Cercanías",
+         "lat": 40.4066191,
+         "lon": -3.6894391,
+         "stop": {
+          "gtfsId": "cercanias:18000",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T21:13:00+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:41:00+01:00",
+         "estimated": null
+        },
+        "route": {
+         "gtfsId": "cercanias:10T0016C4b",
+         "shortName": "C4b",
+         "longName": "Parla                                   -Colmenar Viejo",
+         "type": 2,
+         "color": "2C2A86",
+         "textColor": "FFFFFF",
+         "agency": {
+          "gtfsId": "cercanias:1071VC"
+         }
+        },
+        "trip": {
+         "gtfsId": "cercanias:1012L27503C4b",
+         "tripHeadsign": null
+        },
+        "intermediatePlaces": [
+         {
+          "name": "Getafe-Sector 3",
+          "stop": {
+           "gtfsId": "cercanias:37011"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:19:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:19:00+01:00"
+          }
+         },
+         {
+          "name": "Getafe-Centro",
+          "stop": {
+           "gtfsId": "cercanias:37002"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:22:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:22:00+01:00"
+          }
+         },
+         {
+          "name": "Las Margaritas",
+          "stop": {
+           "gtfsId": "cercanias:37010"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:24:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:24:00+01:00"
+          }
+         },
+         {
+          "name": "Madrid-Villaverde Alto",
+          "stop": {
+           "gtfsId": "cercanias:37001"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:28:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:28:00+01:00"
+          }
+         },
+         {
+          "name": "Madrid-Villaverde Bajo",
+          "stop": {
+           "gtfsId": "cercanias:60100"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:32:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:32:00+01:00"
+          }
+         }
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "node": {
+      "start": "2026-11-09T20:57:19+01:00",
+      "end": "2026-11-09T21:51:00+01:00",
+      "duration": 3221,
+      "numberOfTransfers": 1,
+      "walkTime": 501,
+      "walkDistance": 580.89,
+      "waitingTime": 555,
+      "legs": [
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 73.0,
+        "distance": 83.15,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Av. Leguario - Luis Chamizo",
+         "lat": 40.2252447,
+         "lon": -3.7745439,
+         "stop": null
+        },
+        "to": {
+         "name": "AV.LEGUARIO-PARQUE DE LOS ESCRITORES",
+         "lat": 40.2248714,
+         "lon": -3.7737757,
+         "stop": {
+          "gtfsId": "urban:par_8_16826",
+          "code": "16826",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:57:19+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T20:58:32+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       },
+       {
+        "mode": "BUS",
+        "transitLeg": true,
+        "duration": 485.0,
+        "distance": 2042.0,
+        "headsign": "9 DE JUNIO-HOSPITAL INFANTA CRISTINA",
+        "serviceDate": "2026-11-09",
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "AV.LEGUARIO-PARQUE DE LOS ESCRITORES",
+         "lat": 40.2248714,
+         "lon": -3.7737757,
+         "stop": {
+          "gtfsId": "urban:par_8_16826",
+          "code": "16826",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "TORREJÓN-PINTO",
+         "lat": 40.2384132,
+         "lon": -3.7668646,
+         "stop": {
+          "gtfsId": "urban:par_8_07838",
+          "code": "07838",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:58:32+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:06:37+01:00",
+         "estimated": null
+        },
+        "route": {
+         "gtfsId": "urban:9__2__106_",
+         "shortName": "2",
+         "longName": "CIRCULAR 2",
+         "type": 3,
+         "color": "E60003",
+         "textColor": "FFFFFF",
+         "agency": {
+          "gtfsId": "urban:CRTM"
+         }
+        },
+        "trip": {
+         "gtfsId": "urban:1555234_9__2__106_-11031036",
+         "tripHeadsign": "9 DE JUNIO-HOSPITAL INFANTA CRISTINA"
+        },
+        "intermediatePlaces": [
+         {
+          "name": "AV.LEGUARIO-COLEGIO",
+          "stop": {
+           "gtfsId": "urban:par_8_16003"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T20:59:39+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T20:59:39+01:00"
+          }
+         },
+         {
+          "name": "AV.AMÉRICA-CENTRO OCUPACIONAL",
+          "stop": {
+           "gtfsId": "urban:par_8_11740"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:00:48+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:00:48+01:00"
+          }
+         },
+         {
+          "name": "ISABEL II-CUBA",
+          "stop": {
+           "gtfsId": "urban:par_8_16120"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:02:36+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:02:36+01:00"
+          }
+         },
+         {
+          "name": "ISABEL II-EST.ISABEL II",
+          "stop": {
+           "gtfsId": "urban:par_8_16123"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:03:15+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:03:15+01:00"
+          }
+         },
+         {
+          "name": "ISABEL II-FERNANDO III EL SANTO",
+          "stop": {
+           "gtfsId": "urban:par_8_11941"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:03:59+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:03:59+01:00"
+          }
+         },
+         {
+          "name": "ISABEL II-CENTRO DE SALUD",
+          "stop": {
+           "gtfsId": "urban:par_8_08841"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:04:38+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:04:38+01:00"
+          }
+         },
+         {
+          "name": "ISABEL II-GOBERNADOR",
+          "stop": {
+           "gtfsId": "urban:par_8_07828"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:05:21+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:05:21+01:00"
+          }
+         }
+        ]
+       },
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 428.0,
+        "distance": 497.74,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "TORREJÓN-PINTO",
+         "lat": 40.2384132,
+         "lon": -3.7668646,
+         "stop": {
+          "gtfsId": "urban:par_8_07838",
+          "code": "07838",
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Parla",
+         "lat": 40.2410986,
+         "lon": -3.7692699,
+         "stop": {
+          "gtfsId": "cercanias:37012",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T21:06:37+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:13:45+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       },
+       {
+        "mode": "RAIL",
+        "transitLeg": true,
+        "duration": 1680.0,
+        "distance": 21033.0,
+        "headsign": null,
+        "serviceDate": "2026-11-09",
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Parla",
+         "lat": 40.2410986,
+         "lon": -3.7692699,
+         "stop": {
+          "gtfsId": "cercanias:37012",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Madrid-Atocha Cercanías",
+         "lat": 40.4066191,
+         "lon": -3.6894391,
+         "stop": {
+          "gtfsId": "cercanias:18000",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T21:23:00+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:51:00+01:00",
+         "estimated": null
+        },
+        "route": {
+         "gtfsId": "cercanias:10T0014C4a",
+         "shortName": "C4a",
+         "longName": "Parla                                   -Alcobendas-S.Sebast. de los Reyes",
+         "type": 2,
+         "color": "2C2A86",
+         "textColor": "FFFFFF",
+         "agency": {
+          "gtfsId": "cercanias:1071VC"
+         }
+        },
+        "trip": {
+         "gtfsId": "cercanias:1012L27303C4a",
+         "tripHeadsign": null
+        },
+        "intermediatePlaces": [
+         {
+          "name": "Getafe-Sector 3",
+          "stop": {
+           "gtfsId": "cercanias:37011"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:29:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:29:00+01:00"
+          }
+         },
+         {
+          "name": "Getafe-Centro",
+          "stop": {
+           "gtfsId": "cercanias:37002"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:32:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:32:00+01:00"
+          }
+         },
+         {
+          "name": "Las Margaritas",
+          "stop": {
+           "gtfsId": "cercanias:37010"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:34:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:34:00+01:00"
+          }
+         },
+         {
+          "name": "Madrid-Villaverde Alto",
+          "stop": {
+           "gtfsId": "cercanias:37001"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:38:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:38:00+01:00"
+          }
+         },
+         {
+          "name": "Madrid-Villaverde Bajo",
+          "stop": {
+           "gtfsId": "cercanias:60100"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:42:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:42:00+01:00"
+          }
+         }
+        ]
+       }
+      ]
+     }
+    },
+    {
+     "node": {
+      "start": "2026-11-09T20:52:53+01:00",
+      "end": "2026-11-09T21:51:00+01:00",
+      "duration": 3487,
+      "numberOfTransfers": 0,
+      "walkTime": 1807,
+      "walkDistance": 2176.77,
+      "waitingTime": 0,
+      "legs": [
+       {
+        "mode": "WALK",
+        "transitLeg": false,
+        "duration": 1807.0,
+        "distance": 2176.77,
+        "headsign": null,
+        "serviceDate": null,
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Av. Leguario - Luis Chamizo",
+         "lat": 40.2252447,
+         "lon": -3.7745439,
+         "stop": null
+        },
+        "to": {
+         "name": "Parla",
+         "lat": 40.2410986,
+         "lon": -3.7692699,
+         "stop": {
+          "gtfsId": "cercanias:37012",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T20:52:53+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:23:00+01:00",
+         "estimated": null
+        },
+        "route": null,
+        "trip": null,
+        "intermediatePlaces": null
+       },
+       {
+        "mode": "RAIL",
+        "transitLeg": true,
+        "duration": 1680.0,
+        "distance": 21033.0,
+        "headsign": null,
+        "serviceDate": "2026-11-09",
+        "interlineWithPreviousLeg": false,
+        "from": {
+         "name": "Parla",
+         "lat": 40.2410986,
+         "lon": -3.7692699,
+         "stop": {
+          "gtfsId": "cercanias:37012",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "to": {
+         "name": "Madrid-Atocha Cercanías",
+         "lat": 40.4066191,
+         "lon": -3.6894391,
+         "stop": {
+          "gtfsId": "cercanias:18000",
+          "code": null,
+          "platformCode": null,
+          "parentStation": null
+         }
+        },
+        "start": {
+         "scheduledTime": "2026-11-09T21:23:00+01:00",
+         "estimated": null
+        },
+        "end": {
+         "scheduledTime": "2026-11-09T21:51:00+01:00",
+         "estimated": null
+        },
+        "route": {
+         "gtfsId": "cercanias:10T0014C4a",
+         "shortName": "C4a",
+         "longName": "Parla                                   -Alcobendas-S.Sebast. de los Reyes",
+         "type": 2,
+         "color": "2C2A86",
+         "textColor": "FFFFFF",
+         "agency": {
+          "gtfsId": "cercanias:1071VC"
+         }
+        },
+        "trip": {
+         "gtfsId": "cercanias:1012L27303C4a",
+         "tripHeadsign": null
+        },
+        "intermediatePlaces": [
+         {
+          "name": "Getafe-Sector 3",
+          "stop": {
+           "gtfsId": "cercanias:37011"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:29:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:29:00+01:00"
+          }
+         },
+         {
+          "name": "Getafe-Centro",
+          "stop": {
+           "gtfsId": "cercanias:37002"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:32:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:32:00+01:00"
+          }
+         },
+         {
+          "name": "Las Margaritas",
+          "stop": {
+           "gtfsId": "cercanias:37010"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:34:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:34:00+01:00"
+          }
+         },
+         {
+          "name": "Madrid-Villaverde Alto",
+          "stop": {
+           "gtfsId": "cercanias:37001"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:38:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:38:00+01:00"
+          }
+         },
+         {
+          "name": "Madrid-Villaverde Bajo",
+          "stop": {
+           "gtfsId": "cercanias:60100"
+          },
+          "arrival": {
+           "scheduledTime": "2026-11-09T21:42:00+01:00"
+          },
+          "departure": {
+           "scheduledTime": "2026-11-09T21:42:00+01:00"
+          }
+         }
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  }
+ }
+}

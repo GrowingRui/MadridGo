@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     # Where downloaded feeds and OTP inputs live. Empty: the repo's data/ folder.
     data_dir: str = ""
 
+    # --- Journey planning (Phase 4) ---
+    # OpenTripPlanner base URL (compose: http://otp:8080). Its own processing timeout is 7 s.
+    otp_url: str = "http://127.0.0.1:8080"
+    otp_timeout_s: float = 9.0
+
     # --- Real-time (Phase 3) ---
     # EMT MobilityLabs application credentials. Read from EMT_CLIENT_ID / EMT_PASS_KEY as
     # written in .env.example. Empty: EMT live data is reported as not configured.

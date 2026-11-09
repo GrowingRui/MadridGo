@@ -91,6 +91,13 @@ margin = next_departure(best estimate) − (arrival(best estimate) + walk_time +
 - Headway-based legs (EMT, Metro) are shown as "wait up to N min", where N is the headway, not as a fixed connection.
 - Station-specific change times (for example Atocha Cercanías ↔ Metro L1) are kept in a curated table, starting empty and filled from OSM walking paths plus manual verification.
 
+**Implementation notes (Phase 4, `services/api/app/transfers.py`):**
+- `walk_time` is the duration of OTP's walking legs between the two vehicles. `min_change_time` comes from `MIN_CHANGE_S` (empty for now).
+- An arriving vehicle **without live data** gets an allowance. This is an initial proposal, to be replaced by measured delay distributions in Phase 6: bus 2 min; rail, metro and light rail 1 min. A live arrival gets none, because its delay is already in the time.
+- *Uncertain* is used when the arriving leg is a frequency service without live data (which vehicle you are on is unknown) or its mode has no allowance.
+- A change onto a frequency service has no label. It is shown as "wait up to N min".
+- A cancelled vehicle, a train that has already passed the boarding stop, or a *Not feasible* change makes the whole journey `feasible: false`. It stays in the list, after the alternatives, with the reason.
+
 ## 6. Disruption handling
 - Inputs: GTFS-RT Alerts (Renfe), EMT RSS, cancellations (`CANCELED`) and large delays in TripUpdates.
 - **Journey impact:** a monitored journey is re-evaluated whenever a relevant feed updates. If any transfer becomes *At risk* or *Not feasible*, or a leg is cancelled, MadridGo re-queries OTP from the user's current position or next stop and offers alternatives.

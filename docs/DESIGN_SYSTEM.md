@@ -44,10 +44,12 @@ One codebase, two layouts with the same colours and components. The switch is `u
 - **LinePill**: line name on the route's official GTFS colour (`route_color` / `route_text_color`). Metro lines are round, as on Madrid signage; other modes use a rounded box. A per-mode fallback is used when a feed has no colour.
 - **StatusBadge**: the reliability label above.
 - **PlannerCard**: From/To with a rail-style dot connector and a swap button; `layout="row"` puts both fields in one row (website).
-- **WhenChips**: Now, +15 min, +30 min, +1 h.
+- **WhenBar** (inside the PlannerCard, under From/To, as on Swiss timetables): `Mon 09.11. | 21:29 Dep | ⟲` on the left, an options button on the right. Date or time opens the **TimeSheet**: Departure/Arrival, the next 7 days, hour and minutes (5-minute steps), Now and Done; always Madrid time. ⟲ goes back to now. The options button opens the **OptionsSheet** (sort: earliest arrival, shortest travel time, fewest changes, least walking) and shows an amber dot when it is not the default. Sheets are bottom sheets in the app and centred dialogs on the website.
 - **ConnectionCard**: a timetable row. Line pictograms, "Direction …" and the countdown ("in 6 min"); departure time, pearl chain, arrival time; platform and reliability label on the left, duration and changes on the right. A selected row (website) has a navy left edge.
 - **PearlChain**: one line per journey with a segment per leg sized by its duration and coloured by its line; black pearls at start and end, white pearls at changes, dotted grey for walking. On the navy header it sits on a white strip.
-- **JourneyTimeline**: Time | track | stop and ride | Platform columns, with expandable intermediate stops and the change time between legs.
+- **JourneyTimeline**: Time | track | stop and ride | Platform columns, with expandable intermediate stops and a change note after each vehicle you leave (TransferBadge and the reason, or "Wait up to N min" onto a frequent service).
+- **TransferBadge**: Comfortable (green), Tight (amber), At risk and Not possible (red), Uncertain (grey). Words only, never a percentage. A ConnectionCard shows it only when the worst change is not Comfortable; a journey that is not possible shows its first issue in red instead.
+- **Times**: a live time is printed as the scheduled time with the delay in red ("20:44 +6′"). For headway services (EMT) there is no timetable to compare with, so the live time itself is printed with no delay. Cancelled times are struck through.
 - **DepartureRow / FrequencyRow**: time | line | destination and label | countdown ("6 min") on the right. Frequency rows show "~7′" and "until 00:30" instead of a time.
 - **TopNav / Footer**: website only.
 - On the navy header, line pictograms get a thin white outline so dark lines (C4) stay visible.
@@ -56,10 +58,10 @@ One codebase, two layouts with the same colours and components. The switch is `u
 ## 4. Screens
 | Tab / route | Content | Data |
 |---|---|---|
-| Plan (`/`) | Header with From/To and time chips. Before a search: saved and recent stops. Once both are set: connections with Earlier/Later under the planner (website: list and journey side by side) | **Preview data** for connections until the Phase 4 `/journeys` API, behind a "Design preview" banner |
+| Plan (`/`) | Header with From/To and time chips. Before a search: saved and recent stops. Once both are set: timetable notices (for example "Metro timetable expired"), operators whose live data is down, then connections with Earlier/Later under the planner (website: list and journey side by side) | `/journeys` |
 | From/To search (in place on Plan) | Tapping From or To turns the field into a text box. App: saved, recent and matching stops are listed under the header; after choosing From, To opens by itself; ✕ closes. Website: the same list drops down under the field (Esc closes) | `/stops/search` |
 | Stop picker (`/pick`) | Departures tab only: search a stop to open its board | `/stops/search` |
-| Journey (`/journey/[id]`) | Vertical timeline: times, platforms, expandable intermediate stops, walking and changes | Preview data (Phase 4) |
+| Journey (`/journey/[id]`) | "Not possible" banner and service alerts, then a vertical timeline: times, platforms, expandable intermediate stops, walking and each change with its label and reason | The tapped `/journeys` result |
 | Departures (`/departures`, `/stop/[id]`) | Stop board: frequent lines, then next departures; data notices; save and plan-from-here | `/stops/{id}/departures` (real) |
 | Saved | Favourite stops, stored on the device only | AsyncStorage |
 | More | Timetable status per operator (expiry), server status, attributions | `/feeds`, `/health` |
@@ -70,5 +72,4 @@ One codebase, two layouts with the same colours and components. The switch is `u
 - Minimum tap target is 40 px. Text contrast meets WCAG AA; amber is used only as a background or on navy.
 
 ## 6. Next
-- Phase 4: replace the preview data with `/journeys`, keeping the same types (`src/api/journeys.ts`).
 - Phase 5: map tab (MapLibre), ES/EN i18n, dark mode, a usability test with five users.
