@@ -1,0 +1,65 @@
+// Journey details page (app; on the website the same timeline also appears beside the list).
+
+import { router, useLocalSearchParams } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
+
+import { JourneyTimeline } from '../../components/journey';
+import { BrandHeader, Card, EmptyState, Notice, Screen } from '../../components/layout';
+import { changesLabel, PearlChain } from '../../components/planner';
+import { journeyCache } from '../../state/journeys';
+import { colors, space } from '../../theme';
+import { formatDuration, formatTime } from '../../utils/time';
+
+export default function JourneyScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const journey = journeyCache.get(id);
+  const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
+  if (!journey) {
+    return (
+      <Screen header={<BrandHeader title="Journey" onBack={back} />}>
+        <EmptyState
+          icon="map-marker-path"
+          title="This journey is no longer available"
+          body="Search again to see current connections."
+        />
+      </Screen>
+    );
+  }
+  const first = journey.legs[0];
+  const last = journey.legs[journey.legs.length - 1];
+  return (
+    <Screen
+      header={
+        <BrandHeader
+          title={`${first.from} → ${last.to}`}
+          subtitle={`${formatTime(journey.departure.scheduled)} – ${formatTime(
+            journey.arrival.scheduled,
+          )} · ${formatDuration(journey.duration_min)} · ${changesLabel(journey.transfers)}`}
+          onBack={back}>
+          {/* White strip: dark line colours (C4 navy) would vanish on the brand header. */}
+          <View style={styles.chainStrip}>
+            <PearlChain legs={journey.legs} />
+          </View>
+        </BrandHeader>
+      }>
+      {journey.is_preview ? (
+        <Notice tone="info" icon="eye-outline" title="Design preview">
+          Example journey to review the layout. Not real times.
+        </Notice>
+      ) : null}
+      <Card style={{ marginTop: space.lg }}>
+        <JourneyTimeline journey={journey} />
+      </Card>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  chainStrip: {
+    marginTop: space.md,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+  },
+});

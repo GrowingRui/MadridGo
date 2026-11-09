@@ -19,7 +19,18 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "name": "MadridGo",
+      "themeColor": "#0B3A82"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
+    "scheme": "madridgo",
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }

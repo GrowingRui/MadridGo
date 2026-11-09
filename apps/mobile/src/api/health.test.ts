@@ -24,12 +24,15 @@ describe('parseHealth', () => {
     expect(parseHealth(okBody)?.checks.database.detail).toBe('postgis 3.5.2');
   });
 
-  it.each([null, 'text', {}, { ...okBody, status: 'great' }, { ...okBody, checks: { db: { status: 'maybe' } } }])(
-    'rejects malformed body %#',
-    (body) => {
-      expect(parseHealth(body)).toBeNull();
-    },
-  );
+  it.each([
+    null,
+    'text',
+    {},
+    { ...okBody, status: 'great' },
+    { ...okBody, checks: { db: { status: 'maybe' } } },
+  ])('rejects malformed body %#', (body) => {
+    expect(parseHealth(body)).toBeNull();
+  });
 });
 
 describe('fetchHealth', () => {
@@ -39,7 +42,11 @@ describe('fetchHealth', () => {
   });
 
   it('reports degraded on 503 with a valid body', async () => {
-    const body = { ...okBody, status: 'error', checks: { redis: { status: 'error', latency_ms: null, detail: 'down' } } };
+    const body = {
+      ...okBody,
+      status: 'error',
+      checks: { redis: { status: 'error', latency_ms: null, detail: 'down' } },
+    };
     const out = await fetchHealth('http://x', 1000, fakeFetch(503, body));
     expect(out.kind).toBe('degraded');
   });
