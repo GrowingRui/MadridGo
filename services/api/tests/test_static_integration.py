@@ -19,6 +19,8 @@ from app.db import migrate
 from app.ingest.importer import delete_version, import_feed
 from app.ingest.sources import GtfsSource
 from app.main import app
+from app.realtime.cache import MemoryKV
+from app.realtime.service import Realtime, get_realtime
 from tests import gtfs_fixture
 
 pytestmark = [
@@ -74,8 +76,13 @@ def imported(tmp_path_factory: pytest.TempPathFactory) -> Iterator[int]:
 
 @pytest.fixture
 def client(imported: int) -> Iterator[TestClient]:
-    with TestClient(app) as c:
-        yield c
+    # Boards must not depend on whatever live data the local Redis holds.
+    app.dependency_overrides[get_realtime] = lambda: Realtime(kv=MemoryKV(), emt_service=None)
+    try:
+        with TestClient(app) as c:
+            yield c
+    finally:
+        app.dependency_overrides.pop(get_realtime, None)
 
 
 def test_import_records_version_metadata(imported: int) -> None:
@@ -121,6 +128,11 @@ def test_departures_scheduled_and_after_midnight(client: TestClient) -> None:
     )
     deps = morning.json()["departures"]
     assert [d["time"][11:16] for d in deps] == ["08:00"]
+    assert deps[0]["status"] == "scheduled" and deps[0]["realtime"] is None
+    assert morning.json()["data_quality"] == "scheduled"
+    # An operator without an authorized real-time source says so (R15).
+    statuses = morning.json()["realtime"]
+    assert [(st["feed"], st["status"]) for st in statuses] == [("zz_test", "not_available")]
     assert deps[0]["headsign"] == "Terminal Norte"  # from the last stop: trip has no headsign
     assert deps[0]["line"]["color"] == "FF0000"
     assert deps[0]["line"]["mode"] == "rail"

@@ -105,14 +105,17 @@ export function LinePills({
   );
 }
 
-const STATUS_STYLE: Record<TimeStatus, { fg: string; bg: string; label: string }> = {
+export type BadgeStatus = TimeStatus | 'cancelled';
+
+const STATUS_STYLE: Record<BadgeStatus, { fg: string; bg: string; label: string }> = {
   live: { fg: colors.live, bg: colors.liveBg, label: 'Live' },
+  cancelled: { fg: colors.delay, bg: colors.delayBg, label: 'Cancelled' },
   scheduled: { fg: colors.scheduled, bg: colors.scheduledBg, label: 'Scheduled' },
   frequency: { fg: colors.warning, bg: colors.warningBg, label: 'Frequency' },
 };
 
 /** The reliability label. Every time in the app is shown next to one of these. */
-export function StatusBadge({ status, text }: { status: TimeStatus; text?: string }) {
+export function StatusBadge({ status, text }: { status: BadgeStatus; text?: string }) {
   const s = STATUS_STYLE[status];
   return (
     <View style={[styles.badge, { backgroundColor: s.bg }]}>

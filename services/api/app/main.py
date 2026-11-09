@@ -14,6 +14,9 @@ from app.config import Settings, get_settings
 from app.dbpool import close_pool, get_pool
 from app.feeds import FeedStatus, feed_statuses
 from app.health import Check, HealthResponse, make_database_check, make_redis_check, run_checks
+from app.realtime import api as realtime_api
+from app.realtime.cache import close_kv
+from app.realtime.service import close_realtime
 from app.timetable import MADRID
 
 
@@ -30,6 +33,8 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
+        await close_realtime()
+        await close_kv()
         await close_pool()
 
     app = FastAPI(title="MadridGo API", version=__version__, lifespan=lifespan)
@@ -62,6 +67,7 @@ def create_app() -> FastAPI:
         return await feed_statuses(pool, datetime.now(MADRID).date())
 
     app.include_router(stops.router)
+    app.include_router(realtime_api.router)
     return app
 
 

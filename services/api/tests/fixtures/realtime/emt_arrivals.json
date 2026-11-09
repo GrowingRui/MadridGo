@@ -1,0 +1,51 @@
+{
+  "_comment": "Shape of the example in the official EMT apidoc (https://apidocs.emtmadrid.es, arrives v2), trimmed, plus one 999999 (beyond horizon) arrival. Not a recorded response: MadridGo's EMT login was refused on 2026-11-09.",
+  "code": "00",
+  "description": "Data recovered  OK, (lapsed: 91 millsecs)",
+  "datetime": "2026-11-09T19:07:44.352933",
+  "data": [
+    {
+      "Arrive": [
+        {
+          "line": "27",
+          "stop": "62",
+          "isHead": "False",
+          "destination": "PLAZA CASTILLA",
+          "deviation": 0,
+          "bus": 540,
+          "geometry": {"type": "Point", "coordinates": [-3.691451613067933, 40.408835411999064]},
+          "estimateArrive": 280,
+          "DistanceBus": 1005,
+          "positionTypeBus": "0"
+        },
+        {
+          "line": "45",
+          "stop": "62",
+          "isHead": "False",
+          "destination": "REINA VICTORIA",
+          "deviation": 0,
+          "bus": 6746,
+          "geometry": {"type": "Point", "coordinates": [-3.6928317878395864, 40.413189298653414]},
+          "estimateArrive": 71,
+          "DistanceBus": 363,
+          "positionTypeBus": "0"
+        },
+        {
+          "line": "N26",
+          "stop": "62",
+          "isHead": "False",
+          "destination": "ALUCHE",
+          "deviation": 0,
+          "bus": 0,
+          "geometry": {"type": "Point", "coordinates": [0, 0]},
+          "estimateArrive": 999999,
+          "DistanceBus": 0,
+          "positionTypeBus": "0"
+        }
+      ],
+      "StopInfo": [],
+      "ExtraInfo": [],
+      "Incident": {}
+    }
+  ]
+}

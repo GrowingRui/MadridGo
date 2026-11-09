@@ -26,14 +26,86 @@ export interface StopSummary {
   distance_m: number | null;
 }
 
+export type FreshnessState = 'FRESH' | 'DELAYED_UPDATE' | 'STALE' | 'UNAVAILABLE';
+
+export interface Freshness {
+  state: FreshnessState;
+  age_s: number | null;
+  /** 'retrieved': the source gives no observation time; the age is since MadridGo fetched it. */
+  age_basis: 'source' | 'retrieved' | null;
+  anomaly: string | null;
+}
+
+/** Provenance of a live value (backend app/realtime/models.py). */
+export interface RealtimeInfo {
+  classification: 'LIVE' | 'CANCELLED';
+  source: string;
+  retrieved_at: string;
+  source_timestamp: string | null;
+  freshness: Freshness;
+  predicted_time: string | null;
+  delay_s: number | null;
+  /** The train's current delay applied to this stop, not a prediction for this stop. */
+  estimated_from_trip_delay: boolean;
+  vehicle_id: string | null;
+  platform: string | null;
+}
+
 export interface Departure {
   kind: 'scheduled';
+  /** Always the scheduled time. Live estimates are in `realtime.predicted_time`. */
   time: string;
   line: Line;
   headsign: string | null;
   stop_id: string;
   trip_id: string;
   wheelchair_accessible: boolean | null;
+  status: 'scheduled' | 'live' | 'cancelled';
+  realtime: RealtimeInfo | null;
+}
+
+/** A live prediction with no timetable row behind it (EMT buses). */
+export interface LiveArrival {
+  kind: 'live';
+  line: Line;
+  headsign: string | null;
+  stop_id: string;
+  /** null: beyond the source's horizon (EMT: more than 45 min). */
+  time: string | null;
+  distance_m: number | null;
+  realtime: RealtimeInfo;
+}
+
+export interface SourceStatus {
+  feed: string;
+  operator: string;
+  source: string | null;
+  status: 'live' | 'delayed_update' | 'stale' | 'unavailable' | 'not_available';
+  message: string;
+  freshness: Freshness | null;
+  retrieved_at: string | null;
+  source_timestamp: string | null;
+  attribution: string | null;
+}
+
+export interface ServiceAlert {
+  source: string;
+  source_alert_id: string;
+  operator: string;
+  header: string | null;
+  description: string | null;
+  url: string | null;
+  cause: string | null;
+  effect: string | null;
+  active_from: string | null;
+  active_to: string | null;
+  route_ids: string[];
+  stop_ids: string[];
+}
+
+/** The best known time: the live estimate when there is one, else the scheduled time. */
+export function bestTime(d: Departure): string {
+  return d.realtime?.predicted_time ?? d.time;
 }
 
 export interface FrequencyService {
@@ -59,10 +131,13 @@ export interface StopBoard {
   generated_at: string;
   window_start: string;
   window_end: string;
-  data_quality: 'scheduled';
+  data_quality: 'scheduled' | 'partly_live';
   departures: Departure[];
   frequencies: FrequencyService[];
+  live_arrivals: LiveArrival[];
   notices: DataNotice[];
+  realtime: SourceStatus[];
+  alerts: ServiceAlert[];
 }
 
 export interface FeedStatus {

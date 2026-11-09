@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Canal de Noticias de la Empresa Municipal de Transportes de Madrid</title>
+    <link>http://feeds.feedburner.com/emtmadrid</link>
+    <description>Informaciones de interés para el cliente de EMT de Madrid</description>
+    <language>
+    </language>
+    <image>
+      <title>Canales de información de EMT</title>
+      <url>http://feeds.emtmadrid.es:8082/images/logoemthorizontal.gif</url>
+      <link>http://www.emtmadrid.es/</link>
+      <description>
+      </description>
+    </image>
+    <copyright>Empresa Municipal de Transportes de Madrid</copyright>
+    <webMaster>
+    </webMaster>
+    <lastBuildDate>Mon, 09 Nov 2026 16:01:12 GMT</lastBuildDate>
+    <ttl>120</ttl>
+    <generator>
+    </generator>
+    <item>
+      <guid>2A48AF80-53A9-4E0D-BB6F-E77BAB98E8FB</guid>
+      <title>Recuperación de Parada: Embajadores. Afectadas 5 líneas de EMT.</title>
+      <description><![CDATA[ El 12 de noviembre, desde las 8:00 horas aproximadamente, las líneas 6, 59, 78, 85 y 148 recuperan la parada 1928, ubicada en Embajadores, 114, por finalización de obras. Ver más detalle en documento adjunto.<p><img src='http://feeds.emtmadrid.es:8082/images/00-Logo-RSS_Corporativo.png'/></p>]]></description>
+      <link>http://feeds.emtmadrid.es:8082/docs/20261112-RP-1928-Embajadores.pdf</link>
+      <author>cgi@emtmadrid.es</author>
+      <pubDate>Mon, 09 Nov 2026 09:00:04 GMT</pubDate>
+      <rssfinaldate>09/12/2026 10:00:00</rssfinaldate>
+      <rsspublisher>cgi@emtmadrid.es</rsspublisher>
+      <rssAfectaDesde>12/11/2026 8:00:00</rssAfectaDesde>
+      <rssAfectaHasta>15/11/2026 19:00:00</rssAfectaHasta>
+      <GoogleTransitCause>08 - Obras</GoogleTransitCause>
+      <GoogleTransitEffect>09 - Parada trasladada</GoogleTransitEffect>
+      <category>6</category>
+      <category>59</category>
+      <category>78</category>
+      <category>85</category>
+      <category>148</category>
+      <enclosure url="http://feeds.emtmadrid.es:8082/docs/20261112-RP-1928-Embajadores.pdf" type="application/pdf" length="84729" />
+      <MEDIA AltTitle="" AltDescription="" Format="" Type="" />
+    </item>
+<item>
+      <guid>7BFEE84F-D92B-4D02-9ABA-6EE645666866</guid>
+      <title>Creación de Parada: Ginzo de Limia. Afectadas 2 líneas de EMT.</title>
+      <description><![CDATA[ A partir del 12 de noviembre, desde inicio de servicio, las líneas 128 y N23 realizarán una nueva parada de manera definitiva en Ginzo de Limia con Villa de Marín. Ver más detalle en documento adjunto.<p><img src='http://feeds.emtmadrid.es:8082/images/00-Logo-RSS_Corporativo.png'/></p>]]></description>
+      <link>http://feeds.emtmadrid.es:8082/docs/20261112-CP-5212-Ginzo-De-Limia.pdf</link>
+      <author>cgi@emtmadrid.es</author>
+      <pubDate>Mon, 09 Nov 2026 09:00:03 GMT</pubDate>
+      <rssfinaldate>09/12/2026 10:00:00</rssfinaldate>
+      <rsspublisher>cgi@emtmadrid.es</rsspublisher>
+      <rssAfectaDesde>12/11/2026 6:00:00</rssAfectaDesde>
+      <rssAfectaHasta>19/11/2026 19:00:00</rssAfectaHasta>
+      <GoogleTransitCause>99 - Otras causas</GoogleTransitCause>
+      <GoogleTransitEffect>07 - Modificación del servicio</GoogleTransitEffect>
+      <category>128</category>
+      <category>N23</category>
+      <enclosure url="http://feeds.emtmadrid.es:8082/docs/20261112-CP-5212-Ginzo-De-Limia.pdf" type="application/pdf" length="84397" />
+      <MEDIA AltTitle="" AltDescription="" Format="" Type="" />
+    </item>
+<item>
+      <guid>E4AA985C-A6E8-4D7D-8B3B-5B48EAB6DD9A</guid>
+      <title>Evento: Palacio de los Deportes. Afectadas 4 líneas de EMT.</title>
+      <description><![CDATA[ El 12 de noviembre, de 23:00 horas a fin de servicio, las líneas 30, C1, C2 y E4 tendrán retenciones y modificaciones en sus itinerarios en Jorge Juan y Goya por evento en el Palacio de los Deportes, según su desarrollo y de acuerdo con las restricciones de tráfico que realice Policía Municipal.  Ver más detalle en documento adjunto.<p><img src='http://feeds.emtmadrid.es:8082/images/00-Logo-RSS_Corporativo.png'/></p>]]></description>
+      <link>http://feeds.emtmadrid.es:8082/docs/20261112-PD-Baloncesto.pdf</link>
+      <author>cgi@emtmadrid.es</author>
+      <pubDate>Mon, 09 Nov 2026 09:00:03 GMT</pubDate>
+      <rssfinaldate>09/12/2026 10:00:00</rssfinaldate>
+      <rsspublisher>cgi@emtmadrid.es</rsspublisher>
+      <rssAfectaDesde>12/11/2026 23:00:00</rssAfectaDesde>
+      <rssAfectaHasta>12/11/2026 23:59:00</rssAfectaHasta>
+      <GoogleTransitCause>12 - Evento deportivo</GoogleTransitCause>
+      <GoogleTransitEffect>05 - Desvío programado</GoogleTransitEffect>
+      <category>30</category>
+      <category>C1</category>
+      <category>C2</category>
+      <category>E4</category>
+      <enclosure url="http://feeds.emtmadrid.es:8082/docs/20261112-PD-Baloncesto.pdf" type="application/pdf" length="471332" />
+      <MEDIA AltTitle="" AltDescription="" Format="" Type="" />
+    </item>
+<item>
+      <guid>2A05B38E-101C-4241-ABD0-9A719CB1C6AD</guid>
+      <title>Concentración en Alcalá. Afectadas 11 líneas de EMT.</title>
+      <description><![CDATA[ El 12 de noviembre, de 12:30 a 14:00 horas aproximadamente, las líneas 002, 3, 5, 9, 15, 20, 46, 51, 52, 53 y 150, tendrán retenciones y modificaciones en sus itinerarios en Alcalá, frente al número 32, por concentración, según su desarrollo y de acuerdo con las restricciones de tráfico que realice Policía Municipal.  Ver más detalle en documento adjunto.<p><img src='http://feeds.emtmadrid.es:8082/images/00-Logo-RSS_Corporativo.png'/></p>]]></description>
+      <link>http://feeds.emtmadrid.es:8082/docs/20261112-C-Alcala.pdf</link>
+      <author>cgi@emtmadrid.es</author>
+      <pubDate>Mon, 09 Nov 2026 09:00:03 GMT</pubDate>
+      <rssfinaldate>09/12/2026 10:00:00</rssfinaldate>
+      <rsspublisher>cgi@emtmadrid.es</rsspublisher>
+      <rssAfectaDesde>12/11/2026 12:30:00</rssAfectaDesde>
+      <rssAfectaHasta>12/11/2026 14:00:00</rssAfectaHasta>
+      <GoogleTransitCause>04 - Manifestación</GoogleTransitCause>
+      <GoogleTransitEffect>05 - Desvío programado</GoogleTransitEffect>
+      <category>3</category>
+      <category>5</category>
+      <category>9</category>
+      <category>15</category>
+      <category>20</category>
+      <category>46</category>
+      <category>51</category>
+      <category>52</category>
+      <category>53</category>
+      <category>150</category>
+      <category>002</category>
+      <enclosure url="http://feeds.emtmadrid.es:8082/docs/20261112-C-Alcala.pdf" type="application/pdf" length="72497" />
+      <MEDIA AltTitle="" AltDescription="" Format="" Type="" />
+    </item>
+<item>
+      <guid>C1F5FDBC-556F-49F5-B410-6F44BCB752B3</guid>
+      <title>Manifestación en zona Centro. Afectadas 36 líneas de EMT.</title>
+      <description><![CDATA[ El 11 de noviembre, de 18:30 a 22:30 horas aproximadamente, las líneas 001, 002, 1, 2, 3, 5, 9, 10, 14, 15, 20, 25, 27, 34, 37, 39, 44, 45, 46, 51, 52, 53, 74, 75, 133, 138, 146, 147, 148, 150, 158, C03, C1, C2, E1 y Exprés Aeropuerto, tendrán retenciones y modificaciones en sus itinerarios en paseo del Prado, plaza de Cibeles, Alcalá, Gran Vía y plaza de España por manifestación, según su desarrollo y de acuerdo con las restricciones de tráfico que realice Policía Municipal.  Ver más detalle en documento adjunto.<p><img src='http://feeds.emtmadrid.es:8082/images/00-Logo-RSS_Corporativo.png'/></p>]]></description>
+      <link>http://feeds.emtmadrid.es:8082/docs/20261111-M-Paseo-Prado-Plaza-España.pdf</link>
+      <author>cgi@emtmadrid.es</author>
+      <pubDate>Sun, 08 Nov 2026 09:02:57 GMT</pubDate>
+      <rssfinaldate>08/12/2026 10:00:00</rssfinaldate>
+      <rsspublisher>cgi@emtmadrid.es</rsspublisher>
+      <rssAfectaDesde>11/11/2026 18:30:00</rssAfectaDesde>
+      <rssAfectaHasta>11/11/2026 22:30:00</rssAfectaHasta>
+      <GoogleTransitCause>04 - Manifestación</GoogleTransitCause>
+      <GoogleTransitEffect>05 - Desvío programado</GoogleTransitEffect>
+      <category>1</category>
+      <category>2</category>
+      <category>3</category>
+      <category>5</category>
+      <category>9</category>
+      <category>10</category>
+      <category>14</category>
+      <category>15</category>
+      <category>20</category>
+      <category>25</category>
+      <category>27</category>
+      <category>34</category>
+      <category>37</category>
+      <category>39</category>
+      <category>44</category>
+      <category>45</category>
+      <category>46</category>
+      <category>51</category>
+      <category>52</category>
+      <category>53</category>
+      <category>C1</category>
+      <category>C2</category>
+      <category>74</category>
+      <category>75</category>
+      <category>133</category>
+      <category>138</category>
+      <category>146</category>
+      <category>147</category>
+      <category>148</category>
+      <category>150</category>
+      <category>158</category>
+      <category>203</category>
+      <category>001</category>
+      <category>002</category>
+      <category>C03</category>
+      <category>E1</category>
+      <enclosure url="http://feeds.emtmadrid.es:8082/docs/20261111-M-Paseo-Prado-Plaza-España.pdf" type="application/pdf" length="73409" />
+      <MEDIA AltTitle="" AltDescription="" Format="" Type="" />
+    </item>
+<item>
+      <guid>3D9FA719-6967-40C6-9C08-35AA667EBF40</guid>
+      <title>Concentración en plaza de Cibeles. Afectadas 22 líneas de EMT.</title>
+      <description><![CDATA[ El 11 de noviembre de 11:30 a 13:30 horas aproximadamente, las líneas 001, 1, 2, 5, 9, 10, 14, 15, 20, 27, 34, 37, 45, 51, 52, 53, 74, 146, 150, C03, E1 y Exprés Aeropuerto, tendrán retenciones y modificaciones en sus itinerarios en plaza de Cibeles por concentración, según su desarrollo y de acuerdo con las restricciones de tráfico que realice Policía Municipal.  Ver más detalle en documento adjunto.<p><img src='http://feeds.emtmadrid.es:8082/images/00-Logo-RSS_Corporativo.png'/></p>]]></description>
+      <link>http://feeds.emtmadrid.es:8082/docs/20261111-C-Plaza-Cibeles.pdf</link>
+      <author>cgi@emtmadrid.es</author>
+      <pubDate>Sun, 08 Nov 2026 09:02:57 GMT</pubDate>
+      <rssfinaldate>08/12/2026 10:00:00</rssfinaldate>
+      <rsspublisher>cgi@emtmadrid.es</rsspublisher>
+      <rssAfectaDesde>11/11/2026 11:30:00</rssAfectaDesde>
+      <rssAfectaHasta>11/11/2026 13:30:00</rssAfectaHasta>
+      <GoogleTransitCause>04 - Manifestación</GoogleTransitCause>
+      <GoogleTransitEffect>05.01 - Desvío programado (L-V)</GoogleTransitEffect>
+      <category>1</category>
+      <category>2</category>
+      <category>5</category>
+      <category>9</category>
+      <category>10</category>
+      <category>14</category>
+      <category>15</category>
+      <category>20</category>
+      <category>27</category>
+      <category>34</category>
+      <category>37</category>
+      <category>45</category>
+      <category>51</category>
+      <category>52</category>
+      <category>53</category>
+      <category>74</category>
+      <category>146</category>
+      <category>150</category>
+      <category>203</category>
+      <category>001</category>
+      <category>C03</category>
+      <category>E1</category>
+      <enclosure url="http://feeds.emtmadrid.es:8082/docs/20261111-C-Plaza-Cibeles.pdf" type="application/pdf" length="72752" />
+      <MEDIA AltTitle="" AltDescription="" Format="" Type="" />
+    </item>
+  </channel>
+</rss>
