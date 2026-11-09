@@ -3,8 +3,9 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
-import { JourneyTimeline } from '../../components/journey';
-import { BrandHeader, Card, EmptyState, Notice, Screen } from '../../components/layout';
+import { shownTime } from '../../api/journeys';
+import { JourneyNotices, JourneyTimeline } from '../../components/journey';
+import { BrandHeader, Card, EmptyState, Screen } from '../../components/layout';
 import { changesLabel, PearlChain } from '../../components/planner';
 import { journeyCache } from '../../state/journeys';
 import { colors, space } from '../../theme';
@@ -32,8 +33,8 @@ export default function JourneyScreen() {
       header={
         <BrandHeader
           title={`${first.from} → ${last.to}`}
-          subtitle={`${formatTime(journey.departure.scheduled)} – ${formatTime(
-            journey.arrival.scheduled,
+          subtitle={`${formatTime(shownTime(journey.departure))} – ${formatTime(
+            shownTime(journey.arrival),
           )} · ${formatDuration(journey.duration_min)} · ${changesLabel(journey.transfers)}`}
           onBack={back}>
           {/* White strip: dark line colours (C4 navy) would vanish on the brand header. */}
@@ -42,11 +43,7 @@ export default function JourneyScreen() {
           </View>
         </BrandHeader>
       }>
-      {journey.is_preview ? (
-        <Notice tone="info" icon="eye-outline" title="Design preview">
-          Example journey to review the layout. Not real times.
-        </Notice>
-      ) : null}
+      <JourneyNotices journey={journey} />
       <Card style={{ marginTop: space.lg }}>
         <JourneyTimeline journey={journey} />
       </Card>

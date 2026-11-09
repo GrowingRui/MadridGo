@@ -5,31 +5,37 @@
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { type Journey, previewJourneys } from '../../api/journeys';
-import { JourneySummary, JourneyTimeline } from '../../components/journey';
-import { BrandHeader, Card, Divider, Notice, Screen, SectionTitle } from '../../components/layout';
+import { type Journey, planJourneys, type SortOption } from '../../api/journeys';
+import { JourneyNotices, JourneySummary, JourneyTimeline } from '../../components/journey';
 import {
-  ConnectionCard,
-  type PlaceFieldName,
-  PlannerCard,
-  WhenChips,
-} from '../../components/planner';
+  BrandHeader,
+  Card,
+  Divider,
+  EmptyState,
+  ErrorState,
+  Loading,
+  Notice,
+  Screen,
+  SectionTitle,
+} from '../../components/layout';
+import { ConnectionCard, type PlaceFieldName, PlannerCard } from '../../components/planner';
+import { OptionsSheet, TimeSheet, WhenBar } from '../../components/when';
 import { StopSuggestions } from '../../components/stopSearch';
 import { StopRow } from '../../components/stops';
-import { useIsWide, useNow, type PressState } from '../../hooks';
+import { useAsync, useIsWide, useNow, type PressState } from '../../hooks';
 import { journeyCache } from '../../state/journeys';
-import { type Place, setPlanner, swapPlaces, usePlanner } from '../../state/planner';
+import { DEFAULT_SORT, type Place, setPlanner, swapPlaces, usePlanner } from '../../state/planner';
 import { type SavedStop, addRecent, useSaved } from '../../state/saved';
 import { colors, space, type } from '../../theme';
 import { formatDay, formatTime } from '../../utils/time';
 
 export default function PlanScreen() {
-  const { from, to, when } = usePlanner();
+  const { from, to, when, arriveBy, sort } = usePlanner();
   const isWide = useIsWide();
-  const [offset, setOffset] = useState(0);
+  const [sheet, setSheet] = useState<'time' | 'options' | null>(null);
   // The field being typed into, in place in the header (no separate search page).
   const [editing, setEditing] = useState<PlaceFieldName | null>(null);
   const [text, setText] = useState('');
@@ -50,10 +56,6 @@ export default function PlanScreen() {
     if (editing === 'from' && !to) edit('to');
     else close();
   };
-  const changeWhen = (min: number) => {
-    setOffset(min);
-    setPlanner({ when: min ? Date.now() + min * 60_000 : null });
-  };
 
   const other = editing === 'from' ? to?.id : from?.id;
   const card = {
@@ -65,6 +67,17 @@ export default function PlanScreen() {
     onEdit: edit,
     onText: setText,
     onClose: close,
+    footer:
+      editing && !isWide ? null : (
+        <WhenBar
+          when={when}
+          arriveBy={arriveBy}
+          optionsActive={sort !== DEFAULT_SORT}
+          onOpenTime={() => setSheet('time')}
+          onNow={() => setPlanner({ when: null, arriveBy: false })}
+          onOpenOptions={() => setSheet('options')}
+        />
+      ),
   };
 
   const header = (
@@ -83,7 +96,6 @@ export default function PlanScreen() {
       ) : (
         <PlannerCard {...card} />
       )}
-      {editing && !isWide ? null : <WhenChips active={offset} onChange={changeWhen} />}
     </BrandHeader>
   );
 
@@ -94,10 +106,33 @@ export default function PlanScreen() {
         <StopSuggestions text={text} onPick={choose} exclude={other} />
       ) : ready ? (
         // Keyed so "Earlier/Later" and the selection reset when the search changes.
-        <Connections key={`${from.id}|${to.id}|${when}`} from={from} to={to} when={when} />
+        <Connections
+          key={`${from.id}|${to.id}|${when}|${arriveBy}|${sort}`}
+          from={from}
+          to={to}
+          when={when}
+          arriveBy={arriveBy}
+          sort={sort}
+        />
       ) : (
         <Start />
       )}
+      <TimeSheet
+        visible={sheet === 'time'}
+        when={when}
+        arriveBy={arriveBy}
+        onClose={() => setSheet(null)}
+        onApply={(w, a) => {
+          setPlanner({ when: w, arriveBy: a });
+          setSheet(null);
+        }}
+      />
+      <OptionsSheet
+        visible={sheet === 'options'}
+        sort={sort}
+        onClose={() => setSheet(null)}
+        onApply={(v) => setPlanner({ sort: v })}
+      />
     </Screen>
   );
 }
@@ -105,35 +140,62 @@ export default function PlanScreen() {
 // ---------------------------------------------------------------------------
 // Connections
 
-function Connections({ from, to, when }: { from: Place; to: Place; when: number | null }) {
+function Connections({
+  from,
+  to,
+  when,
+  arriveBy,
+  sort,
+}: {
+  from: Place;
+  to: Place;
+  when: number | null;
+  arriveBy: boolean;
+  sort: SortOption;
+}) {
   const isWide = useIsWide();
   const now = useNow();
-  const [base] = useState(() => when ?? Date.now()); // pin "now" when the search starts
-  const [shift, setShift] = useState(0);
+  // Earlier/Later pages come from the server's cursors; null is the first page.
+  const [cursor, setCursor] = useState<string | null>(null);
   const [selected, setSelected] = useState(0);
-  const start = base + shift * 60_000;
+  const plan = useAsync(
+    () => planJourneys({ from: from.id, to: to.id, at: when, arriveBy, sort, cursor }),
+    `${from.id}|${to.id}|${when}|${cursor ?? ''}`,
+  );
+  const data = plan.data;
 
-  const journeys = useMemo(() => {
-    const list = previewJourneys(from.name, to.name, new Date(start));
-    list.forEach((j) => journeyCache.set(j.id, j));
-    return list;
-  }, [from.name, to.name, start]);
+  useEffect(() => {
+    data?.journeys.forEach((j) => journeyCache.set(j.id, j));
+  }, [data]);
 
-  const page = (min: number) => {
-    setShift((s) => s + min);
+  if (!data) {
+    if (plan.error) return <ErrorState message={plan.error} onRetry={plan.reload} />;
+    return <Loading label="Finding connections…" />;
+  }
+
+  const page = (c: string | null) => {
+    if (!c) return;
+    setCursor(c);
     setSelected(0);
   };
   const open = (j: Journey, i: number) =>
     isWide ? setSelected(i) : router.push({ pathname: '/journey/[id]', params: { id: j.id } });
+  const searched = Date.parse(data.search_time);
 
   const list = (
     <>
       <Text style={styles.listHead}>
-        {formatDay(start)} · from {formatTime(start)}
+        {formatDay(searched)} · {data.arrive_by ? 'arrive by' : 'from'} {formatTime(searched)}
+        {plan.loading ? ' · updating…' : ''}
       </Text>
       <Card>
-        <PageLink label="Earlier connections" icon="chevron-up" onPress={() => page(-30)} />
-        {journeys.map((j, i) => (
+        <PageLink
+          label="Earlier connections"
+          icon="chevron-up"
+          disabled={!data.earlier_cursor || plan.loading}
+          onPress={() => page(data.earlier_cursor)}
+        />
+        {data.journeys.map((j, i) => (
           <View key={j.id}>
             <Divider />
             <ConnectionCard
@@ -144,40 +206,74 @@ function Connections({ from, to, when }: { from: Place; to: Place; when: number 
             />
           </View>
         ))}
+        {data.journeys.length === 0 ? (
+          <>
+            <Divider />
+            <EmptyState
+              icon="map-marker-off-outline"
+              title="No connections found"
+              body={data.message ?? 'Try another time or nearby stops.'}
+            />
+          </>
+        ) : null}
         <Divider />
-        <PageLink label="Later connections" icon="chevron-down" onPress={() => page(30)} />
+        <PageLink
+          label="Later connections"
+          icon="chevron-down"
+          disabled={!data.later_cursor || plan.loading}
+          onPress={() => page(data.later_cursor)}
+        />
       </Card>
       <Legend />
     </>
   );
 
-  const preview = (
-    <Notice tone="info" icon="eye-outline" title="Design preview">
-      Journey planning arrives in Phase 4. These connections are examples to review the layout, not
-      real times.
-    </Notice>
+  // Timetable problems (expired feeds), then operators whose live data is down or outdated.
+  const notices = (
+    <>
+      {data.notices.map((n) => (
+        <Notice
+          key={n.source}
+          tone={n.expiry === 'expired' ? 'danger' : 'warning'}
+          icon="calendar-alert">
+          {n.message}
+        </Notice>
+      ))}
+      {data.realtime
+        .filter((s) => s.status === 'stale' || s.status === 'unavailable')
+        .map((s) => (
+          <Notice key={s.feed} tone="info" icon="access-point-off" title={s.operator}>
+            {s.message}
+          </Notice>
+        ))}
+      {data.message && data.journeys.length ? (
+        <Notice tone="info" icon="information-outline">
+          {data.message}
+        </Notice>
+      ) : null}
+    </>
   );
 
   if (!isWide) {
     return (
       <>
-        {preview}
-        <View style={{ height: space.sm }} />
+        <View style={styles.notices}>{notices}</View>
         {list}
       </>
     );
   }
 
-  const current = journeys[selected] ?? journeys[0];
+  const current = data.journeys[selected] ?? data.journeys[0];
   return (
     <>
-      {preview}
+      <View style={styles.notices}>{notices}</View>
       <View style={styles.split}>
         <View style={styles.splitList}>{list}</View>
         <View style={styles.splitDetail}>
           {current ? (
             <Card style={styles.detailCard}>
               <JourneySummary journey={current} />
+              <JourneyNotices journey={current} />
               <Divider />
               <JourneyTimeline journey={current} />
             </Card>
@@ -192,21 +288,26 @@ function PageLink({
   label,
   icon,
   onPress,
+  disabled,
 }: {
   label: string;
   icon: 'chevron-up' | 'chevron-down';
   onPress: () => void;
+  disabled?: boolean;
 }) {
+  const color = disabled ? colors.textFaint : colors.brand;
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
       style={({ pressed, hovered }: PressState) => [
         styles.pageLink,
-        (pressed || hovered) && { backgroundColor: '#F7F8FA' },
+        !disabled && (pressed || hovered) && { backgroundColor: '#F7F8FA' },
       ]}>
-      <MaterialCommunityIcons name={icon} size={20} color={colors.brand} />
-      <Text style={styles.pageLinkText}>{label}</Text>
+      <MaterialCommunityIcons name={icon} size={20} color={color} />
+      <Text style={[styles.pageLinkText, { color }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -218,7 +319,8 @@ function Legend() {
       operator&apos;s real-time feed; a red <Text style={{ color: colors.delay }}>+4′</Text> is the
       delay. <Text style={{ fontWeight: '700' }}>Scheduled</Text> times are the official timetable.{' '}
       <Text style={{ color: colors.warning, fontWeight: '700' }}>Frequency</Text> lines publish only
-      “every N minutes”.
+      “every N minutes”. Changes are marked tight, at risk or uncertain when the time to change is
+      short or cannot be known.
     </Text>
   );
 }
@@ -305,6 +407,7 @@ const styles = StyleSheet.create({
     marginTop: space.md,
     lineHeight: 19,
   },
+  notices: { gap: space.sm, marginTop: space.lg, marginHorizontal: space.lg },
   split: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: space.sm },
   splitList: { width: 460 },
   splitDetail: { flex: 1, marginTop: space.lg },

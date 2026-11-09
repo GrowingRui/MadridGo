@@ -37,6 +37,8 @@ services:
       MADRIDGO_DATABASE_URL: postgresql://${POSTGRES_USER:-madridgo}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-madridgo}
       MADRIDGO_REDIS_URL: redis://redis:6379/0
       MADRIDGO_CORS_ORIGINS: ${MADRIDGO_CORS_ORIGINS:-http://localhost:8081}
+      # Journey planning (Phase 4): the OTP service of the `otp` profile.
+      MADRIDGO_OTP_URL: http://otp:8080
       # EMT MobilityLabs application credentials (backend only; never in the app).
       EMT_CLIENT_ID: ${EMT_CLIENT_ID:-}
       EMT_PASS_KEY: ${EMT_PASS_KEY:-}

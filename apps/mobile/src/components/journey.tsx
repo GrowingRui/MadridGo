@@ -5,11 +5,20 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { type Journey, type Leg, delayMin } from '../api/journeys';
+import { type Journey, type Leg, type Transfer, delayMin, shownTime } from '../api/journeys';
 import { colors, modeColors, space, type } from '../theme';
 import { formatDuration, formatTime } from '../utils/time';
+import { Notice } from './layout';
 import { changesLabel, PearlChain } from './planner';
-import { LinePill, MODE_LABEL, ModeIcon, StatusBadge, TimeWithDelay, lineColors } from './transit';
+import {
+  LinePill,
+  MODE_LABEL,
+  ModeIcon,
+  StatusBadge,
+  TimeWithDelay,
+  TransferBadge,
+  lineColors,
+} from './transit';
 
 /** "Parla → Atocha" with times, duration and the pearl chain; heads the website detail pane. */
 export function JourneySummary({ journey }: { journey: Journey }) {
@@ -21,12 +30,34 @@ export function JourneySummary({ journey }: { journey: Journey }) {
         {first.from} → {last.to}
       </Text>
       <Text style={styles.small}>
-        {formatTime(journey.departure.scheduled)} – {formatTime(journey.arrival.scheduled)} ·{' '}
+        {formatTime(shownTime(journey.departure))} – {formatTime(shownTime(journey.arrival))} ·{' '}
         {formatDuration(journey.duration_min)} · {changesLabel(journey.transfers)}
       </Text>
       <View style={{ marginTop: space.md }}>
         <PearlChain legs={journey.legs} />
       </View>
+    </View>
+  );
+}
+
+/** Problems first (not possible, cancelled), then operator alerts on the lines used. */
+export function JourneyNotices({ journey }: { journey: Journey }) {
+  if (journey.feasible && !journey.alerts.length) return null;
+  return (
+    <View style={{ gap: space.sm, marginTop: space.lg }}>
+      {!journey.feasible ? (
+        <Notice tone="danger" icon="close-octagon-outline" title="This connection is not possible">
+          {journey.issues.join(' ')}
+        </Notice>
+      ) : null}
+      {journey.alerts.slice(0, 3).map((a) => (
+        <Notice
+          key={`${a.source}:${a.source_alert_id}`}
+          tone="warning"
+          title={`Service alert · ${a.operator === 'EMT_MADRID' ? 'EMT Madrid' : 'Renfe Cercanías'}`}>
+          {a.header ?? a.description ?? 'Service alert'}
+        </Notice>
+      ))}
     </View>
   );
 }
@@ -40,13 +71,12 @@ export function JourneyTimeline({ journey }: { journey: Journey }) {
         <Text style={[styles.colHead, styles.colHeadRight]}>Platform</Text>
       </View>
       {journey.legs.map((leg, i) => {
-        const next = journey.legs[i + 1];
+        // The change is noted right after the vehicle you get off, before any walk.
+        const change = journey.changes.find((c) => c.from_leg === i);
         return (
           <View key={i}>
             {leg.mode === 'walk' ? <WalkLeg leg={leg} /> : <TransitLeg leg={leg} />}
-            {next && leg.mode !== 'walk' && next.mode !== 'walk' ? (
-              <ChangeNote leg={leg} next={next} />
-            ) : null}
+            {change ? <ChangeNote change={change} /> : null}
           </View>
         );
       })}
@@ -54,14 +84,18 @@ export function JourneyTimeline({ journey }: { journey: Journey }) {
   );
 }
 
-function ChangeNote({ leg, next }: { leg: Leg; next: Leg }) {
-  const min = Math.round(
-    (Date.parse(next.departure.scheduled) - Date.parse(leg.arrival.scheduled)) / 60_000,
-  );
+function ChangeNote({ change }: { change: Transfer }) {
   return (
-    <View style={styles.change}>
+    <View style={styles.change} accessibilityLabel={`Change at ${change.at}. ${change.message}`}>
       <MaterialCommunityIcons name="swap-horizontal" size={16} color={colors.textMuted} />
-      <Text style={styles.small}>Change · {min} min</Text>
+      <View style={styles.changeBody}>
+        {change.label ? (
+          <TransferBadge label={change.label} />
+        ) : (
+          <StatusBadge status="frequency" text={`Wait up to ${change.wait_up_to_min} min`} />
+        )}
+        <Text style={styles.small}>{change.message}</Text>
+      </View>
     </View>
   );
 }
@@ -84,7 +118,7 @@ function WalkLeg({ leg }: { leg: Leg }) {
   );
 }
 
-function Platform({ value }: { value?: string }) {
+function Platform({ value }: { value?: string | null }) {
   return (
     <View style={styles.platformCol}>
       {value ? (
@@ -163,8 +197,8 @@ function TransitLeg({ leg }: { leg: Leg }) {
             <Text style={styles.small}>{formatDuration(leg.duration_min)}</Text>
           )}
           {open
-            ? leg.intermediate.map((s) => (
-                <View key={s.name} style={styles.inter}>
+            ? leg.intermediate.map((s, k) => (
+                <View key={`${k}:${s.name}`} style={styles.inter}>
                   <Text style={styles.interTime}>{formatTime(s.time)}</Text>
                   <Text style={styles.small}>{s.name}</Text>
                 </View>
@@ -247,9 +281,11 @@ const styles = StyleSheet.create({
     gap: space.sm,
     paddingLeft: space.sm,
   },
+  changeBody: { flex: 1, gap: 4 },
   change: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    paddingRight: space.lg,
     gap: space.sm,
     marginLeft: space.lg + TIME_W + TRACK + space.sm,
     paddingVertical: space.sm,

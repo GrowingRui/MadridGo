@@ -81,6 +81,15 @@ docker compose -f infra/docker-compose.yml --env-file .env --profile otp up -d o
 
 The graph is about 280 MB. Serving it uses about 1.8 GB of RAM. The heap sizes can be changed with `OTP_BUILD_HEAP` and `OTP_HEAP` in `.env`.
 
+`GET /journeys` needs OTP running (Phase 4). Examples:
+
+```bash
+curl "http://localhost:8000/journeys?from=crtm:par_8_16825&to=renfe:18000"
+curl "http://localhost:8000/journeys?from_lat=40.4168&from_lon=-3.7038&to_lat=40.4531&to_lon=-3.6883&sort=fewest_transfers"
+```
+
+Options: `at` (ISO time), `arrive_by=true`, `sort` (`earliest_arrival`, `fastest`, `fewest_transfers`, `least_walking`) and `cursor` (the `earlier_cursor` or `later_cursor` of a previous answer). The API container reaches OTP at `http://otp:8080`. Outside Docker it uses `MADRIDGO_OTP_URL` (default `http://127.0.0.1:8080`). Without OTP, `/journeys` answers 503.
+
 ## Mobile app
 
 ```bash
@@ -95,7 +104,7 @@ npx expo start
 - `EXPO_PUBLIC_*` values are bundled into the app and are **public**. Never put API keys there. All provider credentials stay in the backend.
 - Phase 5 adds MapLibre, which needs an Expo **development build** instead of Expo Go.
 
-Screens: Plan, Departures (real scheduled stop boards), Saved and More (data status). Journey results use labelled **preview data** until the Phase 4 journeys API. On desktop browsers the website switches to its own layout (top navigation, planner in one row, connections and journey side by side). See [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md).
+Screens: Plan (journeys from `/journeys`), Departures (stop boards), Saved and More (data status). On desktop browsers the website switches to its own layout (top navigation, planner in one row, connections and journey side by side). See [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md).
 
 Checks: `npm run typecheck && npm run lint && npm test`
 

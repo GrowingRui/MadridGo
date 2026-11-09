@@ -1,0 +1,893 @@
+"""Journey planner API (Phase 4): `GET /journeys`.
+
+OTP finds itineraries; this module decides what MadridGo may say about them:
+
+- Times. Every leg keeps its scheduled time. A live estimate is added next to it only from
+  MadridGo's own, freshness-checked sources (Renfe GTFS-RT snapshot, EMT arrivals), with
+  provenance. OTP's own real-time fields are ignored: OTP does not say how old they are.
+- Frequency-based legs (EMT, Metro) are "every ~N min", never a precise time (R13).
+- Transfer labels per RELIABILITY_STRATEGY.md §5 (app/transfers.py).
+- Expired timetables are excluded from routing, and any itinerary that still uses one is
+  dropped (R6).
+"""
+
+import asyncio
+import hashlib
+from collections import defaultdict
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
+from typing import Annotated, Any, Literal
+
+import asyncpg
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.dbpool import get_pool
+from app.feeds import ExpiryState, expiry_state
+from app.ingest.sources import SOURCES_BY_KEY
+from app.otp import OtpClient, OtpUnavailable, get_otp
+from app.realtime import board as live
+from app.realtime import emt, renfe
+from app.realtime.board import SourceStatus, add_seconds
+from app.realtime.emt import LiveFetch
+from app.realtime.models import AlertSnapshot, FeedSnapshot, Freshness, RealtimeInfo, ServiceAlert
+from app.realtime.service import Realtime, get_realtime
+from app.stops import Line, _stop_summary
+from app.timetable import MADRID, display_name, mode_for, seconds_into
+from app.transfers import TransferLabel, TransferSide, worst
+from app.transfers import assess as assess_transfer
+
+router = APIRouter(tags=["journeys"])
+
+SortOption = Literal["earliest_arrival", "fastest", "fewest_transfers", "least_walking"]
+TimeStatus = Literal["live", "scheduled", "frequency", "cancelled"]
+
+# Live data is only matched to legs this close to now: Renfe trip IDs repeat on other days,
+# and EMT predicts at most ~45 min ahead.
+RENFE_WINDOW = (timedelta(hours=-2), timedelta(hours=3))
+EMT_WINDOW = (timedelta(minutes=-5), timedelta(minutes=45))
+MAX_EMT_STOPS = 6  # EMT calls per request, at most
+
+# OTP preferences per sort option. OTP returns a Pareto set; these shift it towards the
+# option, and the results are then sorted by it.
+_PREFERENCES: dict[SortOption, dict[str, int | float]] = {
+    "fewest_transfers": {"transferCost": 600},
+    "least_walking": {"walkReluctance": 5.0},
+}
+
+
+# ---------------------------------------------------------------------------
+# Response models
+
+
+class Place(BaseModel):
+    name: str
+    stop_id: str | None = None
+    lat: float
+    lon: float
+
+
+class LegTime(BaseModel):
+    scheduled: datetime  # always the timetable (or OTP's frequency-based estimate)
+    estimated: datetime | None = None  # only when status is "live"
+    # live: a live estimate exists; scheduled: timetable only; frequency: headway-based
+    # service, the time is approximate; cancelled: the operator cancelled the trip.
+    status: TimeStatus = "scheduled"
+    platform: str | None = None
+    realtime: RealtimeInfo | None = None  # provenance of `estimated` or of the cancellation
+
+    @property
+    def best(self) -> datetime:
+        return self.estimated if self.estimated is not None else self.scheduled
+
+
+class LegStop(BaseModel):
+    name: str
+    stop_id: str | None
+    time: datetime  # scheduled
+
+
+class Leg(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    mode: str  # walk | rail | metro | light_rail | bus
+    line: Line | None = None
+    headsign: str | None = None
+    trip_id: str | None = None  # global: {feed}:{native}
+    from_: str = Field(alias="from")
+    to: str
+    from_stop_id: str | None = None
+    to_stop_id: str | None = None
+    departure: LegTime
+    arrival: LegTime
+    duration_min: int
+    distance_m: int | None = None
+    headway_min: int | None = None  # frequency-based legs only
+    intermediate: list[LegStop] = []
+
+
+class Transfer(BaseModel):
+    """A change between two vehicles."""
+
+    at: str  # where you get off
+    stop_id: str | None
+    from_leg: int  # index into legs
+    to_leg: int
+    walk_min: int
+    label: TransferLabel | None  # None: onto a frequent service (see wait_up_to_min)
+    margin_min: int | None
+    wait_up_to_min: int | None
+    basis: Literal["live", "scheduled"]
+    message: str
+
+
+class Journey(BaseModel):
+    id: str
+    departure: LegTime
+    arrival: LegTime
+    duration_min: int
+    transfers: int
+    walk_min: int
+    legs: list[Leg]
+    changes: list[Transfer]
+    reliability: TransferLabel | None  # the worst change; None without changes
+    feasible: bool
+    issues: list[str]
+    data_quality: Literal["scheduled", "partly_live"]
+    alerts: list[ServiceAlert] = []
+    is_preview: Literal[False] = False
+
+
+class DataNotice(BaseModel):
+    source: str
+    operator: str
+    expiry: ExpiryState
+    service_end: date | None
+    message: str
+
+
+class JourneyPlan(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    from_: Place = Field(alias="from")
+    to: Place
+    generated_at: datetime
+    search_time: datetime
+    arrive_by: bool
+    sort: SortOption
+    journeys: list[Journey]
+    # Opaque OTP cursors for "Earlier" and "Later" connections.
+    earlier_cursor: str | None
+    later_cursor: str | None
+    notices: list[DataNotice]
+    realtime: list[SourceStatus]
+    # When nothing (or only walking) is found: OTP's reason, and a sentence for the user.
+    routing_error: str | None = None
+    message: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Static data needed around routing (a dependency, so tests can replace it)
+
+
+@dataclass(frozen=True)
+class FeedInfo:
+    service_end: dict[str, date | None]  # active feeds
+    route_ids: dict[str, list[str]]  # native route ids of expired feeds (for exclusion)
+
+
+class StaticData:
+    def __init__(self, pool: asyncpg.Pool) -> None:
+        self.pool = pool
+
+    async def place(self, stop_id: str) -> Place:
+        summary, _ = await _stop_summary(self.pool, stop_id)  # 404 if unknown
+        if summary.lat is None or summary.lon is None:
+            raise HTTPException(status_code=422, detail=f"Stop {stop_id} has no location")
+        return Place(name=summary.name, stop_id=summary.id, lat=summary.lat, lon=summary.lon)
+
+    async def feeds(self, today: date) -> FeedInfo:
+        rows = await self.pool.fetch(
+            "SELECT id, source, service_end FROM feed_version WHERE is_active"
+        )
+        ends = {r["source"]: r["service_end"] for r in rows}
+        expired = [
+            r["id"]
+            for r in rows
+            if r["source"] in SOURCES_BY_KEY
+            and expiry_state(r["service_end"], today, 0)[0] == "expired"
+        ]
+        routes: dict[str, list[str]] = defaultdict(list)
+        if expired:
+            for r in await self.pool.fetch(
+                "SELECT fv.source, r.native_id FROM route r "
+                "JOIN feed_version fv ON fv.id = r.feed_version_id WHERE fv.id = ANY($1::int[])",
+                expired,
+            ):
+                routes[r["source"]].append(r["native_id"])
+        return FeedInfo(service_end=ends, route_ids=dict(routes))
+
+    async def frequencies(
+        self, trips: list[tuple[str, str]]
+    ) -> dict[tuple[str, str], list[tuple[int, int, int]]]:
+        """(feed, native trip id) -> [(start_s, end_s, headway_s)] for frequency-based trips."""
+        if not trips:
+            return {}
+        rows = await self.pool.fetch(
+            """
+            SELECT fv.source, f.trip_id, f.start_s, f.end_s, f.headway_s
+            FROM unnest($1::text[], $2::text[]) AS q(source, trip_id)
+            JOIN feed_version fv ON fv.is_active AND fv.source = q.source
+            JOIN frequency f ON f.feed_version_id = fv.id AND f.trip_id = q.trip_id
+            """,
+            [t[0] for t in trips],
+            [t[1] for t in trips],
+        )
+        out: dict[tuple[str, str], list[tuple[int, int, int]]] = defaultdict(list)
+        for r in rows:
+            out[(r["source"], r["trip_id"])].append((r["start_s"], r["end_s"], r["headway_s"]))
+        return dict(out)
+
+
+def get_clock() -> Callable[[], datetime]:
+    return lambda: datetime.now(MADRID)
+
+
+def get_static(pool: Annotated[asyncpg.Pool, Depends(get_pool)]) -> StaticData:
+    return StaticData(pool)
+
+
+# ---------------------------------------------------------------------------
+# OTP -> legs
+
+
+def _dt(value: str) -> datetime:
+    return datetime.fromisoformat(value).astimezone(MADRID)
+
+
+def split_id(gtfs_id: str) -> tuple[str, str]:
+    """'cercanias:1012L27295C4a' -> ('cercanias', '1012L27295C4a')."""
+    feed, _, native = gtfs_id.partition(":")
+    return feed, native
+
+
+def global_stop_id(gtfs_id: str) -> str:
+    """OTP stop id -> MadridGo stop id ('interurban:par_8_16825' -> 'crtm:par_8_16825')."""
+    feed, native = split_id(gtfs_id)
+    src = SOURCES_BY_KEY.get(feed)
+    return f"{src.id_namespace if src else feed}:{native}"
+
+
+def headway_for(windows: list[tuple[int, int, int]], service_day: date, at: datetime) -> int:
+    """Headway in minutes of the frequency window a leg falls in. Windows are given for the
+    trip's first stop, so pick the latest window that started before the leg's time."""
+    s = seconds_into(service_day, at)
+    started = [w for w in windows if w[0] <= s]
+    w = max(started, key=lambda w: w[0]) if started else min(windows, key=lambda w: w[0])
+    return max(1, round(w[2] / 60))
+
+
+@dataclass
+class _Draft:
+    leg: Leg
+    feed: str | None = None
+    trip_native: str | None = None
+    from_native: str | None = None
+    to_native: str | None = None
+    service_day: date | None = None
+    interlined: bool = False
+    # The times OTP planned with (its own real-time estimate, else the timetable). Walks
+    # next to this leg are positioned against these.
+    otp_start: datetime | None = None
+    otp_end: datetime | None = None
+    duration_s: int = 0
+    passed: bool = False  # Renfe: the train is already beyond the boarding stop
+
+
+@dataclass
+class _Itinerary:
+    drafts: list[_Draft]
+    feeds: set[str] = field(default_factory=set)
+
+
+def _otp_time(t: dict[str, Any]) -> datetime:
+    est = t.get("estimated") or {}
+    return _dt(est["time"] if est.get("time") else t["scheduledTime"])
+
+
+def _name(place: dict[str, Any], fallback: str) -> str:
+    name = place.get("name")
+    return display_name(name) if name else fallback
+
+
+def parse_itinerary(node: dict[str, Any], origin: Place, destination: Place) -> _Itinerary:
+    drafts: list[_Draft] = []
+    feeds: set[str] = set()
+    legs = node["legs"]
+    for i, raw in enumerate(legs):
+        start = _dt(raw["start"]["scheduledTime"])
+        end = _dt(raw["end"]["scheduledTime"])
+        from_name = origin.name if i == 0 else _name(raw["from"], "")
+        to_name = destination.name if i == len(legs) - 1 else _name(raw["to"], "")
+        from_stop = (raw["from"].get("stop") or {}).get("gtfsId")
+        to_stop = (raw["to"].get("stop") or {}).get("gtfsId")
+        duration_s = round(raw.get("duration") or (end - start).total_seconds())
+        common: dict[str, Any] = {
+            "from": from_name or _name(raw["from"], "Start"),
+            "to": to_name or _name(raw["to"], "Destination"),
+            "from_stop_id": global_stop_id(from_stop) if from_stop else None,
+            "to_stop_id": global_stop_id(to_stop) if to_stop else None,
+            "departure": LegTime(scheduled=start),
+            "arrival": LegTime(scheduled=end),
+            "duration_min": max(0, round(duration_s / 60)),
+            "distance_m": round(raw["distance"]) if raw.get("distance") is not None else None,
+        }
+        if not raw.get("transitLeg") or raw.get("route") is None:
+            drafts.append(_Draft(leg=Leg(mode="walk", **common), duration_s=duration_s))
+            continue
+
+        route, trip = raw["route"], raw.get("trip") or {}
+        feed, route_native = split_id(route["gtfsId"])
+        feeds.add(feed)
+        trip_feed, trip_native = split_id(trip["gtfsId"]) if trip.get("gtfsId") else (feed, None)
+        line = Line(
+            source=feed,
+            route_id=route_native,
+            short_name=route.get("shortName") or route_native,
+            long_name=route.get("longName"),
+            mode=mode_for(int(route.get("type") or 3)),
+            color=route.get("color"),
+            text_color=route.get("textColor"),
+        )
+        headsign = raw.get("headsign") or trip.get("tripHeadsign")
+        intermediate = [
+            LegStop(
+                name=_name(p, "Stop"),
+                stop_id=global_stop_id(p["stop"]["gtfsId"]) if p.get("stop") else None,
+                time=_dt((p.get("departure") or p.get("arrival"))["scheduledTime"]),
+            )
+            for p in raw.get("intermediatePlaces") or []
+            if (p.get("departure") or p.get("arrival"))
+        ]
+        leg = Leg(
+            mode=line.mode,
+            line=line,
+            headsign=display_name(headsign) if headsign else None,
+            trip_id=f"{trip_feed}:{trip_native}" if trip_native else None,
+            intermediate=intermediate,
+            **common,
+        )
+        drafts.append(
+            _Draft(
+                leg=leg,
+                feed=feed,
+                trip_native=trip_native,
+                from_native=split_id(from_stop)[1] if from_stop else None,
+                to_native=split_id(to_stop)[1] if to_stop else None,
+                service_day=date.fromisoformat(raw["serviceDate"])
+                if raw.get("serviceDate")
+                else None,
+                interlined=bool(raw.get("interlineWithPreviousLeg")),
+                duration_s=duration_s,
+                otp_start=_otp_time(raw["start"]),
+                otp_end=_otp_time(raw["end"]),
+            )
+        )
+    return _Itinerary(drafts=drafts, feeds=feeds)
+
+
+def apply_frequencies(
+    its: list[_Itinerary], windows: dict[tuple[str, str], list[tuple[int, int, int]]]
+) -> None:
+    for it in its:
+        for d in it.drafts:
+            if d.feed is None or d.trip_native is None or d.service_day is None:
+                continue
+            w = windows.get((d.feed, d.trip_native))
+            if not w or d.leg.departure.status == "cancelled":
+                continue
+            d.leg.headway_min = headway_for(w, d.service_day, d.leg.departure.scheduled)
+            d.leg.departure.status = d.leg.arrival.status = "frequency"
+
+
+# ---------------------------------------------------------------------------
+# Live overlays
+
+
+def _near(t: datetime, now: datetime, window: tuple[timedelta, timedelta]) -> bool:
+    return now + window[0] <= t <= now + window[1]
+
+
+def overlay_renfe(
+    its: list[_Itinerary], snap: FeedSnapshot | None, fresh: Freshness, now: datetime
+) -> None:
+    for it in its:
+        for d in it.drafts:
+            if d.feed != "cercanias" or d.trip_native is None or d.from_native is None:
+                continue
+            leg = d.leg
+            if not _near(leg.departure.scheduled, now, RENFE_WINDOW):
+                continue
+            dep = live.renfe_train(
+                d.trip_native, d.from_native, leg.departure.scheduled, snap, fresh
+            )
+            if dep.passed:
+                d.passed = True
+                continue
+            if dep.info is not None and dep.info.classification == "CANCELLED":
+                for t in (leg.departure, leg.arrival):
+                    t.status, t.realtime, t.estimated = "cancelled", dep.info, None
+                continue
+            if dep.info is not None:
+                leg.departure.status = "live"
+                leg.departure.estimated = dep.info.predicted_time
+                leg.departure.platform = dep.info.platform
+                leg.departure.realtime = dep.info
+            if d.to_native is not None:
+                arr = live.renfe_train(
+                    d.trip_native, d.to_native, leg.arrival.scheduled, snap, fresh
+                )
+                if arr.info is not None and arr.info.classification == "LIVE":
+                    leg.arrival.status = "live"
+                    leg.arrival.estimated = arr.info.predicted_time
+                    leg.arrival.platform = arr.info.platform
+                    leg.arrival.realtime = arr.info
+
+
+def _walk_before(drafts: list[_Draft], i: int) -> tuple[int, int | None]:
+    """(walking seconds between the previous vehicle and leg i, index of that vehicle)."""
+    walk, j = 0, i - 1
+    while j >= 0 and drafts[j].leg.mode == "walk":
+        walk += drafts[j].duration_s
+        j -= 1
+    return walk, (j if j >= 0 else None)
+
+
+def emt_stops_to_fetch(its: list[_Itinerary], now: datetime) -> list[str]:
+    codes: list[str] = []
+    for it in its:
+        for d in it.drafts:
+            if (
+                d.feed == "emt"
+                and d.from_native
+                and d.leg.departure.status != "cancelled"
+                and _near(d.leg.departure.scheduled, now, EMT_WINDOW)
+                and d.from_native not in codes
+            ):
+                codes.append(d.from_native)
+    return codes[:MAX_EMT_STOPS]
+
+
+def overlay_emt(
+    its: list[_Itinerary], fetched: dict[str, LiveFetch], now: datetime, start: datetime
+) -> None:
+    """Board each EMT leg on the first live bus of its line that you can still reach.
+
+    EMT runs by headway, so there is no scheduled trip to compare with: delay_s stays null
+    and the arrival is the boarding estimate carried forward (marked as such)."""
+    for it in its:
+        for i, d in enumerate(it.drafts):
+            if d.feed != "emt" or d.from_native not in fetched or d.leg.line is None:
+                continue
+            data = fetched[d.from_native].data
+            fresh = live.emt_freshness(data, now)
+            walk, prev = _walk_before(it.drafts, i)
+            if prev is None:
+                # You can set off at the search time; OTP's start is planned backwards from
+                # its own estimate of the bus, so it may be later than needed.
+                ready = add_seconds(max(start, now), walk)
+            else:
+                ready = add_seconds(it.drafts[prev].leg.arrival.best, walk)
+            line = d.leg.line.short_name.upper()
+            options = [
+                (when, info)
+                for a, when, info in live.emt_live(data, fresh, now)
+                if a.line.upper() == line
+                and when is not None
+                and when >= ready - timedelta(seconds=30)
+            ]
+            if not options:
+                continue
+            when, info = min(options, key=lambda o: o[0])
+            leg = d.leg
+            shift = round((when - leg.departure.scheduled).total_seconds())
+            leg.departure = leg.departure.model_copy(
+                update={"status": "live", "estimated": when, "realtime": info}
+            )
+            arrive = add_seconds(leg.arrival.scheduled, shift)
+            leg.arrival = leg.arrival.model_copy(
+                update={
+                    "status": "live",
+                    "estimated": arrive,
+                    "realtime": info.model_copy(
+                        update={"predicted_time": arrive, "estimated_from_trip_delay": True}
+                    ),
+                }
+            )
+
+
+# ---------------------------------------------------------------------------
+# Journeys
+
+
+def _boundary(walk_time: datetime, ref: LegTime, otp_ref: datetime | None) -> LegTime:
+    """A time on the walk at the start or end of a journey.
+
+    OTP places that walk against the time it planned the vehicle with (`otp_ref`, which may
+    include OTP's own real-time delay). Move it to the timetable, and to MadridGo's live
+    estimate when there is one, so it matches what the vehicle leg shows."""
+    otp_ref = otp_ref or ref.scheduled
+    scheduled = add_seconds(walk_time, round((ref.scheduled - otp_ref).total_seconds()))
+    if ref.status == "cancelled":
+        return LegTime(scheduled=scheduled, status="cancelled", realtime=ref.realtime)
+    if ref.status != "live" or ref.estimated is None:
+        status: TimeStatus = "frequency" if ref.status == "frequency" else "scheduled"
+        return LegTime(scheduled=scheduled, status=status)
+    est = add_seconds(walk_time, round((ref.estimated - otp_ref).total_seconds()))
+    info = (
+        ref.realtime.model_copy(update={"predicted_time": est, "estimated_from_trip_delay": True})
+        if ref.realtime
+        else None
+    )
+    return LegTime(scheduled=scheduled, estimated=est, status="live", realtime=info)
+
+
+def _journey_id(legs: list[Leg]) -> str:
+    key = "|".join(
+        f"{lg.mode}:{lg.trip_id or ''}:{lg.departure.scheduled.isoformat()}:{lg.from_stop_id}"
+        for lg in legs
+    )
+    return hashlib.sha1(key.encode(), usedforsecurity=False).hexdigest()[:16]
+
+
+def build_journey(it: _Itinerary) -> Journey:
+    drafts = it.drafts
+    legs = [d.leg for d in drafts]
+    transit = [i for i, d in enumerate(drafts) if d.leg.mode != "walk"]
+
+    changes: list[Transfer] = []
+    for i in transit:
+        walk, prev = _walk_before(drafts, i)
+        if prev is None or drafts[i].interlined:
+            continue
+        a, b = legs[prev], legs[i]
+        res = assess_transfer(
+            TransferSide(
+                mode=a.mode,
+                time=a.arrival.best,
+                live=a.arrival.status == "live",
+                cancelled=a.arrival.status == "cancelled",
+                frequency_headway_min=a.headway_min if a.arrival.status == "frequency" else None,
+                stop_id=a.to_stop_id,
+            ),
+            TransferSide(
+                mode=b.mode,
+                time=b.departure.best,
+                live=b.departure.status == "live",
+                cancelled=b.departure.status == "cancelled",
+                frequency_headway_min=b.headway_min if b.departure.status == "frequency" else None,
+                stop_id=b.from_stop_id,
+            ),
+            walk,
+        )
+        changes.append(
+            Transfer(
+                at=a.to,
+                stop_id=a.to_stop_id,
+                from_leg=prev,
+                to_leg=i,
+                walk_min=round(walk / 60),
+                label=res.label,
+                margin_min=res.margin_s // 60 if res.margin_s is not None else None,
+                wait_up_to_min=res.wait_up_to_min,
+                basis="live" if a.arrival.status == "live" else "scheduled",
+                message=res.message,
+            )
+        )
+
+    issues: list[str] = []
+    for d in drafts:
+        lg = d.leg
+        name = lg.line.short_name if lg.line else lg.mode
+        when = lg.departure.scheduled.strftime("%H:%M")
+        if lg.departure.status == "cancelled":
+            issues.append(f"{name} {when} from {lg.from_} is cancelled.")
+        if d.passed:
+            issues.append(f"{name} {when} has already left {lg.from_}.")
+    issues += [f"Change at {c.at}: {c.message}" for c in changes if c.label == "not_feasible"]
+
+    first, last = legs[0], legs[-1]
+    if first.mode == "walk" and transit:
+        ref, otp_ref = legs[transit[0]].departure, drafts[transit[0]].otp_start
+        first.departure = _boundary(first.departure.scheduled, ref, otp_ref)
+        first.arrival = _boundary(first.arrival.scheduled, ref, otp_ref)
+    if last.mode == "walk" and transit:
+        ref, otp_ref = legs[transit[-1]].arrival, drafts[transit[-1]].otp_end
+        last.departure = _boundary(last.departure.scheduled, ref, otp_ref)
+        last.arrival = _boundary(last.arrival.scheduled, ref, otp_ref)
+    departure, arrival = first.departure, last.arrival
+
+    times = [t for lg in legs for t in (lg.departure, lg.arrival)]
+    # Live times at both ends give the expected duration; otherwise a live departure next to
+    # a timetable arrival would make the trip look shorter than it is.
+    both_live = departure.status == "live" and arrival.status == "live"
+    start, end = (
+        (departure.best, arrival.best) if both_live else (departure.scheduled, arrival.scheduled)
+    )
+    walk_s = sum(d.duration_s for d in drafts if d.leg.mode == "walk")
+    return Journey(
+        id=_journey_id(legs),
+        departure=departure,
+        arrival=arrival,
+        duration_min=round((end - start).total_seconds() / 60),
+        transfers=len(changes),
+        walk_min=round(walk_s / 60),
+        legs=legs,
+        changes=changes,
+        reliability=worst([c.label for c in changes]),
+        feasible=not issues,
+        issues=issues,
+        data_quality="partly_live"
+        if any(t.status in ("live", "cancelled") for t in times)
+        else "scheduled",
+    )
+
+
+def drop_slow_walks(journeys: list[Journey]) -> list[Journey]:
+    """OTP always adds a walk-only option. Keep it only if it is no slower than public
+    transport (or if there is nothing else)."""
+    transit = [j for j in journeys if any(lg.mode != "walk" for lg in j.legs)]
+    if not transit:
+        return journeys
+    fastest = min(j.duration_min for j in transit)
+    return [j for j in journeys if j in transit or j.duration_min <= fastest]
+
+
+def sort_journeys(journeys: list[Journey], sort: SortOption) -> list[Journey]:
+    def key(j: Journey) -> tuple[Any, ...]:
+        arr = j.arrival.best
+        primary: Any = {
+            "earliest_arrival": arr,
+            "fastest": j.duration_min,
+            "fewest_transfers": j.transfers,
+            "least_walking": j.walk_min,
+        }[sort]
+        return (not j.feasible, primary, arr, j.departure.best)
+
+    return sorted(journeys, key=key)
+
+
+def journey_alerts(snapshots: list[AlertSnapshot], j: Journey, now: datetime) -> list[ServiceAlert]:
+    lines: dict[str, set[str]] = defaultdict(set)
+    stops: dict[str, set[str]] = defaultdict(set)
+    for lg in j.legs:
+        if lg.line is None:
+            continue
+        lines[lg.line.source].add(lg.line.short_name)
+        for sid in (lg.from_stop_id, lg.to_stop_id):
+            if sid and sid.startswith("renfe:"):
+                stops["cercanias"].add(sid.split(":", 1)[1])
+        if lg.line.source == "emt" and lg.from_stop_id:
+            stops["emt"].add(lg.from_stop_id.split(":", 1)[1])
+    return live.alerts_for_stop(snapshots, dict(lines), dict(stops), now)
+
+
+# ---------------------------------------------------------------------------
+# Notices and messages
+
+ROUTING_MESSAGES = {
+    "NO_TRANSIT_CONNECTION": "No public transport connection found.",
+    "NO_TRANSIT_CONNECTION_IN_SEARCH_WINDOW": "No connection in this time window. "
+    "Try later connections.",
+    "OUTSIDE_SERVICE_PERIOD": "There is no timetable for this date yet.",
+    "OUTSIDE_BOUNDS": "Start or destination is outside the area MadridGo covers.",
+    "LOCATION_NOT_FOUND": "Start or destination could not be found on the map.",
+    "NO_STOPS_IN_RANGE": "There is no stop within walking distance of the start or destination.",
+    "WALKING_BETTER_THAN_TRANSIT": "It is quicker to walk.",
+    "NO_DIRECT_MODE_CONNECTION": "No connection found.",
+}
+
+
+def plan_notices(info: FeedInfo, used: set[str], today: date) -> list[DataNotice]:
+    out = []
+    for key, end in sorted(info.service_end.items()):
+        src = SOURCES_BY_KEY.get(key)
+        if src is None:
+            continue
+        state, days = expiry_state(end, today, src.expiry_warning_days)
+        if state == "expired":
+            msg = (
+                f"The official {src.operator_name} timetable expired on {end}. "
+                f"{src.operator_name} is not used in these journeys."
+            )
+        elif state == "expiring" and key in used:
+            msg = f"The {src.operator_name} timetable ends in {days} days."
+        else:
+            continue
+        out.append(
+            DataNotice(
+                source=key, operator=src.operator_name, expiry=state, service_end=end, message=msg
+            )
+        )
+    return out
+
+
+def _operator(feed: str) -> str:
+    src = SOURCES_BY_KEY.get(feed)
+    return src.operator_name if src else feed
+
+
+# ---------------------------------------------------------------------------
+# Endpoint
+
+
+def _coords(lat: float | None, lon: float | None, name: str) -> Place | None:
+    if lat is None or lon is None:
+        return None
+    return Place(name=name, lat=lat, lon=lon)
+
+
+Lat = Annotated[float | None, Query(ge=39.8, le=41.2)]
+Lon = Annotated[float | None, Query(ge=-4.6, le=-3.0)]
+
+
+@router.get("/journeys", response_model=JourneyPlan)
+async def journeys(
+    static: Annotated[StaticData, Depends(get_static)],
+    otp: Annotated[OtpClient, Depends(get_otp)],
+    rt: Annotated[Realtime, Depends(get_realtime)],
+    clock: Annotated[Callable[[], datetime], Depends(get_clock)],
+    from_: Annotated[str | None, Query(alias="from", description="Start stop id")] = None,
+    to: Annotated[str | None, Query(description="Destination stop id")] = None,
+    from_lat: Lat = None,
+    from_lon: Lon = None,
+    to_lat: Lat = None,
+    to_lon: Lon = None,
+    at: Annotated[datetime | None, Query(description="Departure time; default now")] = None,
+    arrive_by: Annotated[bool, Query(description="`at` is the latest arrival")] = False,
+    sort: SortOption = "earliest_arrival",
+    cursor: Annotated[
+        str | None, Query(max_length=2000, description="earlier_cursor or later_cursor")
+    ] = None,
+    limit: Annotated[int, Query(ge=1, le=10)] = 5,
+) -> JourneyPlan:
+    """Journeys between two stops or points, with live times where MadridGo has an
+    authorized source and a reliability label for each change."""
+    origin = await static.place(from_) if from_ else _coords(from_lat, from_lon, "Start")
+    destination = await static.place(to) if to else _coords(to_lat, to_lon, "Destination")
+    if origin is None or destination is None:
+        raise HTTPException(
+            status_code=422, detail="Give from/to stop ids, or from_lat/from_lon and to_lat/to_lon"
+        )
+
+    now = clock()
+    when = (at.astimezone(MADRID) if at.tzinfo else at.replace(tzinfo=MADRID)) if at else now
+    info = await static.feeds(now.date())
+    excluded = [f"{feed}:{r}" for feed, routes in info.route_ids.items() for r in routes]
+
+    def loc(p: Place) -> dict[str, Any]:
+        return {
+            "label": p.name,
+            "location": {"coordinate": {"latitude": p.lat, "longitude": p.lon}},
+        }
+
+    variables: dict[str, Any] = {
+        "origin": loc(origin),
+        "destination": loc(destination),
+        "first": limit,
+        "exclude": excluded,
+        **_PREFERENCES.get(sort, {}),
+    }
+    if cursor:
+        # OTP cursors carry the search time and window; "b:" pages back, "a:" forward.
+        direction, _, token = cursor.partition(":")
+        if direction not in ("a", "b") or not token:
+            raise HTTPException(status_code=422, detail="Invalid cursor")
+        variables["after" if direction == "a" else "before"] = token
+    else:
+        key = "latestArrival" if arrive_by else "earliestDeparture"
+        variables["dateTime"] = {key: when.isoformat()}
+    try:
+        data = await otp.plan(variables)
+    except OtpUnavailable as exc:
+        raise HTTPException(
+            status_code=503, detail="Journey planning is unavailable right now. Try again soon."
+        ) from exc
+
+    its = [parse_itinerary(e["node"], origin, destination) for e in data.get("edges") or []]
+    # R6: never return an itinerary on an expired timetable, even if OTP found one.
+    its = [it for it in its if not (it.feeds & set(info.route_ids))]
+    trips = sorted(
+        {
+            (d.feed, d.trip_native)
+            for it in its
+            for d in it.drafts
+            if d.feed is not None and d.trip_native is not None
+        }
+    )
+    apply_frequencies(its, await static.frequencies(trips))
+
+    used = set().union(*(it.feeds for it in its)) if its else set()
+    statuses: list[SourceStatus] = []
+    snap = await rt.renfe_snapshot() if "cercanias" in used else None
+    if "cercanias" in used:
+        fresh = live.renfe_freshness(snap, now)
+        overlay_renfe(its, snap, fresh, now)
+        statuses.append(
+            live.live_status(
+                "cercanias",
+                _operator("cercanias"),
+                renfe.SOURCE,
+                renfe.ATTRIBUTION,
+                fresh,
+                snap.retrieved_at if snap else None,
+                snap.source_timestamp if snap else None,
+            )
+        )
+    if "emt" in used:
+        codes = emt_stops_to_fetch(its, now)
+        results = await asyncio.gather(*(rt.emt_arrivals(c) for c in codes))
+        fetched = dict(zip(codes, results, strict=True))
+        overlay_emt(its, fetched, now, when)
+        statuses.append(_emt_status(list(results), now))
+    for feed in sorted(used - {"cercanias", "emt"}):
+        statuses.append(live.no_realtime_status(feed, _operator(feed)))
+
+    built: dict[str, Journey] = {}
+    for it in its:
+        j = build_journey(it)
+        built.setdefault(j.id, j)  # OTP can return the same itinerary twice
+    result = sort_journeys(drop_slow_walks(list(built.values())), sort)
+    alert_snaps = await rt.alert_snapshots()
+    if alert_snaps:
+        result = [
+            j.model_copy(update={"alerts": journey_alerts(alert_snaps, j, now)}) for j in result
+        ]
+
+    errors = [e.get("code") for e in data.get("routingErrors") or []]
+    code = errors[0] if errors else None
+    page = data.get("pageInfo") or {}
+    return JourneyPlan(
+        **{"from": origin},
+        to=destination,
+        generated_at=now,
+        search_time=_dt(data["searchDateTime"]) if data.get("searchDateTime") else when,
+        arrive_by=arrive_by,
+        sort=sort,
+        journeys=result,
+        earlier_cursor=f"b:{page['startCursor']}" if page.get("hasPreviousPage") else None,
+        later_cursor=f"a:{page['endCursor']}" if page.get("hasNextPage") else None,
+        notices=plan_notices(info, used, now.date()),
+        realtime=statuses,
+        routing_error=code,
+        message=ROUTING_MESSAGES.get(code or "", "No connection found.") if code else None,
+    )
+
+
+def _emt_status(results: list[LiveFetch], now: datetime) -> SourceStatus:
+    if not results:
+        return SourceStatus(
+            feed="emt",
+            operator=_operator("emt"),
+            source=emt.SOURCE,
+            status="not_available",
+            message="Live EMT times are shown for buses leaving in the next 45 minutes.",
+            attribution=emt.ATTRIBUTION,
+        )
+    # The oldest answer speaks for all EMT legs, so the status never looks better than the
+    # worst leg. Any failed stop makes it unavailable.
+    failed = [r for r in results if r.data is None]
+    data = (
+        None if failed else min((r.data for r in results if r.data), key=lambda d: d.retrieved_at)
+    )
+    return live.live_status(
+        "emt",
+        _operator("emt"),
+        emt.SOURCE,
+        emt.ATTRIBUTION,
+        live.emt_freshness(data, now),
+        data.retrieved_at if data else None,
+        None,
+        error=failed[0].error if failed else None,
+    )

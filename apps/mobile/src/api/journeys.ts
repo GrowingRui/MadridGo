@@ -1,35 +1,61 @@
-// Journey types for the Phase 4 /journeys API, plus PREVIEW data so the planner screens can be
-// designed and reviewed now. Preview journeys are always shown with a "Preview" banner and are
-// never presented as real times.
+// Types and call for the backend's journey planner (services/api/app/journeys.py).
 
-import type { Line, Mode } from './stops';
+import { getJson } from './client';
+import type { DataNotice, Line, Mode, RealtimeInfo, ServiceAlert, SourceStatus } from './stops';
 
-export type TimeStatus = 'live' | 'scheduled' | 'frequency';
+/**
+ * live: a live estimate exists (`estimated`); scheduled: timetable only; frequency: a
+ * headway-based service, so the time is approximate; cancelled: the operator cancelled it.
+ */
+export type TimeStatus = 'live' | 'scheduled' | 'frequency' | 'cancelled';
 
 export interface LegTime {
   scheduled: string; // ISO time
-  estimated?: string; // ISO time, only when status is 'live'
+  estimated?: string | null; // ISO time, only when status is 'live'
   status: TimeStatus;
-  platform?: string;
+  platform?: string | null;
+  /** Where the live estimate (or the cancellation) comes from. */
+  realtime?: RealtimeInfo | null;
 }
 
 export interface LegStop {
   name: string;
+  stop_id?: string | null;
   time: string;
 }
 
 export interface Leg {
   mode: Mode | 'walk';
-  line?: Line;
-  headsign?: string;
+  line?: Line | null;
+  headsign?: string | null;
+  trip_id?: string | null;
   from: string;
   to: string;
+  from_stop_id?: string | null;
+  to_stop_id?: string | null;
   departure: LegTime;
   arrival: LegTime;
   duration_min: number;
-  distance_m?: number;
-  headway_min?: number;
+  distance_m?: number | null;
+  headway_min?: number | null;
   intermediate: LegStop[];
+}
+
+/** RELIABILITY_STRATEGY.md §5. No percentages until a delay model is validated. */
+export type TransferLabel = 'comfortable' | 'tight' | 'at_risk' | 'not_feasible' | 'uncertain';
+
+export interface Transfer {
+  at: string;
+  stop_id: string | null;
+  from_leg: number;
+  to_leg: number;
+  walk_min: number;
+  /** null: onto a frequent service, see wait_up_to_min. */
+  label: TransferLabel | null;
+  margin_min: number | null;
+  wait_up_to_min: number | null;
+  basis: 'live' | 'scheduled';
+  message: string;
 }
 
 export interface Journey {
@@ -40,149 +66,86 @@ export interface Journey {
   transfers: number;
   walk_min: number;
   legs: Leg[];
+  changes: Transfer[];
+  /** The worst change; null without changes (or only changes onto frequent services). */
+  reliability: TransferLabel | null;
+  feasible: boolean;
+  issues: string[];
+  data_quality: 'scheduled' | 'partly_live';
+  alerts: ServiceAlert[];
   is_preview: boolean;
 }
 
-/** Minutes of delay on a live time (0 when on time or not live). */
+export interface JourneyPlace {
+  name: string;
+  stop_id: string | null;
+  lat: number;
+  lon: number;
+}
+
+export type SortOption = 'earliest_arrival' | 'fastest' | 'fewest_transfers' | 'least_walking';
+
+export interface JourneyPlan {
+  from: JourneyPlace;
+  to: JourneyPlace;
+  generated_at: string;
+  search_time: string;
+  arrive_by: boolean;
+  sort: SortOption;
+  journeys: Journey[];
+  earlier_cursor: string | null;
+  later_cursor: string | null;
+  notices: DataNotice[];
+  realtime: SourceStatus[];
+  routing_error: string | null;
+  message: string | null;
+}
+
+export interface PlanParams {
+  from: string; // stop id
+  to: string;
+  at?: number | null; // ms; omitted: now
+  arriveBy?: boolean;
+  sort?: SortOption;
+  cursor?: string | null; // earlier_cursor or later_cursor of a previous answer
+}
+
+/** Routing can take a few seconds (OTP); allow more than the default timeout. */
+const PLAN_TIMEOUT_MS = 15_000;
+
+export function planJourneys(p: PlanParams, fetchImpl: typeof fetch = fetch): Promise<JourneyPlan> {
+  return getJson<JourneyPlan>(
+    '/journeys',
+    {
+      from: p.from,
+      to: p.to,
+      at: p.cursor || p.at == null ? undefined : new Date(p.at).toISOString(),
+      arrive_by: p.arriveBy ? 'true' : undefined,
+      sort: p.sort,
+      cursor: p.cursor ?? undefined,
+    },
+    PLAN_TIMEOUT_MS,
+    fetchImpl,
+  );
+}
+
+/**
+ * Minutes of delay on a live time (0 when on time, not live, or not comparable). Headway
+ * services (EMT) have no timetable to compare with: the source sends no delay, so none is shown.
+ */
 export function delayMin(t: LegTime): number {
   if (t.status !== 'live' || !t.estimated) return 0;
+  if (t.realtime && t.realtime.delay_s == null) return 0;
   return Math.round((Date.parse(t.estimated) - Date.parse(t.scheduled)) / 60_000);
 }
 
-// ---------------------------------------------------------------------------
-// Preview data (design review only)
-
-const line = (short_name: string, mode: Mode, color: string, source: string): Line => ({
-  source,
-  route_id: short_name,
-  short_name,
-  long_name: null,
-  mode,
-  color,
-  text_color: 'FFFFFF',
-});
-
-const C4 = line('C4', 'rail', '2C2A86', 'cercanias');
-const BUS3 = line('3', 'bus', '8EBF42', 'urban');
-const BUS469 = line('469', 'bus', '8EBF42', 'interurban');
-const ML1 = line('ML1', 'light_rail', '3A7DDA', 'ml');
-
-type LegDraft = Omit<Leg, 'departure' | 'arrival' | 'intermediate'> & { stops?: string[] };
-
-const at = (base: Date, plusMin: number) =>
-  new Date(base.getTime() + plusMin * 60_000).toISOString();
-
-function makeJourney(
-  id: string,
-  base: Date,
-  offset: number,
-  drafts: LegDraft[],
-  delay = 0,
-): Journey {
-  let t = offset;
-  const legs: Leg[] = drafts.map((d, i) => {
-    const dep = t;
-    t += d.duration_min + (i < drafts.length - 1 ? 3 : 0); // 3 min to change
-    const live = d.mode === 'rail'; // Renfe has real-time data; other modes are scheduled
-    const status: TimeStatus = live ? 'live' : d.headway_min ? 'frequency' : 'scheduled';
-    const { stops = [], ...rest } = d;
-    return {
-      ...rest,
-      intermediate: stops.map((name, k) => ({
-        name,
-        time: at(base, dep + ((k + 1) * d.duration_min) / (stops.length + 1)),
-      })),
-      departure: {
-        scheduled: at(base, dep),
-        estimated: live ? at(base, dep + delay) : undefined,
-        status,
-        platform: d.mode === 'rail' ? '1' : undefined,
-      },
-      arrival: {
-        scheduled: at(base, dep + d.duration_min),
-        estimated: live ? at(base, dep + d.duration_min + delay) : undefined,
-        status: live ? 'live' : 'scheduled',
-        platform: d.mode === 'rail' ? '4' : undefined,
-      },
-    };
-  });
-  const transit = legs.filter((l) => l.mode !== 'walk');
-  return {
-    id,
-    departure: legs[0].departure,
-    arrival: legs[legs.length - 1].arrival,
-    duration_min: t - offset,
-    transfers: Math.max(0, transit.length - 1),
-    walk_min: legs.filter((l) => l.mode === 'walk').reduce((s, l) => s + l.duration_min, 0),
-    legs,
-    is_preview: true,
-  };
-}
-
-/** Example journeys starting near `now`, for design review only. */
-export function previewJourneys(from: string, to: string, now = new Date()): Journey[] {
-  const base = new Date(Math.ceil(now.getTime() / 300_000) * 300_000); // next 5-minute mark
-  const walk = (a: string, b: string, min: number): LegDraft => ({
-    mode: 'walk',
-    from: a,
-    to: b,
-    duration_min: min,
-    distance_m: min * 75,
-  });
-  const c4: LegDraft = {
-    mode: 'rail',
-    line: C4,
-    headsign: 'Alcobendas - San Sebastián de los Reyes',
-    from: 'Parla',
-    to: 'Madrid - Atocha Cercanías',
-    duration_min: 29,
-    stops: ['Getafe Sector 3', 'Getafe Centro', 'Villaverde Alto', 'Doce de Octubre'],
-  };
-  return [
-    makeJourney('p1', base, 4, [walk(from, 'Parla', 8), c4, walk('Atocha Cercanías', to, 3)]),
-    makeJourney(
-      'p2',
-      base,
-      9,
-      [
-        {
-          mode: 'bus',
-          line: BUS3,
-          headsign: '9 de Junio - Hospital Infanta Cristina',
-          from,
-          to: 'Parla - Estación',
-          duration_min: 7,
-          stops: ['Av. Leguario - Pablo Gargallo'],
-        },
-        c4,
-        walk('Atocha Cercanías', to, 3),
-      ],
-      4,
-    ),
-    makeJourney('p3', base, 18, [
-      {
-        mode: 'bus',
-        line: BUS469,
-        headsign: 'Madrid (Legazpi)',
-        from,
-        to: 'Legazpi',
-        duration_min: 41,
-        stops: ['Parla - Centro', 'Pinto', 'Getafe'],
-      },
-      walk('Legazpi', to, 14),
-    ]),
-    makeJourney('p4', base, 30, [
-      walk(from, 'Parla', 8),
-      c4,
-      {
-        mode: 'light_rail',
-        line: ML1,
-        headsign: 'Las Tablas',
-        from: 'Atocha',
-        to,
-        duration_min: 6,
-        headway_min: 7,
-      },
-    ]),
-  ];
+/**
+ * The time to print. Normally the scheduled time (the delay is shown next to it). A live time
+ * with no delay to compare with (headway services) is printed as the live time itself.
+ */
+export function shownTime(t: LegTime): string {
+  if (t.status === 'live' && t.estimated && t.realtime && t.realtime.delay_s == null) {
+    return t.estimated;
+  }
+  return t.scheduled;
 }
