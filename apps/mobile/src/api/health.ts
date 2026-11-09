@@ -26,7 +26,7 @@ export const DEFAULT_TIMEOUT_MS = 5000;
 
 export function getApiBaseUrl(): string {
   // EXPO_PUBLIC_* values are inlined into the bundle and are public: never put secrets there.
-  const url = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
+  const url = process.env.EXPO_PUBLIC_API_URL ?? 'http://127.0.0.1:8000';
   return url.replace(/\/+$/, '');
 }
 
