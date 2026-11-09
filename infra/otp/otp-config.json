@@ -1,0 +1,6 @@
+{
+  "configVersion": "madridgo-phase2",
+  "otpFeatures": {
+    "GtfsGraphQlApi": true
+  }
+}

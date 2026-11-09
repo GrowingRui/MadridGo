@@ -1,0 +1,16 @@
+{
+  "configVersion": "madridgo-phase2",
+  "server": {
+    "apiProcessingTimeout": "7s"
+  },
+  "routingDefaults": {
+    "walkSpeed": 1.25,
+    "transferSlack": "2m",
+    "numItineraries": 5,
+    "searchWindow": "60m"
+  },
+  "transit": {
+    "maxNumberOfTransfers": 6
+  },
+  "updaters": []
+}

@@ -1,0 +1,16 @@
+{
+  "configVersion": "madridgo-phase2",
+  "dataImportReport": true,
+  "transitServiceStart": "-P7D",
+  "transitServiceEnd": "P6M",
+  "transitFeeds": [
+    { "type": "gtfs", "feedId": "metro", "source": "metro-gtfs.zip" },
+    { "type": "gtfs", "feedId": "ml", "source": "ml-gtfs.zip" },
+    { "type": "gtfs", "feedId": "cercanias", "source": "cercanias-gtfs.zip" },
+    { "type": "gtfs", "feedId": "interurban", "source": "interurban-gtfs.zip" },
+    { "type": "gtfs", "feedId": "urban", "source": "urban-gtfs.zip" },
+    { "type": "gtfs", "feedId": "emt", "source": "emt-gtfs.zip" }
+  ],
+  "osm": [{ "source": "madrid.osm.pbf", "osmTagMapping": "default" }],
+  "osmCacheDataInMem": false
+}

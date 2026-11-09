@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     health_check_timeout_s: float = 2.0
     # Comma-separated origins allowed by CORS (Expo web dev server).
     cors_origins: str = "http://localhost:8081"
+    # Where downloaded feeds and OTP inputs live. Empty: the repo's data/ folder.
+    data_dir: str = ""
 
 
 @lru_cache

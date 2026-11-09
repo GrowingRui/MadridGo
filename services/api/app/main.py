@@ -1,13 +1,20 @@
 """FastAPI application entry point."""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import Annotated
 
+import asyncpg
 from fastapi import Depends, FastAPI, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import __version__
+from app import __version__, stops
 from app.config import Settings, get_settings
+from app.dbpool import close_pool, get_pool
+from app.feeds import FeedStatus, feed_statuses
 from app.health import Check, HealthResponse, make_database_check, make_redis_check, run_checks
+from app.timetable import MADRID
 
 
 def get_health_checks(settings: Annotated[Settings, Depends(get_settings)]) -> dict[str, Check]:
@@ -19,7 +26,13 @@ def get_health_checks(settings: Annotated[Settings, Depends(get_settings)]) -> d
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="MadridGo API", version=__version__)
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        yield
+        await close_pool()
+
+    app = FastAPI(title="MadridGo API", version=__version__, lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
@@ -43,6 +56,12 @@ def create_app() -> FastAPI:
             response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return result
 
+    @app.get("/feeds", response_model=list[FeedStatus], tags=["system"])
+    async def feeds(pool: Annotated[asyncpg.Pool, Depends(get_pool)]) -> list[FeedStatus]:
+        """Active static timetable versions, their validity and expiry state."""
+        return await feed_statuses(pool, datetime.now(MADRID).date())
+
+    app.include_router(stops.router)
     return app
 
 

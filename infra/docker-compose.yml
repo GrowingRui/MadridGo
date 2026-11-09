@@ -46,5 +46,32 @@ services:
       redis:
         condition: service_healthy
 
+  # OpenTripPlanner (Phase 2). Inputs come from `python -m app.ingest otp-prepare` (data/otp/).
+  # Build the graph once per data update:
+  #   docker compose -f infra/docker-compose.yml --profile otp-build run --rm otp-build
+  # Then serve it (http://127.0.0.1:8080):
+  #   docker compose -f infra/docker-compose.yml --profile otp up -d otp
+  otp-build:
+    image: opentripplanner/opentripplanner:2.10.0
+    profiles: ["otp-build"]
+    command: ["--build", "--save"]
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx${OTP_BUILD_HEAP:-5g}"
+    volumes: &otp-volumes
+      - ../data/otp:/var/opentripplanner
+      - ./otp/build-config.json:/var/opentripplanner/build-config.json:ro
+      - ./otp/router-config.json:/var/opentripplanner/router-config.json:ro
+      - ./otp/otp-config.json:/var/opentripplanner/otp-config.json:ro
+
+  otp:
+    image: opentripplanner/opentripplanner:2.10.0
+    profiles: ["otp"]
+    command: ["--load", "--serve"]
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx${OTP_HEAP:-3g}"
+    ports:
+      - "127.0.0.1:8080:8080"   # localhost only; the API is the public entry point
+    volumes: *otp-volumes
+
 volumes:
   db-data:

@@ -27,6 +27,15 @@
 - **Exit:** Parla → Atocha query returns a Cercanías C-4 itinerary; validator reports archived.
 - Depends on: Phase 1.
 
+**Status (2026-11-09): exit criteria met, pending review.**
+- All six CRTM feeds import in about 1.5 min in total (largest: EMT, 2.2 M stop times, 33 s). Imports are versioned and atomic, two versions are kept, and partial imports are cleaned up.
+- Validator v8.0.1 results (reports in `data/validation/`): Metro, ML, Cercanías and EMT have 0 errors. Interurban has 226 errors and urban 2,557, almost all `stop_time_with_arrival_before_previous_departure_time`. They are imported anyway, with the status recorded in `feed_version`.
+- OTP 2.10.0: graph build takes 4 min 12 s (5 GB heap); the graph is 279 MB; serving uses about 1.8 GB of RAM; a cold query takes 3.7 s. From stop 8_16825 to Atocha it returns C4a/C4b itineraries, with bus 3 or ML4 feeders.
+- Renfe GTFS-RT trip IDs match static IDs exactly (see DATA_SOURCE_ANALYSIS.md §4).
+- Stop boards answer in under 0.3 s for the largest interchange (Plaza de Castilla).
+- **Open decision (risk R1):** the Metro GTFS is still expired (last updated 2025-05-30). Metro gets no scheduled times and no routing; the app says so in red on affected stop boards. The options are listed in DATA_SOURCE_ANALYSIS.md §2.2.
+- Deferred: `shape` table (needed for the Phase 5 map), `stop_mapping` (Renfe ↔ CRTM station links) and `transfer_rule`.
+
 ## Phase 3 — Real-time (L)
 - Adapter framework (fetch, normalize, cache, breaker, metrics).
 - Renfe GTFS-RT adapter plus OTP GTFS-RT updater (TripUpdates, Alerts, VehiclePositions).

@@ -101,7 +101,7 @@ Feeds (all returned HTTP 200, no authentication, 2026-11-09): [V]
   - **Madrid network** (trip IDs prefixed `10`, coordinates within lat 40.03–40.64, lon −4.25 to −3.18): **75 vehicles** on C1, C2, C3, C4a, C4b, C5, C7, C8a, C8b, C10; 81 trip updates, 54 with positive delay.
   - Most trip updates carry **one** `stopTimeUpdate` plus a trip-level `delay`, so OTP must propagate the delay to later stops. Max observed delay was 5 760 s, an outlier to investigate.
   - Vehicle positions include `currentStatus`, `stopId`, a vehicle `timestamp` (true observation time), and labels such as `C1-23547-PLATF.(3)`, which encode the **platform**.
-- Trip IDs in RT (for example `3012L23547C1`) must be matched to the static GTFS. CRTM's Cercanías GTFS uses Renfe route IDs (`10T0001C1`) and stop IDs (`10000`); trip-ID matching is **to be verified in Phase 2** [U].
+- Trip IDs in RT (for example `3012L23547C1`) must be matched to the static GTFS. CRTM's Cercanías GTFS uses Renfe route IDs (`10T0001C1`) and stop IDs (`10000`); trip-ID matching **verified in Phase 2 (2026-11-09)**: all 78 Madrid trip updates (IDs `10…`) matched static trip IDs exactly, so no mapping table is needed. Unmatched IDs belong to other Renfe networks. [V]
 - Public map: https://tiempo-real.renfe.com (website, not an API). [V via secondary]
 
 ---
@@ -138,4 +138,4 @@ Google Maps, Moovit and others show Madrid real-time data, but their terms do no
 1. Register a MobilityLabs account (project owner) and confirm auth flow, quotas and response fields.
 2. Send the CRTM access request (template in CRTM_WIDGET_ANALYSIS.md §8), and ask about the expired Metro GTFS.
 3. Confirm Renfe licence for TripUpdates/VehiclePositions datasets on data.renfe.com.
-4. Phase 2: verify Renfe RT trip_id ↔ static trip_id matching.
+4. ~~Phase 2: verify Renfe RT trip_id ↔ static trip_id matching.~~ Done: IDs match exactly (§4).
