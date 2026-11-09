@@ -64,7 +64,10 @@ Licence for every item inspected: **https://www.crtm.es/licencia-de-uso** [V]. K
 - Arrival endpoint (from the official dataset page, https://datos.emtmadrid.es/es/dataset/tiempo-real-para-autobuses-de-emt/resource/ceb1c3a2-4a58-450b-8672-84e792016147): [V]
   - `https://openapi.emtmadrid.es/v3/transport/busemtmad/stops/<stopId>/arrives/all/`
   - Swagger operation `arrives_v2_transport_busemtmad_stops__stopId__arrives__lineArrive___post` (v2 `POST .../stops/{stopId}/arrives/{lineArrive}/`)
-- Authentication: API key / access token obtained from MobilityLabs. [V] The exact login flow (`/v2/mobilitylabs/user/login/` with `X-ClientId` + `passKey`, returning an `accessToken`) is documented by community libraries, **not yet verified against apidocs** [U].
+- Authentication (verified in the official apidoc data, https://apidocs.emtmadrid.es/api_data.js, 2026-11-09): [V]
+  - `GET /v?/mobilitylabs/user/login/` with **either** headers `email` + `password` (personal account) **or** `X-ClientId` + `passKey` (registered application). `X-ApiKey` is deprecated.
+  - The login returns an access token; data endpoints such as `POST v2/transport/busemtmad/stops/<stopId>/arrives/<lineArrive>/` take it in the `accessToken` header.
+  - **MadridGo uses `X-ClientId` + `passKey`** (application credentials, held only in the backend `.env`), never the owner's personal password.
 - Dataset licence label: **ODbL** (datos.emtmadrid.es resource page). [V]
 - Terms of use (https://mobilitylabs.emtmadrid.es/sip/terms-of-use): [V]
   - Commercial and non-commercial reuse allowed, including redistribution and derivative works.
