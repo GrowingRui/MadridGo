@@ -11,6 +11,7 @@ import type { Place } from '../state/planner';
 import { colors, modeColors, radius, space, type } from '../theme';
 import { countdown, formatDuration, formatTime } from '../utils/time';
 import { LinePill, ModeIcon, StatusBadge, TimeWithDelay, lineColors } from './transit';
+import type { PressState } from '../hooks';
 
 // ---------------------------------------------------------------------------
 // From / To
@@ -304,7 +305,7 @@ export function ConnectionCard({
       accessibilityLabel={`Departs ${formatTime(journey.departure.scheduled)}, arrives ${formatTime(
         journey.arrival.scheduled,
       )}, ${formatDuration(journey.duration_min)}, ${changesLabel(journey.transfers)}`}
-      style={({ pressed, hovered }) => [
+      style={({ pressed, hovered }: PressState) => [
         styles.conn,
         (pressed || hovered) && { backgroundColor: '#F7F8FA' },
         selected && styles.connSelected,

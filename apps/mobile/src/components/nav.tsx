@@ -5,6 +5,7 @@ import { router, usePathname } from 'expo-router';
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors, space, type, WIDE_MAX_WIDTH } from '../theme';
+import type { PressState } from '../hooks';
 
 const LINKS = [
   { label: 'Plan a journey', href: '/' as const },
@@ -41,7 +42,7 @@ export function TopNav() {
                 onPress={() => router.navigate(l.href)}
                 accessibilityRole="link"
                 accessibilityState={{ selected: active }}
-                style={({ hovered }) => [
+                style={({ hovered }: PressState) => [
                   styles.link,
                   active && styles.linkActive,
                   hovered && !active && styles.linkHover,

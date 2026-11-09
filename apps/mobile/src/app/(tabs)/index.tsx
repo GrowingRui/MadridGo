@@ -19,7 +19,7 @@ import {
 } from '../../components/planner';
 import { StopSuggestions } from '../../components/stopSearch';
 import { StopRow } from '../../components/stops';
-import { useIsWide, useNow } from '../../hooks';
+import { useIsWide, useNow, type PressState } from '../../hooks';
 import { journeyCache } from '../../state/journeys';
 import { type Place, setPlanner, swapPlaces, usePlanner } from '../../state/planner';
 import { type SavedStop, addRecent, useSaved } from '../../state/saved';
@@ -201,7 +201,7 @@ function PageLink({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      style={({ pressed, hovered }) => [
+      style={({ pressed, hovered }: PressState) => [
         styles.pageLink,
         (pressed || hovered) && { backgroundColor: '#F7F8FA' },
       ]}>

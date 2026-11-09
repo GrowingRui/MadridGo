@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, useWindowDimensions } from 'react-native';
+import { type PressableStateCallbackType, Platform, useWindowDimensions } from 'react-native';
 
 import { ApiError } from './api/client';
 
@@ -77,3 +77,9 @@ export function useIsWide(): boolean {
   const { width } = useWindowDimensions();
   return Platform.OS === 'web' && width >= WIDE_BREAKPOINT;
 }
+
+/**
+ * Pressable state including the web-only `hovered` flag (react-native-web sets it; the
+ * React Native types only declare it when Expo's generated expo-env.d.ts is present).
+ */
+export type PressState = PressableStateCallbackType & { hovered?: boolean };
