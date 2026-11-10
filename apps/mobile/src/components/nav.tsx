@@ -11,7 +11,6 @@ import type { PressState } from '../hooks';
 const LINKS = [
   { label: 'nav.plan', href: '/' as const },
   { label: 'nav.departures', href: '/departures' as const },
-  { label: 'nav.saved', href: '/saved' as const },
   { label: 'nav.status', href: '/more' as const },
 ] as const;
 

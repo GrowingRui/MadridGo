@@ -26,4 +26,12 @@ describe('planJourneys', () => {
     await planJourneys({ from: 'a', to: 'b', at: 1, cursor: 'a:XYZ=', sort: 'fastest' }, paged);
     expect(url(paged)).toMatch(/\/journeys\?from=a&to=b&sort=fastest&cursor=a%3AXYZ%3D$/);
   });
+
+  it('sends "Current location" as a point', async () => {
+    const fetchImpl = jest.fn(() => ok({ journeys: [] }));
+    await planJourneys({ from: { lat: 40.4168001, lon: -3.7038 }, to: 'renfe:18000' }, fetchImpl);
+    expect(url(fetchImpl)).toMatch(
+      /\/journeys\?from_lat=40\.41680&from_lon=-3\.70380&to=renfe%3A18000$/,
+    );
+  });
 });

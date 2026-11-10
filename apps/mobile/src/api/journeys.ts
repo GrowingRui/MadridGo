@@ -101,9 +101,12 @@ export interface JourneyPlan {
   message: string | null;
 }
 
+/** A stop id, or a point (the traveller's current location). */
+export type PlanPlace = string | { lat: number; lon: number };
+
 export interface PlanParams {
-  from: string; // stop id
-  to: string;
+  from: PlanPlace;
+  to: PlanPlace;
   at?: number | null; // ms; omitted: now
   arriveBy?: boolean;
   sort?: SortOption;
@@ -113,12 +116,17 @@ export interface PlanParams {
 /** Routing can take a few seconds (OTP); allow more than the default timeout. */
 const PLAN_TIMEOUT_MS = 15_000;
 
+function placeParams(end: 'from' | 'to', p: PlanPlace) {
+  if (typeof p === 'string') return { [end]: p };
+  return { [`${end}_lat`]: p.lat.toFixed(5), [`${end}_lon`]: p.lon.toFixed(5) };
+}
+
 export function planJourneys(p: PlanParams, fetchImpl: typeof fetch = fetch): Promise<JourneyPlan> {
   return getJson<JourneyPlan>(
     '/journeys',
     {
-      from: p.from,
-      to: p.to,
+      ...placeParams('from', p.from),
+      ...placeParams('to', p.to),
       at: p.cursor || p.at == null ? undefined : new Date(p.at).toISOString(),
       arrive_by: p.arriveBy ? 'true' : undefined,
       sort: p.sort,

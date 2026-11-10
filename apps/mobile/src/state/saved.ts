@@ -90,6 +90,10 @@ export function addRecent(stop: SavedStop) {
   persist({ ...saved, recents });
 }
 
+export function removeRecent(id: string) {
+  persist({ ...saved, recents: saved.recents.filter((r) => r.id !== id) });
+}
+
 export function clearRecents() {
   persist({ ...saved, recents: [] });
 }

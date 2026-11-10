@@ -161,6 +161,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "{line} {time} has already left {stop}.",
         "es": "El {line} de las {time} ya ha salido de {stop}.",
     },
+    "place.here": {
+        "en": "Your location",
+        "es": "Tu ubicación",
+    },
     "issue.change": {
         "en": "Change at {stop}: {message}",
         "es": "Transbordo en {stop}: {message}",

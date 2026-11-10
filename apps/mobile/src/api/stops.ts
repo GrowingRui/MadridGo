@@ -177,8 +177,8 @@ export interface FeedStatus {
 export const searchStops = (q: string, limit = 15) =>
   getJson<StopSummary[]>('/stops/search', { q, limit });
 
-export const nearbyStops = (lat: number, lon: number, radius_m = 600) =>
-  getJson<StopSummary[]>('/stops/nearby', { lat, lon, radius_m });
+export const nearbyStops = (lat: number, lon: number, radius_m = 600, limit?: number) =>
+  getJson<StopSummary[]>('/stops/nearby', { lat, lon, radius_m, limit });
 
 export const stopBoard = (stopId: string, minutes = 90) =>
   getJson<StopBoard>(`/stops/${encodeURIComponent(stopId)}/departures`, { minutes, limit: 60 });

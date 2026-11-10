@@ -802,8 +802,8 @@ async def journeys(
 ) -> JourneyPlan:
     """Journeys between two stops or points, with live times where MadridGo has an
     authorized source and a reliability label for each change."""
-    origin = await static.place(from_) if from_ else _coords(from_lat, from_lon, "Start")
-    destination = await static.place(to) if to else _coords(to_lat, to_lon, "Destination")
+    origin = await static.place(from_) if from_ else _coords(from_lat, from_lon, tr("place.here"))
+    destination = await static.place(to) if to else _coords(to_lat, to_lon, tr("place.here"))
     if origin is None or destination is None:
         raise HTTPException(
             status_code=422, detail="Give from/to stop ids, or from_lat/from_lon and to_lat/to_lon"

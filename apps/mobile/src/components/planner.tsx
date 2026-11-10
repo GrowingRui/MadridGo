@@ -10,7 +10,7 @@ import type { Journey, Leg } from '../api/journeys';
 import { delayMin, shownTime } from '../api/journeys';
 import { byAlertSeverity, isSevereAlert } from '../api/stops';
 import { t, tn, useT } from '../i18n';
-import type { Place } from '../state/planner';
+import { HERE_ID, type Place } from '../state/planner';
 import { colors, modeColors, radius, space, type } from '../theme';
 import { countdown, formatDuration, formatTime } from '../utils/time';
 import {
@@ -193,16 +193,26 @@ function PlaceField({
       </View>
     );
   }
+  // "Current location" follows the app language even if it was picked in another one.
+  const here = place?.id === HERE_ID;
+  const shown = here ? t('here.title') : (place?.name ?? placeholder);
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${label}: ${place?.name ?? placeholder}`}
+      accessibilityLabel={`${label}: ${shown}`}
       style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
-      <Text style={[styles.fieldValue, !place && { color: colors.textFaint }]} numberOfLines={1}>
-        {place?.name ?? placeholder}
-      </Text>
+      <View style={styles.fieldValueRow}>
+        {here ? (
+          <MaterialCommunityIcons name="crosshairs-gps" size={16} color={colors.brand} />
+        ) : null}
+        <Text
+          style={[styles.fieldValue, { flexShrink: 1 }, !place && { color: colors.textFaint }]}
+          numberOfLines={1}>
+          {shown}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -448,6 +458,7 @@ const styles = StyleSheet.create({
   field: { paddingVertical: space.sm, flex: 1 },
   fieldLabel: { ...type.small, color: colors.textMuted },
   fieldValue: { ...type.bodyStrong, color: colors.text, marginTop: 1 },
+  fieldValueRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   fieldDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
   swap: {
     width: 40,

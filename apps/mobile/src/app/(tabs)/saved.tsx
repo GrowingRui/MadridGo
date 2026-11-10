@@ -1,8 +1,7 @@
 // Saved: favourite stops, kept only on this device.
 
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import {
   BrandHeader,
@@ -12,10 +11,9 @@ import {
   Screen,
   SectionTitle,
 } from '../../components/layout';
-import { StopRow } from '../../components/stops';
+import { StarButton, StopRow } from '../../components/stops';
 import { useT } from '../../i18n';
 import { toggleFavorite, useSaved } from '../../state/saved';
-import { colors } from '../../theme';
 
 export default function SavedScreen() {
   const { favorites } = useSaved();
@@ -34,15 +32,7 @@ export default function SavedScreen() {
                   modes={s.modes}
                   lines={s.lines}
                   onPress={() => router.push({ pathname: '/stop/[id]', params: { id: s.id } })}
-                  trailing={
-                    <Pressable
-                      onPress={() => toggleFavorite(s)}
-                      accessibilityRole="button"
-                      accessibilityLabel={t('saved.remove', { name: s.name })}
-                      hitSlop={10}>
-                      <MaterialCommunityIcons name="star" size={22} color={colors.accent} />
-                    </Pressable>
-                  }
+                  trailing={<StarButton name={s.name} saved onPress={() => toggleFavorite(s)} />}
                 />
               </View>
             ))}
