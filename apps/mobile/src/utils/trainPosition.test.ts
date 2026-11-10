@@ -1,6 +1,7 @@
 import type { Leg } from '../api/journeys';
 import type { TripPosition } from '../api/trips';
 import {
+  MAX_AGE_S,
   MAX_AHEAD_S,
   ageText,
   approachText,
@@ -8,6 +9,7 @@ import {
   isShown,
   keepForward,
   place,
+  placeOnTrip,
   ridingText,
   shownProgress,
   sourceText,
@@ -113,13 +115,69 @@ describe('placement on the leg', () => {
       stops_away: 2,
     });
     const placed = place(p, leg, T0);
-    expect(placed).toEqual({ kind: 'approaching', stopsAway: 2, at: true, near: 'Fuenlabrada' });
+    expect(placed).toEqual({
+      kind: 'approaching',
+      stopsAway: 2,
+      at: true,
+      near: 'Fuenlabrada',
+      progress: 0,
+    });
     if (placed.kind === 'approaching') {
       expect(approachText(placed)).toBe('Train is 2 stops away · at Fuenlabrada');
       expect(approachText({ ...placed, stopsAway: 1, at: false })).toBe(
         'Train is 1 stop away · after Fuenlabrada',
       );
     }
+  });
+
+  it('one stop away and on its way: moves down towards the boarding stop', () => {
+    const p = position({
+      kind: 'estimated',
+      last_stop: stop(1, 'renfe:99999', 'Fuenlabrada'),
+      next_stop: stop(2, 'renfe:35609', 'Parla'),
+      left_at: iso(T0),
+      expected_at_next: iso(T0 + 100_000),
+      progress: 0.05,
+      stops_away: 1,
+    });
+    const early = place(p, leg, T0 + 20_000);
+    const later = place(p, leg, T0 + 60_000);
+    expect(early.kind === 'approaching' && early.progress).toBeCloseTo(0.2);
+    expect(later.kind === 'approaching' && later.progress).toBeCloseTo(0.6);
+  });
+
+  it('two stops away, or standing one stop away: waits at the top', () => {
+    const between = position({
+      last_stop: stop(0, 'renfe:99998', 'Humanes'),
+      next_stop: stop(1, 'renfe:99999', 'Fuenlabrada'),
+      progress: 0.5,
+      stops_away: 2,
+    });
+    const standing = position({
+      status: 'at_stop',
+      last_stop: stop(1, 'renfe:99999', 'Fuenlabrada'),
+      progress: 0,
+      stops_away: 1,
+    });
+    for (const p of [between, standing]) {
+      const placed = place(p, leg, T0);
+      expect(placed.kind === 'approaching' && placed.progress).toBe(0);
+    }
+  });
+
+  it('on the trip screen: placed by its index in the whole trip', () => {
+    const p = position({
+      last_stop: stop(3, 'renfe:35603', 'Getafe Centro'),
+      next_stop: stop(4, 'renfe:35602', 'Las Margaritas'),
+      progress: 0.4,
+    });
+    expect(placeOnTrip(p, T0)).toEqual({ row: 3, progress: 0.4, at: false });
+    expect(placeOnTrip({ ...p, status: 'at_stop', progress: 0 }, T0)).toEqual({
+      row: 3,
+      progress: 0,
+      at: true,
+    });
+    expect(placeOnTrip(p, T0 + (MAX_AGE_S + 1) * 1000)).toBeNull(); // STALE: hidden
   });
 
   it('riding: between two of the leg rows', () => {

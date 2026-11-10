@@ -229,6 +229,25 @@ class StaticData:
             out[(r["source"], r["trip_id"])].append((r["start_s"], r["end_s"], r["headway_s"]))
         return dict(out)
 
+    async def termini(self, trips: list[tuple[str, str]]) -> dict[tuple[str, str], str]:
+        """(feed, native trip id) -> name of the trip's last stop: its direction, for feeds
+        such as Renfe's that publish no headsign."""
+        if not trips:
+            return {}
+        rows = await self.pool.fetch(
+            """
+            SELECT DISTINCT ON (fv.source, st.trip_id) fv.source, st.trip_id, s.name
+            FROM unnest($1::text[], $2::text[]) AS q(source, trip_id)
+            JOIN feed_version fv ON fv.is_active AND fv.source = q.source
+            JOIN stop_time st ON st.feed_version_id = fv.id AND st.trip_id = q.trip_id
+            JOIN stop s ON s.feed_version_id = fv.id AND s.native_id = st.stop_id
+            ORDER BY fv.source, st.trip_id, st.stop_sequence DESC
+            """,
+            [t[0] for t in trips],
+            [t[1] for t in trips],
+        )
+        return {(r["source"], r["trip_id"]): r["name"] for r in rows}
+
 
 def get_clock() -> Callable[[], datetime]:
     return lambda: datetime.now(MADRID)
@@ -389,6 +408,30 @@ def apply_frequencies(
                 continue
             d.leg.headway_min = headway_for(w, d.service_day, d.leg.departure.scheduled)
             d.leg.departure.status = d.leg.arrival.status = "frequency"
+
+
+def needs_direction(its: list[_Itinerary]) -> list[tuple[str, str]]:
+    """Trips of legs that came without a headsign (all Renfe Cercanías trips)."""
+    return sorted(
+        {
+            (d.feed, d.trip_native)
+            for it in its
+            for d in it.drafts
+            if d.feed is not None and d.trip_native is not None and not d.leg.headsign
+        }
+    )
+
+
+def apply_termini(its: list[_Itinerary], termini: dict[tuple[str, str], str]) -> None:
+    """No headsign: the direction is the trip's last stop, as on station displays. Never
+    the passenger's own destination, which would name the wrong train end."""
+    for it in its:
+        for d in it.drafts:
+            if d.leg.headsign or d.feed is None or d.trip_native is None:
+                continue
+            name = termini.get((d.feed, d.trip_native))
+            if name:
+                d.leg.headsign = display_name(name)
 
 
 # ---------------------------------------------------------------------------
@@ -807,6 +850,7 @@ async def journeys(
         }
     )
     apply_frequencies(its, await static.frequencies(trips))
+    apply_termini(its, await static.termini(needs_direction(its)))
 
     used = set().union(*(it.feeds for it in its)) if its else set()
     statuses: list[SourceStatus] = []
