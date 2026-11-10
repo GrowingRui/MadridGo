@@ -240,7 +240,7 @@ def test_walk_only_option_is_dropped_when_transit_is_faster(
 ) -> None:
     body = plan(setup(FakeOtp(load("sol_bernabeu"))), **{"from": None, "to": None, **SOL})
     assert all(any(lg["mode"] != "walk" for lg in j["legs"]) for j in body["journeys"])
-    assert body["from"]["name"] == "Start" and body["from"]["stop_id"] is None
+    assert body["from"]["name"] == "Your location" and body["from"]["stop_id"] is None
 
 
 def test_routing_error_is_explained(setup: Callable[..., TestClient]) -> None:

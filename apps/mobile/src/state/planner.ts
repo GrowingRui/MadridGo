@@ -7,6 +7,17 @@ import type { SortOption } from '../api/journeys';
 export interface Place {
   id: string;
   name: string;
+  /** Set for "Current location": the journey starts or ends at this point, not at a stop. */
+  lat?: number;
+  lon?: number;
+}
+
+/** Id of the "Current location" place (never a real stop id). */
+export const HERE_ID = 'here';
+
+/** What the planner sends for a place: its stop id, or its point for "Current location". */
+export function placeKey(p: Place): string {
+  return p.lat != null && p.lon != null ? `${p.lat.toFixed(5)},${p.lon.toFixed(5)}` : p.id;
 }
 
 export interface PlannerState {
@@ -17,7 +28,11 @@ export interface PlannerState {
   /** true: `when` is the latest arrival; false: the earliest departure. */
   arriveBy: boolean;
   sort: SortOption;
+  /** Plan screen view: From/To form, stop tiles, or map. */
+  view: PlanView;
 }
+
+export type PlanView = 'timetable' | 'touch' | 'map';
 
 export const DEFAULT_SORT: SortOption = 'earliest_arrival';
 
@@ -27,6 +42,7 @@ let state: PlannerState = {
   when: null,
   arriveBy: false,
   sort: DEFAULT_SORT,
+  view: 'timetable',
 };
 const listeners = new Set<() => void>();
 

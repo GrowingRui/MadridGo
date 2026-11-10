@@ -7,11 +7,12 @@ import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { BrandHeader, Screen } from '../components/layout';
-import { StopSuggestions } from '../components/stopSearch';
+import { NearbyStops, StopSuggestions } from '../components/stopSearch';
 import { type MessageKey, useT } from '../i18n';
-import { setPlanner } from '../state/planner';
+import { HERE_ID, setPlanner } from '../state/planner';
 import { type SavedStop, addRecent } from '../state/saved';
 import { colors, radius, space, type } from '../theme';
+import type { Point } from '../utils/location';
 
 const TITLES: Record<string, MessageKey> = {
   from: 'pick.from',
@@ -22,6 +23,7 @@ const TITLES: Record<string, MessageKey> = {
 export default function PickScreen() {
   const { field = 'to' } = useLocalSearchParams<{ field?: 'from' | 'to' | 'board' }>();
   const [text, setText] = useState('');
+  const [near, setNear] = useState<Point | null>(null);
   const { t } = useT();
 
   const choose = (s: SavedStop) => {
@@ -31,6 +33,15 @@ export default function PickScreen() {
       return;
     }
     setPlanner({ [field]: { id: s.id, name: s.name } });
+    router.back();
+  };
+  // Departures: show the stops around you. Planner fields: plan from or to this point.
+  const here = (p: Point) => {
+    if (field === 'board') {
+      setNear(p);
+      return;
+    }
+    setPlanner({ [field]: { id: HERE_ID, name: t('here.title'), ...p } });
     router.back();
   };
 
@@ -43,7 +54,10 @@ export default function PickScreen() {
             <TextInput
               autoFocus
               value={text}
-              onChangeText={setText}
+              onChangeText={(v) => {
+                setText(v);
+                setNear(null);
+              }}
               placeholder={t('search.placeholder')}
               placeholderTextColor={colors.textFaint}
               style={styles.input}
@@ -63,7 +77,11 @@ export default function PickScreen() {
           </View>
         </BrandHeader>
       }>
-      <StopSuggestions text={text} onPick={choose} />
+      {near && !text.trim() ? (
+        <NearbyStops point={near} onPick={choose} onHere={setNear} />
+      ) : (
+        <StopSuggestions text={text} onPick={choose} onHere={here} />
+      )}
     </Screen>
   );
 }

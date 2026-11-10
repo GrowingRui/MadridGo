@@ -46,7 +46,8 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="saved"
-        options={{ title: t('tab.saved'), tabBarIcon: icon('star-outline', 'star') }}
+        // Not in the tab bar: starred stops live in the search list and the touch timetable.
+        options={{ title: t('tab.saved'), href: null }}
       />
       <Tabs.Screen
         name="more"

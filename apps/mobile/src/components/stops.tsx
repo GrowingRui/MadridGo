@@ -10,11 +10,17 @@ import { colors, space, type } from '../theme';
 import { countdownShort, formatTime } from '../utils/time';
 import { LinePill, LinePills, ModeIcon, StatusBadge } from './transit';
 
+/**
+ * A stop: mode icon (or `icon`, e.g. a clock for recents) | name, detail, lines | chevron.
+ * `trailing` (e.g. a star) replaces the chevron and sits beside the row's button, not inside it,
+ * so tapping it never also opens the stop.
+ */
 export function StopRow({
   name,
   modes,
   lines,
   detail,
+  icon,
   onPress,
   trailing,
 }: {
@@ -22,17 +28,22 @@ export function StopRow({
   modes: Mode[];
   lines: Line[];
   detail?: string | null;
+  icon?: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   onPress: () => void;
   trailing?: React.ReactNode;
 }) {
-  return (
+  const main = (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${name}${detail ? `, ${detail}` : ''}`}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+      style={({ pressed }) => [styles.row, trailing ? styles.rowMain : null, pressed && styles.pressed]}>
       <View style={styles.modeCol}>
-        <ModeIcon mode={modes[0] ?? 'bus'} size={22} color={colors.brand} />
+        {icon ? (
+          <MaterialCommunityIcons name={icon} size={22} color={colors.textMuted} />
+        ) : (
+          <ModeIcon mode={modes[0] ?? 'bus'} size={22} color={colors.brand} />
+        )}
       </View>
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle} numberOfLines={2}>
@@ -41,9 +52,44 @@ export function StopRow({
         {detail ? <Text style={styles.rowDetail}>{detail}</Text> : null}
         {lines.length ? <LinePills lines={lines} /> : null}
       </View>
-      {trailing ?? (
+      {trailing ? null : (
         <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textFaint} />
       )}
+    </Pressable>
+  );
+  if (!trailing) return main;
+  return (
+    <View style={styles.rowWithTrailing}>
+      {main}
+      {trailing}
+    </View>
+  );
+}
+
+/** Filled star: saved (tap to remove); outline: not saved (tap to save). */
+export function StarButton({
+  name,
+  saved,
+  onPress,
+}: {
+  name: string;
+  saved: boolean;
+  onPress: () => void;
+}) {
+  const { t } = useT();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ checked: saved }}
+      accessibilityLabel={t(saved ? 'saved.remove' : 'saved.add', { name })}
+      hitSlop={6}
+      style={({ pressed }) => [styles.star, pressed && styles.pressed]}>
+      <MaterialCommunityIcons
+        name={saved ? 'star' : 'star-outline'}
+        size={24}
+        color={saved ? colors.brand : colors.textMuted}
+      />
     </Pressable>
   );
 }
@@ -217,6 +263,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   pressed: { backgroundColor: '#F8F9FB' },
+  rowWithTrailing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+  },
+  rowMain: { flex: 1, paddingRight: 0 },
+  star: {
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    paddingHorizontal: space.lg,
+  },
   modeCol: { width: 28, alignItems: 'center' },
   rowBody: { flex: 1, gap: 4 },
   rowTitle: { ...type.bodyStrong, color: colors.text },

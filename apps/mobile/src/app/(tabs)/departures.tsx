@@ -1,26 +1,26 @@
-// Departures tab: pick a stop to see its board; recent and saved stops for one-tap access.
+// Departures tab: pick a stop to see its board. Same list as the planner's search: "Current
+// location" (shows the stops near you), starred stops, then recent ones.
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text } from 'react-native';
 
-import {
-  BrandHeader,
-  Card,
-  Divider,
-  EmptyState,
-  Screen,
-  SectionTitle,
-} from '../../components/layout';
-import { StopRow } from '../../components/stops';
+import { BrandHeader, Screen } from '../../components/layout';
+import { NearbyStops, StopSuggestions } from '../../components/stopSearch';
 import { useT } from '../../i18n';
-import { type SavedStop, clearRecents, useSaved } from '../../state/saved';
+import { type SavedStop, addRecent, clearRecents, useSaved } from '../../state/saved';
 import { colors, radius, space, type } from '../../theme';
+import type { Point } from '../../utils/location';
 
 export default function DeparturesScreen() {
   const saved = useSaved();
   const { t } = useT();
-  const open = (s: SavedStop) => router.push({ pathname: '/stop/[id]', params: { id: s.id } });
+  const [near, setNear] = useState<Point | null>(null);
+  const open = (s: SavedStop) => {
+    addRecent(s);
+    router.push({ pathname: '/stop/[id]', params: { id: s.id } });
+  };
   return (
     <Screen
       header={
@@ -34,42 +34,19 @@ export default function DeparturesScreen() {
           </Pressable>
         </BrandHeader>
       }>
-      {saved.favorites.length ? (
+      {near ? (
+        <NearbyStops point={near} onPick={open} onHere={setNear} />
+      ) : (
         <>
-          <SectionTitle>{t('section.saved')}</SectionTitle>
-          <List stops={saved.favorites} onPress={open} />
+          <StopSuggestions text="" onPick={open} onHere={setNear} />
+          {saved.recents.length ? (
+            <Text onPress={clearRecents} style={styles.clear} accessibilityRole="button">
+              {t('search.clearRecents')}
+            </Text>
+          ) : null}
         </>
-      ) : null}
-      {saved.recents.length ? (
-        <>
-          <SectionTitle
-            action={
-              <Text onPress={clearRecents} style={styles.clear} accessibilityRole="button">
-                {t('common.clear')}
-              </Text>
-            }>
-            {t('section.recent')}
-          </SectionTitle>
-          <List stops={saved.recents} onPress={open} />
-        </>
-      ) : null}
-      {!saved.favorites.length && !saved.recents.length ? (
-        <EmptyState icon="clock-outline" title={t('dep.emptyTitle')} body={t('dep.emptyBody')} />
-      ) : null}
+      )}
     </Screen>
-  );
-}
-
-function List({ stops, onPress }: { stops: SavedStop[]; onPress: (s: SavedStop) => void }) {
-  return (
-    <Card>
-      {stops.map((s, i) => (
-        <View key={s.id}>
-          {i > 0 ? <Divider inset={56} /> : null}
-          <StopRow name={s.name} modes={s.modes} lines={s.lines} onPress={() => onPress(s)} />
-        </View>
-      ))}
-    </Card>
   );
 }
 
@@ -85,5 +62,10 @@ const styles = StyleSheet.create({
     marginTop: space.lg,
   },
   fakeSearchText: { ...type.body, color: colors.textFaint },
-  clear: { ...type.smallStrong, color: colors.brand },
+  clear: {
+    ...type.smallStrong,
+    color: colors.brand,
+    alignSelf: 'center',
+    padding: space.lg,
+  },
 });

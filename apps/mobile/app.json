@@ -28,6 +28,12 @@
       "expo-router",
       "expo-font",
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "MadridGo uses your location only when you tap Current location, to find stops and plan journeys from where you are."
+        }
+      ],
+      [
         "expo-localization",
         {
           "supportedLocales": [

@@ -6,7 +6,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { type Journey, planJourneys, type SortOption } from '../../api/journeys';
 import { JourneyNotices, JourneySummary, JourneyTimeline } from '../../components/journey';
@@ -23,19 +23,31 @@ import {
 } from '../../components/layout';
 import { ConnectionCard, type PlaceFieldName, PlannerCard } from '../../components/planner';
 import { OptionsSheet, TimeSheet, WhenBar } from '../../components/when';
+import { PlanMap } from '../../components/planMap';
 import { StopSuggestions } from '../../components/stopSearch';
+import { TouchTimetable } from '../../components/touch';
 import { StopRow } from '../../components/stops';
 import { Rich } from '../../components/Rich';
 import { useAsync, useIsWide, useNow, type PressState } from '../../hooks';
-import { useT } from '../../i18n';
+import { type MessageKey, useT } from '../../i18n';
 import { journeyCache } from '../../state/journeys';
-import { DEFAULT_SORT, type Place, setPlanner, swapPlaces, usePlanner } from '../../state/planner';
+import {
+  DEFAULT_SORT,
+  HERE_ID,
+  type Place,
+  type PlanView,
+  placeKey,
+  setPlanner,
+  swapPlaces,
+  usePlanner,
+} from '../../state/planner';
 import { type SavedStop, addRecent, useSaved } from '../../state/saved';
-import { colors, space, type } from '../../theme';
+import { colors, radius, space, type } from '../../theme';
+import type { Point } from '../../utils/location';
 import { formatDay, formatTime } from '../../utils/time';
 
 export default function PlanScreen() {
-  const { from, to, when, arriveBy, sort } = usePlanner();
+  const { from, to, when, arriveBy, sort, view } = usePlanner();
   const isWide = useIsWide();
   const { t } = useT();
   const [sheet, setSheet] = useState<'time' | 'options' | null>(null);
@@ -54,9 +66,17 @@ export default function PlanScreen() {
   };
   const choose = (s: SavedStop) => {
     addRecent(s);
-    setPlanner({ [editing ?? 'to']: { id: s.id, name: s.name } });
+    setPlace({ id: s.id, name: s.name });
+  };
+  const chooseHere = (p: Point) => setPlace({ id: HERE_ID, name: t('here.title'), ...p });
+  const setPlace = (place: Place) => {
+    const field = editing ?? 'to';
+    const otherField = field === 'from' ? 'to' : 'from';
+    // "Current location" can be only one end: choosing it for this end clears the other.
+    const clash = place.id === HERE_ID && (field === 'from' ? to : from)?.id === HERE_ID;
+    setPlanner({ [field]: place, ...(clash ? { [otherField]: null } : null) });
     // Like a timetable app: after the origin, go straight on to the destination if it is empty.
-    if (editing === 'from' && !to) edit('to');
+    if (field === 'from' && (!to || clash)) edit('to');
     else close();
   };
 
@@ -83,17 +103,48 @@ export default function PlanScreen() {
       ),
   };
 
+  // Touch timetable: both ends chosen on the tiles, or one end chosen and the other to type.
+  const planFromTiles = (a: Place, b: Place) => setPlanner({ from: a, to: b, view: 'timetable' });
+  const typeFromTiles = (field: PlaceFieldName, known: Place | null) => {
+    const otherEnd = field === 'to' ? 'from' : 'to';
+    setPlanner({ view: 'timetable', ...(known ? { [otherEnd]: known, [field]: null } : null) });
+    edit(field);
+  };
+  const switchView = (v: PlanView) => {
+    close();
+    setPlanner({ view: v });
+  };
+
   const header = (
     <BrandHeader
       wide
-      title={isWide ? t('plan.titleWide') : ready || editing ? undefined : t('plan.whereTo')}
-      subtitle={isWide ? t('plan.modes') : undefined}>
-      {isWide ? (
+      // App: "Where to?" with the logo on the right, hidden while typing to keep the form high.
+      title={isWide ? t('plan.titleWide') : editing ? undefined : t('plan.whereTo')}
+      subtitle={isWide ? t('plan.modes') : undefined}
+      right={
+        isWide || editing ? undefined : (
+          <Image
+            source={require('../../../assets/icon.png')}
+            style={styles.logo}
+            accessibilityLabel="MadridGo"
+          />
+        )
+      }>
+      {editing && !isWide ? null : <ViewSwitch view={view} onChange={switchView} />}
+      {view !== 'timetable' ? null : isWide ? (
         <View style={styles.wideForm}>
           <PlannerCard
             {...card}
             layout="row"
-            dropdown={<StopSuggestions text={text} onPick={choose} exclude={other} dropdown />}
+            dropdown={
+              <StopSuggestions
+                text={text}
+                onPick={choose}
+                onHere={chooseHere}
+                exclude={other}
+                dropdown
+              />
+            }
           />
         </View>
       ) : (
@@ -102,15 +153,27 @@ export default function PlanScreen() {
     </BrandHeader>
   );
 
+  if (view === 'map') {
+    return (
+      <Screen fill header={header}>
+        <PlanMap />
+      </Screen>
+    );
+  }
+
   return (
     <Screen wide header={header}>
-      {editing && !isWide ? (
+      {view === 'touch' ? (
+        <View style={styles.touch}>
+          <TouchTimetable onPlan={planFromTiles} onTypeField={typeFromTiles} />
+        </View>
+      ) : editing && !isWide ? (
         // App: suggestions replace the content under the header while typing.
-        <StopSuggestions text={text} onPick={choose} exclude={other} />
+        <StopSuggestions text={text} onPick={choose} onHere={chooseHere} exclude={other} />
       ) : ready ? (
         // Keyed so "Earlier/Later" and the selection reset when the search changes.
         <Connections
-          key={`${from.id}|${to.id}|${when}|${arriveBy}|${sort}`}
+          key={`${placeKey(from)}|${placeKey(to)}|${when}|${arriveBy}|${sort}`}
           from={from}
           to={to}
           when={when}
@@ -141,6 +204,44 @@ export default function PlanScreen() {
 }
 
 // ---------------------------------------------------------------------------
+// Timetable | Touch timetable | Map
+
+const VIEWS: { key: PlanView; label: MessageKey }[] = [
+  { key: 'timetable', label: 'plan.view.timetable' },
+  { key: 'touch', label: 'plan.view.touch' },
+  { key: 'map', label: 'plan.view.map' },
+];
+
+function ViewSwitch({ view, onChange }: { view: PlanView; onChange: (v: PlanView) => void }) {
+  const { t } = useT();
+  return (
+    <View style={styles.switch} accessibilityRole="tablist">
+      {VIEWS.map((v) => {
+        const active = v.key === view;
+        return (
+          <Pressable
+            key={v.key}
+            onPress={() => onChange(v.key)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            style={({ pressed, hovered }: PressState) => [
+              styles.switchItem,
+              active && styles.switchItemActive,
+              !active && (pressed || hovered) && styles.switchItemHover,
+            ]}>
+            <Text
+              style={[styles.switchText, active && styles.switchTextActive]}
+              numberOfLines={1}>
+              {t(v.label)}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Connections
 
 function Connections({
@@ -163,8 +264,9 @@ function Connections({
   const [cursor, setCursor] = useState<string | null>(null);
   const [selected, setSelected] = useState(0);
   const plan = useAsync(
-    () => planJourneys({ from: from.id, to: to.id, at: when, arriveBy, sort, cursor }),
-    `${from.id}|${to.id}|${when}|${cursor ?? ''}`,
+    () =>
+      planJourneys({ from: planPlace(from), to: planPlace(to), at: when, arriveBy, sort, cursor }),
+    `${placeKey(from)}|${placeKey(to)}|${when}|${cursor ?? ''}`,
   );
   const data = plan.data;
 
@@ -291,6 +393,9 @@ function Connections({
   );
 }
 
+/** A stop id, or the point for "Current location". */
+const planPlace = (p: Place) => (p.lat != null && p.lon != null ? { lat: p.lat, lon: p.lon } : p.id);
+
 function PageLink({
   label,
   icon,
@@ -402,6 +507,30 @@ function Start() {
 }
 
 const styles = StyleSheet.create({
+  logo: { width: 40, height: 40, borderRadius: 10 },
+  switch: {
+    flexDirection: 'row',
+    backgroundColor: colors.brandDark,
+    borderRadius: radius.pill,
+    padding: 4,
+    marginTop: space.md,
+    marginBottom: space.xs,
+  },
+  // Sized by their labels ("Touch timetable" is the longest), sharing the rest of the row.
+  switchItem: {
+    flexGrow: 1,
+    flexShrink: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: space.sm + 2,
+    paddingHorizontal: space.md,
+    borderRadius: radius.pill,
+  },
+  switchItemActive: { backgroundColor: colors.surface },
+  switchItemHover: { backgroundColor: 'rgba(255,255,255,0.08)' },
+  switchText: { ...type.smallStrong, fontSize: 15, color: colors.onBrandMuted },
+  switchTextActive: { color: colors.brand, fontWeight: '700' },
+  touch: { width: '100%', maxWidth: 640, alignSelf: 'center' },
   // zIndex: the suggestion dropdown must cover the time chips below the form.
   wideForm: { flexDirection: 'row', marginTop: space.lg, zIndex: 20 },
   listHead: {

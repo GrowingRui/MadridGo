@@ -46,14 +46,25 @@ export function Screen({
   refreshing,
   onRefresh,
   wide,
+  fill,
 }: {
   header?: ReactNode;
   children: ReactNode;
   refreshing?: boolean;
   onRefresh?: () => void;
   wide?: boolean;
+  /** The body fills the space under the header and does not scroll (the map). */
+  fill?: boolean;
 }) {
   const isWide = useIsWide();
+  if (fill) {
+    return (
+      <View style={styles.screen}>
+        {header}
+        <View style={{ flex: 1 }}>{children}</View>
+      </View>
+    );
+  }
   return (
     <View style={styles.screen}>
       {/* In the app the header stays fixed; on the website it scrolls with the page. */}
