@@ -105,6 +105,9 @@ export const en = {
   'conn.notPossible': 'This connection is not possible.',
   'conn.a11yNotPossible': 'Not possible. ',
   'conn.a11y': 'Departs {dep}, arrives {arr}, {duration}, {changes}',
+  'conn.a11yAlert': 'Alert: {text}',
+  'conn.moreAlerts.one': '+{n} more alert',
+  'conn.moreAlerts.other': '+{n} more alerts',
 
   // Date, time and options
   'when.dep': 'Dep',

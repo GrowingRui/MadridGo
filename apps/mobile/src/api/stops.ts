@@ -103,6 +103,25 @@ export interface ServiceAlert {
   stop_ids: string[];
 }
 
+/** GTFS-RT effects that mean the trip as planned may not happen: shown in red, listed first. */
+const SEVERE_EFFECTS = new Set(['NO_SERVICE', 'REDUCED_SERVICE', 'SIGNIFICANT_DELAYS']);
+
+export function isSevereAlert(a: ServiceAlert): boolean {
+  return a.effect !== null && SEVERE_EFFECTS.has(a.effect);
+}
+
+/**
+ * Most important first: severe effects, then alerts on a whole line (a strike, works), then
+ * alerts about a station only (a lift out of service); otherwise the server's order.
+ */
+export function byAlertSeverity(alerts: ServiceAlert[]): ServiceAlert[] {
+  const rank = (a: ServiceAlert) => (isSevereAlert(a) ? 0 : a.stop_ids.length === 0 ? 1 : 2);
+  return alerts
+    .map((a, i) => [a, i] as const)
+    .sort(([a, i], [b, j]) => rank(a) - rank(b) || i - j)
+    .map(([a]) => a);
+}
+
 /** The best known time: the live estimate when there is one, else the scheduled time. */
 export function bestTime(d: Departure): string {
   return d.realtime?.predicted_time ?? d.time;

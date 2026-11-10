@@ -8,6 +8,7 @@ import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-na
 
 import type { Journey, Leg } from '../api/journeys';
 import { delayMin, shownTime } from '../api/journeys';
+import { byAlertSeverity, isSevereAlert } from '../api/stops';
 import { t, tn, useT } from '../i18n';
 import type { Place } from '../state/planner';
 import { colors, modeColors, radius, space, type } from '../theme';
@@ -263,6 +264,7 @@ export function changesLabel(n: number) {
  *   [C4] Direction Parla                  in 6 min
  *   17:54  ●━━━━━━━━○━━━━━━━━●  18:40
  *   Pl. 2 · Scheduled               46 min · Direct
+ *   ⚠ No circulan trenes de la C-4 … +1 more      (operator alert on a line used, if any)
  */
 export function ConnectionCard({
   journey,
@@ -282,6 +284,9 @@ export function ConnectionCard({
   const status = journeyStatus(journey);
   const mixed = status === 'live' && transit.some((l) => l.departure.status !== 'live');
   const soon = countdown(journey.departure.estimated ?? journey.departure.scheduled, now);
+  const alerts = byAlertSeverity(journey.alerts);
+  const alert = alerts[0];
+  const alertText = alert ? (alert.header ?? alert.description ?? t('journey.alertFallback')) : '';
   return (
     <Pressable
       onPress={onPress}
@@ -294,7 +299,8 @@ export function ConnectionCard({
           arr: formatTime(shownTime(journey.arrival)),
           duration: formatDuration(journey.duration_min),
           changes: changesLabel(journey.transfers),
-        })
+        }) +
+        (alert ? `. ${t('conn.a11yAlert', { text: alertText })}` : '')
       }
       style={({ pressed, hovered }: PressState) => [
         styles.conn,
@@ -346,7 +352,31 @@ export function ConnectionCard({
       ) : journey.reliability && journey.reliability !== 'comfortable' ? (
         <TransferBadge label={journey.reliability} />
       ) : null}
+      {alert ? (
+        <CardAlert severe={isSevereAlert(alert)} text={alertText} more={alerts.length - 1} />
+      ) : null}
     </Pressable>
+  );
+}
+
+/** One line on the connection card; the full alert texts are in the journey's notices. */
+function CardAlert({ severe, text, more }: { severe: boolean; text: string; more: number }) {
+  useT();
+  const fg = severe ? colors.delay : colors.warning;
+  return (
+    <View style={[styles.alert, { backgroundColor: severe ? colors.delayBg : colors.warningBg }]}>
+      <MaterialCommunityIcons
+        name={severe ? 'alert-octagon-outline' : 'alert-outline'}
+        size={16}
+        color={fg}
+      />
+      <Text style={[styles.alertText, { color: fg }]} numberOfLines={2}>
+        {text}
+      </Text>
+      {more > 0 ? (
+        <Text style={[styles.alertMore, { color: fg }]}>{tn('conn.moreAlerts', more)}</Text>
+      ) : null}
+    </View>
   );
 }
 
@@ -480,4 +510,15 @@ const styles = StyleSheet.create({
   meta: { ...type.small, color: colors.textMuted },
   metaStrong: { ...type.smallStrong, color: colors.text },
   delayNote: { ...type.small, color: colors.delay },
+  alert: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space.xs,
+    marginTop: space.sm,
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xs,
+    borderRadius: radius.sm,
+  },
+  alertText: { ...type.smallStrong, flex: 1 },
+  alertMore: { ...type.small },
 });
