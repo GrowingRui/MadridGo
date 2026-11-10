@@ -24,7 +24,7 @@ import {
 } from '../components/layout';
 import { useIsWide, useNow, type PressState } from '../hooks';
 import { type MessageKey, useT } from '../i18n';
-import { colors, radius, space, type } from '../theme';
+import { colors, radius, space, themed, type } from '../theme';
 import { formatTime } from '../utils/time';
 
 const FILTERS: { key: DisruptionFilter; label: MessageKey }[] = [
@@ -140,10 +140,10 @@ export default function DisruptionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   tabs: {
     flexDirection: 'row',
-    backgroundColor: colors.brandDark,
+    backgroundColor: colors.headerDark,
     borderRadius: radius.pill,
     padding: 4,
     marginTop: space.md,
@@ -170,4 +170,4 @@ const styles = StyleSheet.create({
     marginTop: space.md,
   },
   input: { ...type.body, flex: 1, paddingVertical: 10, color: colors.text },
-});
+}));

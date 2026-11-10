@@ -97,3 +97,8 @@ export function removeRecent(id: string) {
 export function clearRecents() {
   persist({ ...saved, recents: [] });
 }
+
+/** More → "Delete starred and recent stops". */
+export function clearAllSaved() {
+  persist({ ...saved, favorites: [], recents: [] });
+}

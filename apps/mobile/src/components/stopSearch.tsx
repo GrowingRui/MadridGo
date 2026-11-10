@@ -11,7 +11,7 @@ import { type StopSummary, nearbyStops, searchStops } from '../api/stops';
 import { useAsync, useDebounced } from '../hooks';
 import { t, useT } from '../i18n';
 import { type SavedStop, isFavorite, toSaved, toggleFavorite, useSaved } from '../state/saved';
-import { colors, space, type } from '../theme';
+import { colors, space, themed, type } from '../theme';
 import { LocationError, type Point, getCurrentPoint } from '../utils/location';
 import { Card, Divider, EmptyState, ErrorState, Loading, SectionTitle } from './layout';
 import { StarButton, StopRow } from './stops';
@@ -254,7 +254,7 @@ function DropdownGroup({ children, first }: { children: React.ReactNode; first?:
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   hint: { ...type.small, color: colors.textMuted, padding: space.lg },
   dropdownGap: { height: space.sm, backgroundColor: colors.bg },
   here: {
@@ -265,8 +265,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     backgroundColor: colors.surface,
   },
-  pressed: { backgroundColor: '#F8F9FB' },
+  pressed: { backgroundColor: colors.pressed },
   hereIcon: { width: 28, alignItems: 'center' },
   hereTitle: { ...type.bodyStrong, color: colors.text },
   hereProblem: { ...type.small, color: colors.textMuted },
-});
+}));

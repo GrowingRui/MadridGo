@@ -11,7 +11,7 @@ import { delayMin, shownTime } from '../api/journeys';
 import { byAlertSeverity, isSevereAlert } from '../api/stops';
 import { t, tn, useT } from '../i18n';
 import { HERE_ID, type Place } from '../state/planner';
-import { colors, modeColors, radius, space, type } from '../theme';
+import { colors, modeColors, radius, space, themed, type } from '../theme';
 import { countdown, formatDuration, formatTime } from '../utils/time';
 import {
   LinePill,
@@ -224,32 +224,68 @@ function PlaceField({
  * The journey as one line: a segment per leg sized by its duration and coloured by its line,
  * with a pearl where you board, change and arrive. Walking is a dotted grey segment.
  */
-export function PearlChain({ legs }: { legs: Leg[] }) {
+/**
+ * The connection as a line: one segment per leg sized by its duration, in its line colour,
+ * pearls at the ends and at changes. With `now` during the journey (as in SBB's connection
+ * header) the part already travelled is grey and an amber dot marks where you should be now.
+ */
+export function PearlChain({ legs, now }: { legs: Leg[]; now?: number }) {
   const total = legs.reduce((s, l) => s + l.duration_min, 0) || 1;
+  const start = Date.parse(shownTime(legs[0].departure));
+  const end = Date.parse(shownTime(legs[legs.length - 1].arrival));
+  const travelling = now != null && now >= start && now < end;
+  const done = now != null && now >= end;
+  // 0..1 of each leg already travelled.
+  const passed = legs.map((leg) => {
+    if (done) return 1;
+    if (!travelling) return 0;
+    const a = Date.parse(shownTime(leg.departure));
+    const b = Date.parse(shownTime(leg.arrival));
+    if (now! >= b) return 1;
+    if (now! <= a) return 0;
+    return (now! - a) / Math.max(b - a, 1);
+  });
+  const nowLeg = travelling ? passed.findIndex((f) => f < 1) : -1;
+  const pearl = (gone: boolean, end?: boolean) => (
+    <View
+      style={[
+        styles.pearl,
+        end && styles.pearlEnd,
+        gone && styles.pearlGone,
+        end && gone && { backgroundColor: colors.textFaint },
+      ]}
+    />
+  );
   return (
     <View style={styles.chain} accessibilityElementsHidden importantForAccessibility="no">
-      <View style={[styles.pearl, styles.pearlEnd]} />
+      {pearl(travelling || done, true)}
       {legs.map((leg, i) => {
         const flex = Math.max(leg.duration_min / total, 0.07);
         const walk = leg.mode === 'walk' || !leg.line;
         // A pearl between two legs marks a change (none between walking and riding).
         const change = i > 0 && !walk && legs[i - 1].mode !== 'walk';
+        const color = walk ? null : lineColors(leg.line!).bg;
+        const piece = (f: number, gone: boolean, key: string) =>
+          f <= 0 ? null : walk ? (
+            <View key={key} style={[styles.chainWalk, { flex: f }]}>
+              <View style={[styles.chainDots, gone && styles.chainDotsGone]} />
+            </View>
+          ) : (
+            <View
+              key={key}
+              style={[styles.chainSeg, { flex: f, backgroundColor: gone ? colors.textFaint : color! }]}
+            />
+          );
         return (
           <Fragment key={i}>
-            {change ? <View style={styles.pearl} /> : null}
-            {walk ? (
-              <View style={[styles.chainWalk, { flex }]}>
-                <View style={styles.chainDots} />
-              </View>
-            ) : (
-              <View
-                style={[styles.chainSeg, { flex, backgroundColor: lineColors(leg.line!).bg }]}
-              />
-            )}
+            {change ? pearl(passed[i] > 0) : null}
+            {piece(flex * passed[i], true, 'gone')}
+            {i === nowLeg ? <View style={styles.nowDot} /> : null}
+            {piece(flex * (1 - passed[i]), false, 'ahead')}
           </Fragment>
         );
       })}
-      <View style={[styles.pearl, styles.pearlEnd]} />
+      {pearl(done, true)}
     </View>
   );
 }
@@ -314,7 +350,7 @@ export function ConnectionCard({
       }
       style={({ pressed, hovered }: PressState) => [
         styles.conn,
-        (pressed || hovered) && { backgroundColor: '#F7F8FA' },
+        (pressed || hovered) && { backgroundColor: colors.pressed },
         selected && styles.connSelected,
       ]}>
       <View style={styles.connTop}>
@@ -390,7 +426,7 @@ function CardAlert({ severe, text, more }: { severe: boolean; text: string; more
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   // From / To
   card: { backgroundColor: colors.surface, borderRadius: radius.md, marginTop: space.lg },
   cardWide: { flex: 1, backgroundColor: colors.surface, borderRadius: radius.md, zIndex: 20 },
@@ -493,6 +529,18 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   pearlEnd: { backgroundColor: colors.text },
+  pearlGone: { borderColor: colors.textFaint },
+  chainDotsGone: { borderColor: colors.textFaint },
+  nowDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: colors.accent,
+    borderWidth: 2,
+    borderColor: colors.surface,
+    marginHorizontal: -7,
+    zIndex: 2,
+  },
 
   // Connection row
   conn: {
@@ -532,4 +580,4 @@ const styles = StyleSheet.create({
   },
   alertText: { ...type.smallStrong, flex: 1 },
   alertMore: { ...type.small },
-});
+}));

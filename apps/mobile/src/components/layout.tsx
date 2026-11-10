@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useIsWide } from '../hooks';
 import { useT } from '../i18n';
-import { colors, MAX_CONTENT_WIDTH, radius, space, type, WIDE_MAX_WIDTH } from '../theme';
+import { colors, MAX_CONTENT_WIDTH, radius, space, themed, type, WIDE_MAX_WIDTH } from '../theme';
 import { Footer } from './nav';
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -269,7 +269,7 @@ export function Button({
       ? { bg: 'transparent', fg: colors.onBrandMuted, border: colors.onBrandMuted }
       : { bg: colors.scheduledBg, fg: colors.textFaint, border: colors.border }
     : {
-        primary: { bg: colors.brand, fg: colors.onBrand, border: colors.brand },
+        primary: { bg: colors.primary, fg: colors.onPrimary, border: colors.primary },
         secondary: { bg: colors.surface, fg: colors.brand, border: colors.border },
         onBrand: { bg: colors.accent, fg: colors.brandDark, border: colors.accent },
       }[variant];
@@ -291,13 +291,13 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   scroll: { paddingBottom: space.xxl, flexGrow: 1 },
   scrollWide: { paddingBottom: 0 },
   bodyWide: { flexGrow: 1, paddingTop: space.sm },
   constrained: { width: '100%', maxWidth: MAX_CONTENT_WIDTH, alignSelf: 'center' },
-  header: { backgroundColor: colors.brand, paddingBottom: space.lg },
+  header: { backgroundColor: colors.header, paddingBottom: space.lg },
   headerInner: { paddingHorizontal: space.lg },
   // zIndex: the planner's suggestion dropdown overlaps the page below the band.
   headerWide: { paddingTop: space.xl, paddingBottom: space.xl, zIndex: 10 },
@@ -347,4 +347,4 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
   },
-});
+}));

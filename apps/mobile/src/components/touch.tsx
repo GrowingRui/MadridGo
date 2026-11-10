@@ -24,7 +24,7 @@ import {
   toggleFavorite,
   useSaved,
 } from '../state/saved';
-import { colors, radius, space, type } from '../theme';
+import { colors, radius, space, themed, type } from '../theme';
 import { LocationError, getCurrentPoint } from '../utils/location';
 import { EmptyState } from './layout';
 import { ModeIcon } from './transit';
@@ -463,7 +463,7 @@ function streetPattern(id: string) {
   return [...lines, curve];
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   wrap: { marginHorizontal: space.lg, marginTop: space.lg },
   hint: { ...type.small, color: colors.textMuted, marginBottom: space.sm, minHeight: 20 },
   hintActive: { ...type.smallStrong, color: colors.brand },
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
   tileCell: { width: '50%', padding: GAP / 2 },
   tile: {
     height: TILE_HEIGHT,
-    backgroundColor: colors.brand,
+    backgroundColor: colors.header,
     borderRadius: radius.md,
     padding: space.md,
     justifyContent: 'space-between',
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
     // Text selection while dragging on the website looks broken.
     ...(Platform.OS === 'web' ? ({ userSelect: 'none', cursor: 'pointer' } as object) : null),
   },
-  tileTarget: { backgroundColor: colors.brandDark, borderColor: colors.onBrand },
+  tileTarget: { backgroundColor: colors.headerDark, borderColor: colors.onBrand },
   tileChosen: { borderColor: colors.accent },
   street: { position: 'absolute', backgroundColor: 'rgba(255,255,255,0.16)' },
   tileTop: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
   action: {
     flex: 1,
     height: TILE_HEIGHT,
-    backgroundColor: colors.brandDark,
+    backgroundColor: colors.headerDark,
     borderRadius: radius.md,
     padding: space.md,
     justifyContent: 'space-between',
@@ -534,4 +534,4 @@ const styles = StyleSheet.create({
     paddingVertical: space.xs + 2,
   },
   editText: { ...type.smallStrong, color: colors.brand },
-});
+}));

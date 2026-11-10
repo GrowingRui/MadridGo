@@ -25,7 +25,7 @@ import { useAsync, useNow } from '../../hooks';
 import { useT } from '../../i18n';
 import { setPlanner } from '../../state/planner';
 import { addRecent, isFavorite, toSaved, toggleFavorite, useSaved } from '../../state/saved';
-import { colors, space, type } from '../../theme';
+import { colors, space, themed, type } from '../../theme';
 import { formatTime } from '../../utils/time';
 
 export default function StopBoardScreen() {
@@ -238,7 +238,7 @@ function SourceNotice({ st }: { st: SourceStatus }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   actions: { flexDirection: 'row', gap: space.lg },
   liveLine: {
     flexDirection: 'row',
@@ -254,4 +254,4 @@ const styles = StyleSheet.create({
   alertBody: { ...type.small, color: colors.text },
   alertSource: { ...type.small, color: colors.textFaint },
   footer: { ...type.small, color: colors.textFaint, textAlign: 'center', margin: space.lg },
-});
+}));

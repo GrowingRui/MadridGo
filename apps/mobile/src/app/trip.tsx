@@ -19,7 +19,7 @@ import { TripRoute, TripStatus } from '../components/trip';
 import { useAsync, useNow, useTripPosition } from '../hooks';
 import { useT } from '../i18n';
 import { journeyCache } from '../state/journeys';
-import { colors, modeColors, space } from '../theme';
+import { colors, modeColors, space, themed } from '../theme';
 import { canTrack } from '../utils/trainPosition';
 
 export default function TripScreen() {
@@ -96,6 +96,6 @@ export default function TripScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   pill: { marginTop: space.sm, flexDirection: 'row' },
-});
+}));

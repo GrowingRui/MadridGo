@@ -18,7 +18,7 @@ import {
 import { type StopSummary, nearbyStops, searchStops } from '../api/stops';
 import { useAsync, useDebounced } from '../hooks';
 import { useT } from '../i18n';
-import { colors, radius, space, type } from '../theme';
+import { colors, currentScheme, radius, space, themed, type } from '../theme';
 import { LocationError, getCurrentPoint } from '../utils/location';
 import { Divider } from './layout';
 import { MapFrame, type MapHandle } from './mapFrame';
@@ -36,9 +36,10 @@ export function PlanMap() {
   const [locating, setLocating] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
-  // Rebuilt only when the language changes (it reloads the map).
+  // Rebuilt only when the language changes (it reloads the map). A new scheme re-mounts the
+  // screen (app/_layout.tsx), so the map style follows it.
   const html = useMemo(
-    () => mapHtml({ departures: t('map.departures'), zoomIn: t('map.zoomIn') }),
+    () => mapHtml({ departures: t('map.departures'), zoomIn: t('map.zoomIn') }, currentScheme()),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [lang],
   );
@@ -181,7 +182,7 @@ const shadow = Platform.select({
   default: { elevation: 4, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
 });
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   wrap: { flex: 1, minHeight: 420, overflow: 'hidden' },
   searchArea: {
     position: 'absolute',
@@ -225,9 +226,9 @@ const styles = StyleSheet.create({
     left: space.lg,
     right: space.lg,
     bottom: space.xl,
-    backgroundColor: 'rgba(22,24,29,0.88)',
+    backgroundColor: colors.toast,
     borderRadius: radius.md,
     padding: space.md,
   },
   problemText: { ...type.small, color: colors.onBrand },
-});
+}));
