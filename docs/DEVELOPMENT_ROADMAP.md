@@ -87,11 +87,22 @@
 - **Trip screen** (built 2026-11-10, PR #5: `GET /trips/{trip_id}` in `app/trips.py`, `app/trip.tsx`, `components/trip.tsx`): tapping a ride in the journey timeline opens the train's whole route, from its first stop to its terminus. The passenger's section is drawn in the line colour, stops already passed are grey, and the same live or estimated point moves along it.
 - **Approach dot:** when the train is one stop before the boarding stop, the point now slides down towards the boarding stop instead of waiting at the previous station.
 - **Train direction from the terminus:** Renfe's GTFS has no headsign, so legs used to fall back to the passenger's destination as "Direction", which could be wrong. The API now gives the trip's last stop as the direction, and the app never shows the destination there.
+- **Live train map** (Map screen; **postponed 2026-11-10 by the project owner** until the other Phase 5 items are done): a map of Madrid, like Flightradar24 for trains. Cercanías lines in their colours, every running Cercanías train as a dot that moves along its line (solid = live GPS, hollow = estimated from the timetable, same rules and labels as the journey timeline). Tapping a train shows line, direction and position age, and opens its trip screen; tapping a station opens its board. Reuses `GET /trips/{trip_id}/position`; needs the deferred `shape` table for line geometry. App: MapLibre + OpenFreeMap; website: MapLibre GL JS. Metro shows lines and stations only (no positions published); EMT buses if EMT's API includes positions; interurban buses only with CRTM authorization. Estimate: a few days.
+- **Features taken from SBB Mobile** (reviewed 2026-11-10; added at the project owner's request). In suggested order:
+  1. **Line alerts on the connection card:** an active operator alert for a line used by a connection is shown on the connection row, not only inside the journey. Found in testing on 2026-11-10: during a Renfe strike (alert: "No circulan trenes de líneas C3, C-4 y C-5"), C-4 connections still showed as Scheduled with an estimated train point. Small.
+  2. **Nearby stops:** "Stops near me" in the planner and Departures, from the phone's location (asked only when used). `GET /stops/nearby` already exists. Small.
+  3. **Home and Work, favourite trips** (SBB's personal timetable): one tap plans "home → work"; saved trips appear as quick picks. Stored on the device.
+  4. **Disruptions page:** all current Renfe and EMT alerts, grouped by line, reachable from Plan and Departures.
+  5. **Extra time for changes:** a connection option for people who change slowly (luggage, pram, wheelchair), using the route planner's extra transfer time; transfer labels use the extra time.
+  6. **Share a connection and add it to the calendar.** Small, no data needed.
+  7. **Dark mode** (already in DESIGN_SYSTEM.md), next to "reduce motion" and the screen-reader work of the accessibility pass.
+  - Later, once the app is on stores: home-screen widgets for saved trips (needs a development build).
+  - **Not possible with Madrid's data today:** occupancy forecasts, train formation and platform sectors (Renfe publishes neither). **Out of scope:** tickets and travelcards (no public ticketing interface for the Tarjeta Transporte Público).
 - **Exit:** usability test with 5 users; all labels per RELIABILITY_STRATEGY.md visible.
 
 ## Phase 6 — Reliability and notifications (L)
 - Journey monitoring, disruption detection, re-planning.
-- Expo push notifications, commuter routes.
+- Expo push notifications, commuter routes. As in SBB Mobile: alerts for a saved journey (delay, cancellation, platform change, change no longer possible) and for regular commuter routes on chosen days and times.
 - Prediction accuracy pipeline (needs weeks of data; start sampling in Phase 3).
 - **Exit:** R10–R12 pass; real-device notification tests.
 
