@@ -7,21 +7,23 @@ import { shownTime } from '../../api/journeys';
 import { JourneyNotices, JourneyTimeline } from '../../components/journey';
 import { BrandHeader, Card, EmptyState, Screen } from '../../components/layout';
 import { changesLabel, PearlChain } from '../../components/planner';
+import { useT } from '../../i18n';
 import { journeyCache } from '../../state/journeys';
 import { colors, space } from '../../theme';
 import { formatDuration, formatTime } from '../../utils/time';
 
 export default function JourneyScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { t } = useT();
   const journey = journeyCache.get(id);
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
   if (!journey) {
     return (
-      <Screen header={<BrandHeader title="Journey" onBack={back} />}>
+      <Screen header={<BrandHeader title={t('journey.title')} onBack={back} />}>
         <EmptyState
           icon="map-marker-path"
-          title="This journey is no longer available"
-          body="Search again to see current connections."
+          title={t('journey.gone')}
+          body={t('journey.searchAgain')}
         />
       </Screen>
     );

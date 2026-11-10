@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useIsWide } from '../hooks';
+import { useT } from '../i18n';
 import { colors, MAX_CONTENT_WIDTH, radius, space, type, WIDE_MAX_WIDTH } from '../theme';
 import { Footer } from './nav';
 
@@ -91,6 +92,7 @@ export function BrandHeader({
 }) {
   const insets = useSafeAreaInsets();
   const isWide = useIsWide();
+  const { t } = useT();
   return (
     <View
       style={[styles.header, { paddingTop: insets.top + space.md }, isWide && styles.headerWide]}>
@@ -103,7 +105,7 @@ export function BrandHeader({
               <Pressable
                 onPress={onBack}
                 accessibilityRole="button"
-                accessibilityLabel="Back"
+                accessibilityLabel={t('common.back')}
                 hitSlop={12}
                 style={styles.back}>
                 <MaterialCommunityIcons name="arrow-left" size={24} color={colors.onBrand} />
@@ -164,11 +166,12 @@ export function Divider({ inset = 0 }: { inset?: number }) {
   return <View style={[styles.divider, { marginLeft: inset }]} />;
 }
 
-export function Loading({ label = 'Loading…' }: { label?: string }) {
+export function Loading({ label }: { label?: string }) {
+  const { t } = useT();
   return (
     <View style={styles.state}>
       <ActivityIndicator color={colors.brand} />
-      <Text style={styles.stateText}>{label}</Text>
+      <Text style={styles.stateText}>{label ?? t('common.loading')}</Text>
     </View>
   );
 }
@@ -195,13 +198,16 @@ export function EmptyState({
 }
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  const { t } = useT();
   return (
     <EmptyState
       icon="cloud-off-outline"
-      title="Something went wrong"
+      title={t('common.errorTitle')}
       body={message}
       action={
-        onRetry ? <Button label="Try again" onPress={onRetry} variant="secondary" /> : undefined
+        onRetry ? (
+          <Button label={t('common.retry')} onPress={onRetry} variant="secondary" />
+        ) : undefined
       }
     />
   );

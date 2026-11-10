@@ -13,16 +13,18 @@ import {
   SectionTitle,
 } from '../../components/layout';
 import { StopRow } from '../../components/stops';
+import { useT } from '../../i18n';
 import { toggleFavorite, useSaved } from '../../state/saved';
 import { colors } from '../../theme';
 
 export default function SavedScreen() {
   const { favorites } = useSaved();
+  const { t } = useT();
   return (
-    <Screen header={<BrandHeader title="Saved" subtitle="Stored on this device only" />}>
+    <Screen header={<BrandHeader title={t('saved.title')} subtitle={t('saved.subtitle')} />}>
       {favorites.length ? (
         <>
-          <SectionTitle>Stops</SectionTitle>
+          <SectionTitle>{t('saved.stops')}</SectionTitle>
           <Card>
             {favorites.map((s, i) => (
               <View key={s.id}>
@@ -36,7 +38,7 @@ export default function SavedScreen() {
                     <Pressable
                       onPress={() => toggleFavorite(s)}
                       accessibilityRole="button"
-                      accessibilityLabel={`Remove ${s.name} from saved`}
+                      accessibilityLabel={t('saved.remove', { name: s.name })}
                       hitSlop={10}>
                       <MaterialCommunityIcons name="star" size={22} color={colors.accent} />
                     </Pressable>
@@ -47,11 +49,7 @@ export default function SavedScreen() {
           </Card>
         </>
       ) : (
-        <EmptyState
-          icon="star-outline"
-          title="Nothing saved yet"
-          body="Open a stop's departures and tap the star to keep it here. Saved stops also appear as quick picks in the planner."
-        />
+        <EmptyState icon="star-outline" title={t('saved.emptyTitle')} body={t('saved.emptyBody')} />
       )}
     </Screen>
   );

@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
+from app.i18n import tr
+
 TransferLabel = Literal["comfortable", "tight", "at_risk", "not_feasible", "uncertain"]
 
 COMFORTABLE_S = 5 * 60
@@ -87,9 +89,9 @@ def _minutes(seconds: int) -> int:
 
 def assess(arriving: TransferSide, departing: TransferSide, walk_s: int) -> TransferAssessment:
     if arriving.cancelled:
-        return TransferAssessment("not_feasible", None, None, "The arriving trip is cancelled.")
+        return TransferAssessment("not_feasible", None, None, tr("transfer.arriving_cancelled"))
     if departing.cancelled:
-        return TransferAssessment("not_feasible", None, None, "The connecting trip is cancelled.")
+        return TransferAssessment("not_feasible", None, None, tr("transfer.departing_cancelled"))
 
     min_change = MIN_CHANGE_S.get((departing.stop_id or "", arriving.mode, departing.mode), 0)
     allowance = 0 if arriving.live else SCHEDULED_ARRIVAL_ALLOWANCE_S.get(arriving.mode)
@@ -98,33 +100,22 @@ def assess(arriving: TransferSide, departing: TransferSide, walk_s: int) -> Tran
     if departing.frequency_headway_min is not None:
         # Missing one vehicle means waiting for the next, so this is never "not feasible".
         n = departing.frequency_headway_min
-        return TransferAssessment(
-            None, None, n, f"Frequent service: wait up to {n} min for the next one."
-        )
+        return TransferAssessment(None, None, n, tr("transfer.frequency", n=n))
 
     if allowance is None or (not arriving.live and arriving.frequency_headway_min is not None):
         # Headway-based arrivals have no reliable arrival time: the vehicle could be any one
         # of several, so the margin is unknown.
         label: TransferLabel = "not_feasible" if raw_margin < 0 else "uncertain"
-        msg = (
-            "The connection leaves before you arrive."
-            if raw_margin < 0
-            else "Arrival time not known precisely; this change may be tight."
-        )
+        msg = tr("transfer.leaves_before" if raw_margin < 0 else "transfer.uncertain")
         return TransferAssessment(label, raw_margin, None, msg)
 
     margin = raw_margin - allowance
     label = label_for_margin(margin)
-    basis = "live times" if arriving.live else "the timetable"
     if label == "not_feasible":
-        msg = "Not enough time to change"
-        if arriving.live:
-            msg += ": the arriving vehicle is running late."
-        else:
-            msg += "."
+        msg = tr("transfer.not_enough_late" if arriving.live else "transfer.not_enough")
     else:
-        mins = _minutes(margin)
-        msg = f"{mins} min to spare after walking, based on {basis}."
+        spare = "transfer.spare_live" if arriving.live else "transfer.spare_scheduled"
+        msg = tr(spare, n=_minutes(margin))
     return TransferAssessment(label, margin, None, msg)
 
 

@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 
 import { useIsWide } from '../../hooks';
+import { useT } from '../../i18n';
 import { colors } from '../../theme';
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -18,6 +19,7 @@ function icon(name: IconName, focusedName: IconName) {
 
 export default function TabLayout() {
   const isWide = useIsWide(); // the website uses the top navigation instead
+  const { t } = useT();
   return (
     <Tabs
       screenOptions={{
@@ -36,20 +38,20 @@ export default function TabLayout() {
       }}>
       <Tabs.Screen
         name="index"
-        options={{ title: 'Plan', tabBarIcon: icon('map-marker-path', 'map-marker-path') }}
+        options={{ title: t('tab.plan'), tabBarIcon: icon('map-marker-path', 'map-marker-path') }}
       />
       <Tabs.Screen
         name="departures"
-        options={{ title: 'Departures', tabBarIcon: icon('clock-outline', 'clock') }}
+        options={{ title: t('tab.departures'), tabBarIcon: icon('clock-outline', 'clock') }}
       />
       <Tabs.Screen
         name="saved"
-        options={{ title: 'Saved', tabBarIcon: icon('star-outline', 'star') }}
+        options={{ title: t('tab.saved'), tabBarIcon: icon('star-outline', 'star') }}
       />
       <Tabs.Screen
         name="more"
         options={{
-          title: 'More',
+          title: t('tab.more'),
           tabBarIcon: icon('dots-horizontal-circle-outline', 'dots-horizontal-circle'),
         }}
       />

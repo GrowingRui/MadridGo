@@ -1,21 +1,53 @@
-// Time formatting. Transit times are always shown in Madrid time, whatever the device zone.
+// Time formatting. Transit times are always shown in Madrid time, whatever the device zone;
+// words (weekdays, "today", "in 4 min") follow the app language.
+
+import { locale, t } from '../i18n';
 
 const TZ = 'Europe/Madrid';
 
 const hm = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: TZ });
-const dayFmt = new Intl.DateTimeFormat('en-GB', {
-  weekday: 'short',
-  day: 'numeric',
-  month: 'short',
-  timeZone: TZ,
-});
+
+const formatters = new Map<string, Intl.DateTimeFormat>();
+function fmt(kind: 'day' | 'weekday'): Intl.DateTimeFormat {
+  const loc = locale();
+  const key = `${kind}:${loc}`;
+  let f = formatters.get(key);
+  if (!f) {
+    f =
+      kind === 'day'
+        ? new Intl.DateTimeFormat(loc, {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'short',
+            timeZone: TZ,
+          })
+        : new Intl.DateTimeFormat(loc, { weekday: 'short', timeZone: TZ });
+    formatters.set(key, f);
+  }
+  return f;
+}
+
+const capitalize = (s: string) => s.charAt(0).toLocaleUpperCase() + s.slice(1);
 
 export function formatTime(iso: string | number | Date): string {
   return hm.format(new Date(iso));
 }
 
+/** "Tue, 10 Nov" / "Mar, 10 nov". */
 export function formatDay(iso: string | number | Date): string {
-  return dayFmt.format(new Date(iso));
+  return capitalize(fmt('day').format(new Date(iso)));
+}
+
+/** A date from the server ("2025-05-30"): "30/05/2025" in Spanish, "30 May 2025" in English. */
+export function formatIsoDate(isoDate: string): string {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  if (!y || !m || !d) return isoDate;
+  return new Intl.DateTimeFormat(locale(), {
+    day: locale() === 'es-ES' ? '2-digit' : 'numeric',
+    month: locale() === 'es-ES' ? '2-digit' : 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(Date.UTC(y, m - 1, d));
 }
 
 /** Whole minutes from now until `iso` (negative if in the past). */
@@ -26,8 +58,16 @@ export function minutesUntil(iso: string, now: number = Date.now()): number {
 /** "now", "in 4 min", or null when it is more than an hour away. */
 export function countdown(iso: string, now: number = Date.now()): string | null {
   const m = minutesUntil(iso, now);
-  if (m <= 0) return 'now';
-  if (m < 60) return `in ${m} min`;
+  if (m <= 0) return t('time.now');
+  if (m < 60) return t('time.in', { n: m });
+  return null;
+}
+
+/** The same without "in", for a board's countdown column: "now", "4 min". */
+export function countdownShort(iso: string, now: number = Date.now()): string | null {
+  const m = minutesUntil(iso, now);
+  if (m <= 0) return t('time.now');
+  if (m < 60) return t('time.min', { n: m });
   return null;
 }
 
@@ -104,17 +144,18 @@ export function madridDayStart(at: number, days = 0): number {
   return fromMadrid(q.year, q.month, q.day, 0, 0);
 }
 
-/** "Mon 09.11." as on Swiss and Spanish timetables. */
+/** "Mon 09.11." / "Lun 09.11." as on Swiss and Spanish timetables. */
 export function formatDateShort(at: number | Date): string {
   const p = madridParts(at);
   const two = (n: number) => String(n).padStart(2, '0');
-  return `${p.weekday} ${two(p.day)}.${two(p.month)}.`;
+  const weekday = capitalize(fmt('weekday').format(new Date(at)).replace('.', ''));
+  return `${weekday} ${two(p.day)}.${two(p.month)}.`;
 }
 
 /** "Today", "Tomorrow" or "Wed 11.11.". */
 export function dayLabel(at: number, now: number = Date.now()): string {
   const diff = Math.round((madridDayStart(at) - madridDayStart(now)) / 86_400_000);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Tomorrow';
+  if (diff === 0) return t('time.today');
+  if (diff === 1) return t('time.tomorrow');
   return formatDateShort(at);
 }

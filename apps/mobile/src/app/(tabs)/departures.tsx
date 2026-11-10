@@ -13,28 +13,30 @@ import {
   SectionTitle,
 } from '../../components/layout';
 import { StopRow } from '../../components/stops';
+import { useT } from '../../i18n';
 import { type SavedStop, clearRecents, useSaved } from '../../state/saved';
 import { colors, radius, space, type } from '../../theme';
 
 export default function DeparturesScreen() {
   const saved = useSaved();
+  const { t } = useT();
   const open = (s: SavedStop) => router.push({ pathname: '/stop/[id]', params: { id: s.id } });
   return (
     <Screen
       header={
-        <BrandHeader title="Departures" subtitle="Next trains, Metro and buses from any stop">
+        <BrandHeader title={t('dep.title')} subtitle={t('dep.subtitle')}>
           <Pressable
             onPress={() => router.push({ pathname: '/pick', params: { field: 'board' } })}
             accessibilityRole="search"
             style={styles.fakeSearch}>
             <MaterialCommunityIcons name="magnify" size={22} color={colors.textMuted} />
-            <Text style={styles.fakeSearchText}>Stop, station or stop code</Text>
+            <Text style={styles.fakeSearchText}>{t('search.placeholder')}</Text>
           </Pressable>
         </BrandHeader>
       }>
       {saved.favorites.length ? (
         <>
-          <SectionTitle>Saved</SectionTitle>
+          <SectionTitle>{t('section.saved')}</SectionTitle>
           <List stops={saved.favorites} onPress={open} />
         </>
       ) : null}
@@ -43,20 +45,16 @@ export default function DeparturesScreen() {
           <SectionTitle
             action={
               <Text onPress={clearRecents} style={styles.clear} accessibilityRole="button">
-                Clear
+                {t('common.clear')}
               </Text>
             }>
-            Recent
+            {t('section.recent')}
           </SectionTitle>
           <List stops={saved.recents} onPress={open} />
         </>
       ) : null}
       {!saved.favorites.length && !saved.recents.length ? (
-        <EmptyState
-          icon="clock-outline"
-          title="Find your stop"
-          body="Search for a stop to see its next departures. Tap the star on a board to keep it here."
-        />
+        <EmptyState icon="clock-outline" title={t('dep.emptyTitle')} body={t('dep.emptyBody')} />
       ) : null}
     </Screen>
   );

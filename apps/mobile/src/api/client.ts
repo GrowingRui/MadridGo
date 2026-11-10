@@ -1,6 +1,7 @@
 // Small fetch wrapper: base URL, timeout and typed errors. The app only talks to the MadridGo
 // backend; it never calls transport providers directly.
 
+import { currentLang, t } from '../i18n';
 import { getApiBaseUrl } from './health';
 
 export class ApiError extends Error {
@@ -27,20 +28,20 @@ export async function getJson<T>(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetchImpl(url, { signal: controller.signal });
+    // The server writes its messages (notices, live data status) in the app's language.
+    const res = await fetchImpl(url, {
+      signal: controller.signal,
+      headers: { 'Accept-Language': currentLang() },
+    });
     if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as { detail?: unknown } | null;
-      const detail = typeof body?.detail === 'string' ? body.detail : `HTTP ${res.status}`;
-      throw new ApiError(detail, res.status);
+      // The server's own detail is for developers (English); the user gets a translated line.
+      throw new ApiError(t('error.server', { status: res.status }), res.status);
     }
     return (await res.json()) as T;
   } catch (err) {
     if (err instanceof ApiError) throw err;
     const aborted = err instanceof Error && err.name === 'AbortError';
-    throw new ApiError(
-      aborted ? 'The server took too long to answer' : 'Cannot reach MadridGo',
-      null,
-    );
+    throw new ApiError(aborted ? t('error.timeout') : t('error.unreachable'), null);
   } finally {
     clearTimeout(timer);
   }

@@ -6,6 +6,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { LegTime, TimeStatus, TransferLabel } from '../api/journeys';
 import { delayMin, shownTime } from '../api/journeys';
 import type { Line, Mode } from '../api/stops';
+import { t, useT } from '../i18n';
 import { colors, modeColors, radius, type } from '../theme';
 import { formatTime } from '../utils/time';
 
@@ -19,13 +20,10 @@ const MODE_ICON: Record<Mode | 'walk', IconName> = {
   walk: 'walk',
 };
 
-export const MODE_LABEL: Record<Mode | 'walk', string> = {
-  rail: 'Cercanías',
-  metro: 'Metro',
-  light_rail: 'Metro Ligero',
-  bus: 'Bus',
-  walk: 'Walk',
-};
+/** "Cercanías", "Metro", "Bus" / "Autobús"… in the app language. */
+export function modeLabel(mode: Mode | 'walk'): string {
+  return t(`mode.${mode}`);
+}
 
 export function ModeIcon({
   mode,
@@ -36,12 +34,13 @@ export function ModeIcon({
   size?: number;
   color?: string;
 }) {
+  useT();
   return (
     <MaterialCommunityIcons
       name={MODE_ICON[mode]}
       size={size}
       color={color}
-      accessibilityLabel={MODE_LABEL[mode]}
+      accessibilityLabel={modeLabel(mode)}
     />
   );
 }
@@ -65,12 +64,13 @@ export function LinePill({
   /** On the navy header: a thin white outline keeps dark lines (C4 navy) visible. */
   onDark?: boolean;
 }) {
+  useT();
   const { bg, fg } = lineColors(line);
   const small = size === 'sm';
   const round = line.mode === 'metro' && line.short_name.length <= 2;
   return (
     <View
-      accessibilityLabel={`${MODE_LABEL[line.mode]} ${line.short_name}`}
+      accessibilityLabel={`${modeLabel(line.mode)} ${line.short_name}`}
       style={[
         styles.pill,
         small && styles.pillSm,
@@ -107,16 +107,17 @@ export function LinePills({
 
 export type BadgeStatus = TimeStatus;
 
-const STATUS_STYLE: Record<BadgeStatus, { fg: string; bg: string; label: string }> = {
-  live: { fg: colors.live, bg: colors.liveBg, label: 'Live' },
-  cancelled: { fg: colors.delay, bg: colors.delayBg, label: 'Cancelled' },
-  scheduled: { fg: colors.scheduled, bg: colors.scheduledBg, label: 'Scheduled' },
-  frequency: { fg: colors.warning, bg: colors.warningBg, label: 'Frequency' },
+const STATUS_STYLE: Record<BadgeStatus, { fg: string; bg: string }> = {
+  live: { fg: colors.live, bg: colors.liveBg },
+  cancelled: { fg: colors.delay, bg: colors.delayBg },
+  scheduled: { fg: colors.scheduled, bg: colors.scheduledBg },
+  frequency: { fg: colors.warning, bg: colors.warningBg },
 };
 
 /** The reliability label. Every time in the app is shown next to one of these. */
 export function StatusBadge({ status, text }: { status: BadgeStatus; text?: string }) {
-  const s = STATUS_STYLE[status];
+  const { t } = useT();
+  const s = { ...STATUS_STYLE[status], label: t(`status.${status}`) };
   return (
     <View style={[styles.badge, { backgroundColor: s.bg }]}>
       {status === 'live' ? <View style={[styles.liveDot, { backgroundColor: s.fg }]} /> : null}
@@ -125,26 +126,28 @@ export function StatusBadge({ status, text }: { status: BadgeStatus; text?: stri
   );
 }
 
-const TRANSFER_STYLE: Record<TransferLabel, { fg: string; bg: string; label: string }> = {
-  comfortable: { fg: colors.live, bg: colors.liveBg, label: 'Comfortable change' },
-  tight: { fg: colors.warning, bg: colors.warningBg, label: 'Tight change' },
-  at_risk: { fg: colors.delay, bg: colors.delayBg, label: 'Change at risk' },
-  not_feasible: { fg: colors.delay, bg: colors.delayBg, label: 'Change not possible' },
-  uncertain: { fg: colors.scheduled, bg: colors.scheduledBg, label: 'Change uncertain' },
+const TRANSFER_STYLE: Record<TransferLabel, { fg: string; bg: string }> = {
+  comfortable: { fg: colors.live, bg: colors.liveBg },
+  tight: { fg: colors.warning, bg: colors.warningBg },
+  at_risk: { fg: colors.delay, bg: colors.delayBg },
+  not_feasible: { fg: colors.delay, bg: colors.delayBg },
+  uncertain: { fg: colors.scheduled, bg: colors.scheduledBg },
 };
 
 /** How safe a change is (RELIABILITY_STRATEGY.md §5). Words only, never a percentage. */
 export function TransferBadge({ label }: { label: TransferLabel }) {
+  const { t } = useT();
   const s = TRANSFER_STYLE[label];
   return (
     <View style={[styles.badge, { backgroundColor: s.bg }]}>
-      <Text style={[styles.badgeText, { color: s.fg }]}>{s.label}</Text>
+      <Text style={[styles.badgeText, { color: s.fg }]}>{t(`transfer.${label}`)}</Text>
     </View>
   );
 }
 
 /** A time with its delay: "17:54 +4'" where the delay is red. Struck-through when cancelled. */
 export function TimeWithDelay({ time, big }: { time: LegTime; big?: boolean }) {
+  const { t } = useT();
   const d = delayMin(time);
   const cancelled = time.status === 'cancelled';
   return (
@@ -158,7 +161,9 @@ export function TimeWithDelay({ time, big }: { time: LegTime; big?: boolean }) {
         {formatTime(shownTime(time))}
       </Text>
       {d > 0 ? (
-        <Text style={[type.smallStrong, styles.delay]} accessibilityLabel={`${d} minutes late`}>
+        <Text
+          style={[type.smallStrong, styles.delay]}
+          accessibilityLabel={t('a11y.minutesLate', { n: d })}>
           +{d}′
         </Text>
       ) : null}

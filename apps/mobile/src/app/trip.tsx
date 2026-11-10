@@ -14,14 +14,16 @@ import {
   Notice,
   Screen,
 } from '../components/layout';
-import { LinePill, MODE_LABEL, lineColors } from '../components/transit';
+import { LinePill, lineColors, modeLabel } from '../components/transit';
 import { TripRoute, TripStatus } from '../components/trip';
 import { useAsync, useNow, useTripPosition } from '../hooks';
+import { useT } from '../i18n';
 import { journeyCache } from '../state/journeys';
 import { colors, modeColors, space } from '../theme';
 import { canTrack } from '../utils/trainPosition';
 
 export default function TripScreen() {
+  const { t, tn } = useT();
   const params = useLocalSearchParams<{ journey: string; leg: string }>();
   const leg = journeyCache.get(params.journey)?.legs[Number(params.leg)];
   const tripId = leg?.trip_id ?? null;
@@ -44,12 +46,8 @@ export default function TripScreen() {
 
   if (!leg || !tripId) {
     return (
-      <Screen header={<BrandHeader title="Trip" onBack={back} />}>
-        <EmptyState
-          icon="map-marker-path"
-          title="This trip is no longer available"
-          body="Search again to see current connections."
-        />
+      <Screen header={<BrandHeader title={t('trip.title')} onBack={back} />}>
+        <EmptyState icon="map-marker-path" title={t('trip.gone')} body={t('journey.searchAgain')} />
       </Screen>
     );
   }
@@ -57,14 +55,17 @@ export default function TripScreen() {
   const data = trip.data;
   const first = data?.stops[0]?.name;
   const lastStop = data?.stops[data.stops.length - 1]?.name;
+  const direction = lastStop ?? leg.headsign;
 
   return (
     <Screen
       header={
         <BrandHeader
-          title={`${MODE_LABEL[leg.mode]}${(lastStop ?? leg.headsign) ? ` · Direction ${lastStop ?? leg.headsign}` : ''}`}
+          title={`${modeLabel(leg.mode)}${direction ? ` · ${t('conn.direction', { name: direction })}` : ''}`}
           subtitle={
-            data ? `${first} → ${lastStop} · ${data.stops.length} stops` : `${leg.from} → ${leg.to}`
+            data
+              ? tn('trip.subtitle', data.stops.length, { from: first ?? '', to: lastStop ?? '' })
+              : `${leg.from} → ${leg.to}`
           }
           onBack={back}>
           {leg.line ? (
@@ -74,15 +75,14 @@ export default function TripScreen() {
           ) : null}
         </BrandHeader>
       }>
-      {trip.loading && !data ? <Loading label="Loading the route…" /> : null}
+      {trip.loading && !data ? <Loading label={t('trip.loading')} /> : null}
       {trip.error && !data ? <ErrorState message={trip.error} onRetry={trip.reload} /> : null}
       {data ? (
         <>
           {pos?.kind === 'estimated' ? (
             <View style={{ marginTop: space.lg }}>
-              <Notice tone="info" icon="information-outline" title="Estimated position">
-                Renfe gives no live position for this train right now, so the point follows the
-                timetable.
+              <Notice tone="info" icon="information-outline" title={t('trip.estimatedTitle')}>
+                {t('trip.estimatedBody')}
               </Notice>
             </View>
           ) : null}

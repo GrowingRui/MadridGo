@@ -4,15 +4,16 @@
 import { router, usePathname } from 'expo-router';
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { type Lang, setLanguagePreference, useT } from '../i18n';
 import { colors, space, type, WIDE_MAX_WIDTH } from '../theme';
 import type { PressState } from '../hooks';
 
 const LINKS = [
-  { label: 'Plan a journey', href: '/' as const },
-  { label: 'Departures', href: '/departures' as const },
-  { label: 'Saved', href: '/saved' as const },
-  { label: 'Data status', href: '/more' as const },
-];
+  { label: 'nav.plan', href: '/' as const },
+  { label: 'nav.departures', href: '/departures' as const },
+  { label: 'nav.saved', href: '/saved' as const },
+  { label: 'nav.status', href: '/more' as const },
+] as const;
 
 function isActive(path: string, href: string) {
   if (href === '/') return path === '/' || path.startsWith('/journey');
@@ -21,6 +22,7 @@ function isActive(path: string, href: string) {
 }
 
 export function TopNav() {
+  const { t } = useT();
   const path = usePathname();
   return (
     <View style={styles.nav} accessibilityRole="navigation">
@@ -28,7 +30,7 @@ export function TopNav() {
         <Pressable
           onPress={() => router.navigate('/')}
           accessibilityRole="link"
-          accessibilityLabel="MadridGo home"
+          accessibilityLabel={t('nav.home')}
           style={styles.brand}>
           <Image source={require('../../assets/icon.png')} style={styles.logo} />
           <Text style={styles.wordmark}>MadridGo</Text>
@@ -47,30 +49,61 @@ export function TopNav() {
                   active && styles.linkActive,
                   hovered && !active && styles.linkHover,
                 ]}>
-                <Text style={[styles.linkText, active && styles.linkTextActive]}>{l.label}</Text>
+                <Text style={[styles.linkText, active && styles.linkTextActive]}>{t(l.label)}</Text>
               </Pressable>
             );
           })}
         </View>
+        <View style={{ flex: 1 }} />
+        <LanguageSwitch />
       </View>
     </View>
   );
 }
 
+/** "ES | EN" at the right of the website's top bar, as on Spanish operators' websites. */
+function LanguageSwitch() {
+  const { t, lang } = useT();
+  const options: Lang[] = ['es', 'en'];
+  return (
+    <View
+      style={styles.langs}
+      accessibilityRole="radiogroup"
+      accessibilityLabel={t('nav.language')}>
+      {options.map((l) => {
+        const on = l === lang;
+        return (
+          <Pressable
+            key={l}
+            onPress={() => setLanguagePreference(l)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: on }}
+            accessibilityLabel={l === 'es' ? 'Español' : 'English'}
+            style={({ hovered }: PressState) => [
+              styles.lang,
+              on && styles.langOn,
+              hovered && !on && styles.langHover,
+            ]}>
+            <Text style={[styles.langText, on && styles.langTextOn]}>{l.toUpperCase()}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export function Footer() {
+  const { t } = useT();
   const open = (url: string) => () => void Linking.openURL(url);
   return (
     <View style={styles.footer}>
       <View style={styles.footerInner}>
         <View style={{ flex: 1, gap: space.xs }}>
           <Text style={styles.footerTitle}>MadridGo</Text>
-          <Text style={styles.footerText}>
-            Reliable journeys across the Community of Madrid. Every time is labelled Live, Scheduled
-            or Every ~N min.
-          </Text>
+          <Text style={styles.footerText}>{t('footer.tagline')}</Text>
         </View>
         <View style={{ gap: space.xs }}>
-          <Text style={styles.footerTitle}>Open data</Text>
+          <Text style={styles.footerTitle}>{t('footer.openData')}</Text>
           <Text style={styles.footerLink} onPress={open('https://www.crtm.es')}>
             Powered by CRTM
           </Text>
@@ -78,16 +111,14 @@ export function Footer() {
             Powered by EMT de Madrid
           </Text>
           <Text style={styles.footerLink} onPress={open('https://data.renfe.com')}>
-            Renfe open data (CC BY 4.0)
+            {t('attr.renfe')}
           </Text>
           <Text style={styles.footerLink} onPress={open('https://www.openstreetmap.org/copyright')}>
-            © OpenStreetMap contributors
+            {t('attr.osm')}
           </Text>
         </View>
       </View>
-      <Text style={styles.footerSmall}>
-        MadridGo is independent and not endorsed by CRTM, EMT or Renfe.
-      </Text>
+      <Text style={styles.footerSmall}>{t('footer.independent')}</Text>
     </View>
   );
 }
@@ -122,6 +153,12 @@ const styles = StyleSheet.create({
   linkHover: { borderBottomColor: colors.border },
   linkText: { ...type.bodyStrong, fontSize: 15, color: colors.textMuted },
   linkTextActive: { color: colors.brand },
+  langs: { flexDirection: 'row', gap: space.xs },
+  lang: { paddingHorizontal: space.sm, paddingVertical: space.xs, borderRadius: 6 },
+  langOn: { backgroundColor: colors.brandTint },
+  langHover: { backgroundColor: '#F7F8FA' },
+  langText: { ...type.smallStrong, color: colors.textMuted },
+  langTextOn: { color: colors.brand },
   footer: {
     backgroundColor: colors.surface,
     borderTopWidth: 1,

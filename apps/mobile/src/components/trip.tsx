@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { type LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 
 import type { TripDetails, TripPosition, TripStopTime } from '../api/trips';
+import { t, useT } from '../i18n';
 import { colors, space, type } from '../theme';
 import { formatTime } from '../utils/time';
 import { placeOnTrip, positionAgeS, ridingText, sourceText, trackY } from '../utils/trainPosition';
@@ -28,6 +29,7 @@ export function TripStatus({
   now: number;
   tracked: boolean;
 }) {
+  const { t } = useT();
   const placed = pos ? placeOnTrip(pos, now) : null;
   const late = trip.delay_s ? Math.round(trip.delay_s / 60) : 0;
   let main: string | null = null;
@@ -38,7 +40,7 @@ export function TripStatus({
   } else if (pos?.status === 'unavailable' && pos.message) {
     detail = pos.message;
   } else if (!tracked) {
-    detail = 'Timetable. The position is shown around the time of your journey.';
+    detail = t('trip.notTracked');
   }
   if (!main && !detail && late <= 0) return null;
   return (
@@ -47,7 +49,7 @@ export function TripStatus({
       {detail ? <Text style={styles.small}>{detail}</Text> : null}
       {late > 0 ? (
         <Text style={[styles.small, { color: colors.delay }]}>
-          Running about {late} min late (live). Times below are the timetable.
+          {t('trip.runningLate', { n: late })}
         </Text>
       ) : null}
     </View>
@@ -65,6 +67,7 @@ export function TripRoute({
   pos: TripPosition | null;
   now: number;
 }) {
+  const { t } = useT();
   const [ys, setYs] = useState<Record<number, number>>({});
   const measure = (i: number) => (e: LayoutChangeEvent) => {
     const value = e.nativeEvent.layout.y + NODE_TOP + 7;
@@ -145,10 +148,10 @@ export function TripRoute({
                 {s.name}
               </Text>
               {i === board && trip.board_index != null ? (
-                <Text style={styles.tag}>Get on</Text>
+                <Text style={styles.tag}>{t('trip.getOn')}</Text>
               ) : null}
               {i === alight && trip.alight_index != null ? (
-                <Text style={styles.tag}>Get off</Text>
+                <Text style={styles.tag}>{t('trip.getOff')}</Text>
               ) : null}
             </View>
           </View>
@@ -169,9 +172,9 @@ function stopLabel(
 ): string {
   const parts = [s.name];
   if (time) parts.push(formatTime(time));
-  if (i === board) parts.push('you get on here');
-  if (i === alight) parts.push('you get off here');
-  if (passed) parts.push('passed');
+  if (i === board) parts.push(t('trip.a11yGetOn'));
+  if (i === alight) parts.push(t('trip.a11yGetOff'));
+  if (passed) parts.push(t('trip.a11yPassed'));
   return parts.join(', ');
 }
 
