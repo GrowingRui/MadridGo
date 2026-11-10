@@ -2,6 +2,7 @@
 // the journey page in the app and the detail pane of the website's split view.
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -94,7 +95,11 @@ export function JourneyTimeline({ journey }: { journey: Journey }) {
         const change = journey.changes.find((c) => c.from_leg === i);
         return (
           <View key={i}>
-            {leg.mode === 'walk' ? <WalkLeg leg={leg} /> : <TransitLeg leg={leg} />}
+            {leg.mode === 'walk' ? (
+              <WalkLeg leg={leg} />
+            ) : (
+              <TransitLeg leg={leg} journeyId={journey.id} legIndex={i} />
+            )}
             {change ? <ChangeNote change={change} /> : null}
           </View>
         );
@@ -149,7 +154,20 @@ function Platform({ value }: { value?: string | null }) {
   );
 }
 
-function TransitLeg({ leg }: { leg: Leg }) {
+/** Opens the trip screen: the whole route of this leg's vehicle, with its position. */
+export function openTrip(journeyId: string, legIndex: number) {
+  router.push({ pathname: '/trip', params: { journey: journeyId, leg: String(legIndex) } });
+}
+
+function TransitLeg({
+  leg,
+  journeyId,
+  legIndex,
+}: {
+  leg: Leg;
+  journeyId: string;
+  legIndex: number;
+}) {
   const [open, setOpen] = useState(false);
   const color = leg.line ? lineColors(leg.line).bg : (modeColors[leg.mode]?.bg ?? colors.brand);
   const late = delayMin(leg.departure);
@@ -169,7 +187,8 @@ function TransitLeg({ leg }: { leg: Leg }) {
     }
   }, [riding, leg.intermediate.length]);
 
-  // Centre of each stop marker, measured: approach, then rows 0 (boarding) .. n+1 (alighting).
+  // Centre of each stop marker, measured, for rows 0 (boarding) .. n+1 (alighting); for the
+  // approach row, its top.
   const [ys, setYs] = useState<Record<string, number>>({});
   const measure = (key: string, centre: number) => (e: LayoutChangeEvent) => {
     const { y, height } = e.nativeEvent.layout;
@@ -178,7 +197,11 @@ function TransitLeg({ leg }: { leg: Leg }) {
   };
   const rowCount = leg.intermediate.length + 2;
   let dotY: number | null = null;
-  if (placement.kind === 'approaching') dotY = ys.approach ?? null;
+  if (placement.kind === 'approaching' && ys.approach != null && ys['0'] != null) {
+    // From the top of the approach line down to the boarding stop.
+    const top = ys.approach + DOT / 2 + 4;
+    dotY = top + (ys['0'] - top) * placement.progress;
+  }
   if (placement.kind === 'riding') {
     const rowYs = Array.from({ length: rowCount }, (_, r) =>
       r === 0 || r === rowCount - 1 || open ? ys[String(r)] : undefined,
@@ -192,7 +215,7 @@ function TransitLeg({ leg }: { leg: Leg }) {
   return (
     <View>
       {placement.kind === 'approaching' ? (
-        <View style={styles.approach} onLayout={measure('approach', -1)}>
+        <View style={styles.approach} onLayout={measure('approach', 0)}>
           <View style={styles.timeCol} />
           <View style={styles.track}>
             <View style={[styles.lineSeg, styles.lineAhead, { backgroundColor: color, top: 0 }]} />
@@ -235,12 +258,22 @@ function TransitLeg({ leg }: { leg: Leg }) {
           <View style={[styles.lineSeg, { backgroundColor: color, top: 0, bottom: 0 }]} />
         </View>
         <View style={styles.rideBody}>
-          <View style={styles.rideHead}>
+          <Pressable
+            onPress={leg.trip_id ? () => openTrip(journeyId, legIndex) : undefined}
+            disabled={!leg.trip_id}
+            accessibilityRole={leg.trip_id ? 'button' : undefined}
+            accessibilityHint={leg.trip_id ? 'Shows every stop of this train' : undefined}
+            style={({ pressed }) => [styles.rideHead, pressed && styles.pressed]}>
             {leg.line ? <LinePill line={leg.line} /> : <ModeIcon mode={leg.mode} />}
-            <Text style={styles.rideDir} numberOfLines={2}>
-              {MODE_LABEL[leg.mode]} · Direction {leg.headsign ?? leg.to}
+            <Text style={styles.rideDir} numberOfLines={3}>
+              {MODE_LABEL[leg.mode]}
+              {/* Never the passenger's destination: that may not be where the train ends. */}
+              {leg.headsign ? ` · Direction ${leg.headsign}` : ''}
             </Text>
-          </View>
+            {leg.trip_id ? (
+              <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brand} />
+            ) : null}
+          </Pressable>
           <View style={styles.rideBadges}>
             <StatusBadge
               status={leg.departure.status}
@@ -330,7 +363,7 @@ function TransitLeg({ leg }: { leg: Leg }) {
  * once-a-second targets while riding read as continuous movement, and a new GPS fix is a
  * short glide. With "reduce motion" on, it jumps.
  */
-function TrainDot({ y, estimated }: { y: number; estimated: boolean }) {
+export function TrainDot({ y, estimated }: { y: number; estimated: boolean }) {
   const reduce = useReduceMotion();
   const [anim] = useState(() => new Animated.Value(y));
   useEffect(() => {
@@ -397,6 +430,7 @@ const styles = StyleSheet.create({
   rideBody: { flex: 1, paddingLeft: space.sm, paddingVertical: space.sm, gap: 6 },
   rideHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   rideDir: { ...type.body, color: colors.text, flex: 1 },
+  pressed: { opacity: 0.6 },
   rideBadges: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   toggleText: { ...type.smallStrong, color: colors.brand },

@@ -56,8 +56,11 @@ class FakeStatic:
         self,
         expired_routes: dict[str, list[str]] | None = None,
         frequencies: dict[tuple[str, str], list[tuple[int, int, int]]] | None = None,
+        termini: dict[tuple[str, str], str] | None = None,
     ) -> None:
         self.expired_routes = expired_routes or {}
+        self.termini_names = termini or {}
+        self.termini_asked: list[tuple[str, str]] = []
         self.windows = frequencies if frequencies is not None else {S10: [(64800, 86400, 240)]}
 
     async def place(self, stop_id: str) -> Place:
@@ -88,6 +91,10 @@ class FakeStatic:
         self, trips: list[tuple[str, str]]
     ) -> dict[tuple[str, str], list[tuple[int, int, int]]]:
         return {t: self.windows[t] for t in trips if t in self.windows}
+
+    async def termini(self, trips: list[tuple[str, str]]) -> dict[tuple[str, str], str]:
+        self.termini_asked += trips
+        return {t: self.termini_names[t] for t in trips if t in self.termini_names}
 
 
 class FakeOtp:
@@ -786,3 +793,32 @@ def test_worst_label() -> None:
     assert worst([]) is None and worst([None]) is None
     assert worst(["comfortable", "uncertain", "tight"]) == "uncertain"
     assert worst(["tight", "not_feasible", None]) == "not_feasible"
+
+
+# ---------------------------------------------------------------------------
+# Direction of a leg without a headsign (Renfe publishes none)
+
+
+def test_renfe_leg_gets_its_terminus_as_direction(setup: Callable[..., TestClient]) -> None:
+    static = FakeStatic(
+        termini={("cercanias", C4A_TRIP): "Alcobendas - San Sebastián de los Reyes"}
+    )
+    body = plan(setup(FakeOtp(load("parla_atocha")), static))
+    legs = [lg for j in body["journeys"] for lg in j["legs"] if lg.get("trip_id")]
+    c4a = next(lg for lg in legs if lg["trip_id"] == f"cercanias:{C4A_TRIP}")
+    assert c4a["headsign"] == "Alcobendas - San Sebastián de los Reyes"
+    assert c4a["headsign"] != c4a["to"]  # not the passenger's own destination
+    # Legs with a headsign (the recorded buses) keep it and are not looked up.
+    assert static.termini_asked and all(feed == "cercanias" for feed, _ in static.termini_asked)
+    assert any(lg["headsign"] and lg["mode"] == "bus" for lg in legs)
+
+
+def test_unknown_terminus_leaves_no_direction(setup: Callable[..., TestClient]) -> None:
+    body = plan(setup(FakeOtp(load("parla_atocha")), FakeStatic()))
+    c4a = next(
+        lg
+        for j in body["journeys"]
+        for lg in j["legs"]
+        if lg.get("trip_id") == f"cercanias:{C4A_TRIP}"
+    )
+    assert c4a["headsign"] is None  # the app then shows no wrong direction

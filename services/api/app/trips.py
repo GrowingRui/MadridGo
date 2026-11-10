@@ -417,6 +417,124 @@ def get_trip_timetable(pool: Annotated[asyncpg.Pool, Depends(get_pool)]) -> Trip
     return TripTimetable(pool)
 
 
+# ---------------------------------------------------------------------------
+# The whole route of one trip (`GET /trips/{trip_id}`): every stop from origin to terminus,
+# for the trip screen that opens from a journey leg.
+
+
+class TripStopTime(BaseModel):
+    index: int
+    stop_id: str
+    name: str
+    # Timetable times on the journey's day (aligned to your boarding time, see trip_details).
+    arrival: datetime | None = None
+    departure: datetime | None = None
+
+
+class TripDetails(BaseModel):
+    trip_id: str
+    stops: list[TripStopTime]
+    board_index: int | None = None
+    alight_index: int | None = None
+    # Renfe's current delay for this train, when a fresh trip update has one. The times
+    # above stay the timetable's; the app shows the delay next to the stops still to come.
+    delay_s: int | None = None
+    freshness: Freshness | None = None
+    source: str | None = None
+    attribution: str | None = None
+
+
+def trip_details(
+    trip_id: str,
+    stops: list[TripStop],
+    departure: datetime | None,
+    from_stop: str | None,
+    to_stop: str | None,
+    snap: FeedSnapshot | None,
+    now: datetime,
+) -> TripDetails:
+    """The trip's stops with times. With `departure` (your scheduled time at `from_stop`),
+    the times are those of that day; trips that run at a frequency share one template
+    timetable, so all times are shifted to match your boarding time."""
+    board = _board_index(stops, from_stop)
+    alight = _board_index(stops, to_stop)
+    if alight is not None and board is not None and alight <= board:
+        alight = None
+    anchor = stops[board] if board is not None else stops[0]
+    anchor_s = anchor.departure_s if anchor.departure_s is not None else anchor.arrival_s
+    ref = departure or now
+    day = ref.astimezone(MADRID).date()
+    if departure is not None and anchor_s is not None:
+        # A trip still running after midnight belongs to the previous service day.
+        day = min(
+            (day, day - timedelta(days=1)),
+            key=lambda d: abs((at_service_time(d, anchor_s) - departure).total_seconds()),
+        )
+        shift = departure - at_service_time(day, anchor_s)
+    else:
+        shift = timedelta(0)
+
+    def at(secs: int | None) -> datetime | None:
+        return at_service_time(day, secs) + shift if secs is not None else None
+
+    feed = trip_id.partition(":")[0]
+    delay_s: int | None = None
+    fresh: Freshness | None = None
+    source = attribution = None
+    if feed == "cercanias":
+        fresh = renfe_freshness(snap, now)
+        source, attribution = renfe.SOURCE, renfe.ATTRIBUTION
+        tu = snap.trips.get(trip_id.partition(":")[2]) if snap and is_usable(fresh) else None
+        delay_s = tu.delay_s if tu is not None else None
+    return TripDetails(
+        trip_id=trip_id,
+        stops=[
+            TripStopTime(
+                index=s.index,
+                stop_id=s.stop_id,
+                name=s.name,
+                arrival=at(s.arrival_s),
+                departure=at(s.departure_s),
+            )
+            for s in stops
+        ],
+        board_index=board,
+        alight_index=alight,
+        delay_s=delay_s,
+        freshness=fresh,
+        source=source,
+        attribution=attribution,
+    )
+
+
+@router.get("/trips/{trip_id}", response_model=TripDetails)
+async def trip_route(
+    trip_id: Annotated[
+        str, Path(max_length=80, description="Journey leg trip id, e.g. cercanias:1012L27301C4a")
+    ],
+    rt: Annotated[Realtime, Depends(get_realtime)],
+    timetable: Annotated[TripTimetable, Depends(get_trip_timetable)],
+    from_stop: Annotated[str | None, Query(max_length=80, description="Your boarding stop")] = None,
+    to_stop: Annotated[str | None, Query(max_length=80, description="Your alighting stop")] = None,
+    departure: Annotated[
+        datetime | None,
+        Query(description="Your scheduled departure at from_stop (ISO), to pick the day"),
+    ] = None,
+) -> TripDetails:
+    """Every stop of a trip, from its origin to its terminus, with timetable times. The
+    train's position comes from `/trips/{trip_id}/position`."""
+    feed, _, native = trip_id.partition(":")
+    if not native:
+        raise HTTPException(status_code=422, detail="trip_id must look like 'cercanias:<id>'")
+    stops = await timetable.stops(feed, native)
+    if not stops:
+        raise HTTPException(status_code=404, detail=f"Unknown trip {trip_id}")
+    if departure is not None and departure.tzinfo is None:
+        departure = departure.replace(tzinfo=MADRID)
+    snap = await rt.renfe_snapshot() if feed == "cercanias" else None
+    return trip_details(trip_id, stops, departure, from_stop, to_stop, snap, now_utc())
+
+
 @router.get("/trips/{trip_id}/position", response_model=TripPosition)
 async def trip_position(
     trip_id: Annotated[

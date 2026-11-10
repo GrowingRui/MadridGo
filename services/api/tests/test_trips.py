@@ -18,7 +18,7 @@ from app.realtime.models import FeedSnapshot, TripRealtime, VehicleRealtime
 from app.realtime.renfe import parse_trip_updates, parse_vehicle_positions
 from app.realtime.service import get_realtime
 from app.timetable import at_service_time
-from app.trips import TripStop, estimate, get_trip_timetable, locate, project
+from app.trips import TripStop, estimate, get_trip_timetable, locate, project, trip_details
 from tests.realtime_helpers import FIXTURES, realtime_with
 
 FEED_TIME = datetime(2026, 11, 9, 17, 55, 5, tzinfo=UTC)
@@ -411,3 +411,86 @@ def test_estimate_after_midnight_uses_yesterdays_service_day() -> None:
     e = estimate(night, t(150, date(2026, 11, 10)))  # 00:02:30 on the 10th
     assert e is not None and e.state == "between"
     assert e.left_at == t(86_460)
+
+
+# ---------------------------------------------------------------------------
+# The whole route of a trip (`GET /trips/{trip_id}`)
+
+
+def test_trip_details_lists_every_stop_on_the_journey_day() -> None:
+    stops = TIMETABLE[C4A_STOPPED]
+    board, alight = stops[0], stops[5]
+    departure = t(board.departure_s or 0)
+    d = trip_details(
+        f"cercanias:{C4A_STOPPED}", stops, departure, board.stop_id, alight.stop_id, None, NOW
+    )
+    assert len(d.stops) == len(stops)
+    assert (d.board_index, d.alight_index) == (0, 5)
+    assert d.stops[0].departure == departure
+    assert d.stops[5].arrival == t(stops[5].arrival_s or 0)
+    assert d.delay_s is None  # no live data: timetable only
+    assert d.source is not None  # Renfe is still named as the source
+
+
+def test_trip_details_after_midnight_uses_the_previous_service_day() -> None:
+    night = _stops(
+        [
+            {
+                "native_id": "A",
+                "name": "A",
+                "lat": 40.0,
+                "lon": -3.7,
+                "arrival_s": 86_400,
+                "departure_s": 86_460,
+            },
+            {
+                "native_id": "B",
+                "name": "B",
+                "lat": 40.01,
+                "lon": -3.7,
+                "arrival_s": 86_700,
+                "departure_s": 86_700,
+            },
+        ]
+    )
+    departure = t(86_460)  # 00:01 on 2026-11-10, service day 2026-11-09
+    d = trip_details("cercanias:N", night, departure, "renfe:A", None, None, NOW)
+    assert d.stops[0].departure == departure
+    assert d.stops[1].arrival == t(86_700)
+
+
+def test_frequency_trip_times_follow_the_boarding_time() -> None:
+    # Metro trips repeat one template timetable: times are moved to your departure.
+    departure = t(LINE[0].departure_s or 0) + timedelta(hours=2)
+    d = trip_details("metro:X", LINE, departure, LINE[0].stop_id, None, None, NOW)
+    assert d.stops[0].departure == departure
+    assert d.stops[2].arrival == t(LINE[2].arrival_s or 0) + timedelta(hours=2)
+    assert d.source is None and d.freshness is None  # no live data for Metro
+
+
+def test_alighting_before_boarding_is_ignored() -> None:
+    stops = TIMETABLE[C4A_STOPPED]
+    d = trip_details("cercanias:T", stops, None, stops[4].stop_id, stops[2].stop_id, None, NOW)
+    assert (d.board_index, d.alight_index) == (4, None)
+
+
+def test_endpoint_returns_the_trip(client: TestClient) -> None:
+    stops = TIMETABLE[C7_MOVING]
+    r = client.get(
+        f"/trips/cercanias:{C7_MOVING}",
+        params={
+            "from_stop": stops[3].stop_id,
+            "to_stop": stops[8].stop_id,
+            "departure": t(stops[3].departure_s or 0).isoformat(),
+        },
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["stops"]) == len(stops)
+    assert (body["board_index"], body["alight_index"]) == (3, 8)
+    assert body["delay_s"] is not None  # the recorded trip update has a delay
+
+
+def test_endpoint_unknown_trip_route(client: TestClient) -> None:
+    assert client.get("/trips/cercanias:nope").status_code == 404
+    assert client.get("/trips/nocolon").status_code == 422

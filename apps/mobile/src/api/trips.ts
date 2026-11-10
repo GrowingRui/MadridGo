@@ -1,4 +1,4 @@
-// Live train position for a journey leg (services/api/app/trips.py).
+// A journey leg's train: its whole route and its live position (services/api/app/trips.py).
 
 import { getJson } from './client';
 import type { Freshness } from './stops';
@@ -48,6 +48,44 @@ export function getTripPosition(
   return getJson<TripPosition>(
     `/trips/${encodeURIComponent(tripId)}/position`,
     { from_stop: fromStop ?? undefined },
+    8000,
+    fetchImpl,
+  );
+}
+
+export interface TripStopTime {
+  index: number;
+  stop_id: string;
+  name: string;
+  arrival?: string | null;
+  departure?: string | null;
+}
+
+/** Every stop of a trip from origin to terminus, with timetable times on the journey's day. */
+export interface TripDetails {
+  trip_id: string;
+  stops: TripStopTime[];
+  board_index?: number | null;
+  alight_index?: number | null;
+  /** Renfe's current delay (Cercanías, fresh data only); the times stay the timetable's. */
+  delay_s?: number | null;
+  freshness?: Freshness | null;
+  source?: string | null;
+  attribution?: string | null;
+}
+
+export function getTrip(
+  tripId: string,
+  opts: { fromStop?: string | null; toStop?: string | null; departure?: string | null },
+  fetchImpl: typeof fetch = fetch,
+): Promise<TripDetails> {
+  return getJson<TripDetails>(
+    `/trips/${encodeURIComponent(tripId)}`,
+    {
+      from_stop: opts.fromStop ?? undefined,
+      to_stop: opts.toStop ?? undefined,
+      departure: opts.departure ?? undefined,
+    },
     8000,
     fetchImpl,
   );

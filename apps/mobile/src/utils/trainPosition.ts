@@ -98,8 +98,11 @@ export function shownProgress(pos: TripPosition, nowMs: number): number | null {
 }
 
 export type Placement =
-  /** Before the boarding stop: shown above it. */
-  | { kind: 'approaching'; stopsAway: number; at: boolean; near: string }
+  /**
+   * Before the boarding stop: shown above it. One stop away and on its way, it moves down
+   * towards the boarding stop (`progress` 0..1); otherwise it waits at the top (0).
+   */
+  | { kind: 'approaching'; stopsAway: number; at: boolean; near: string; progress: number }
   /** On the leg: between rows `row` and `row + 1` of [boarding, ...intermediate, alighting]. */
   | { kind: 'riding'; row: number; progress: number | null; at: boolean }
   | { kind: 'none' };
@@ -121,9 +124,29 @@ export function place(pos: TripPosition, leg: Leg, nowMs: number): Placement {
     return { kind: 'riding', row, progress, at };
   }
   if (pos.stops_away != null && pos.stops_away > 0) {
-    return { kind: 'approaching', stopsAway: pos.stops_away, at, near: pos.last_stop.name };
+    const moving = pos.stops_away === 1 && !at && pos.status !== 'unavailable';
+    return {
+      kind: 'approaching',
+      stopsAway: pos.stops_away,
+      at,
+      near: pos.last_stop.name,
+      progress: moving ? (progress ?? 0.5) : 0,
+    };
   }
   return { kind: 'none' }; // passed, or a stop the leg does not list
+}
+
+/**
+ * Where to draw the point on a trip's full list of stops (the trip screen): between stop
+ * `row` and `row + 1` of the whole trip, from its origin.
+ */
+export function placeOnTrip(
+  pos: TripPosition,
+  nowMs: number,
+): { row: number; progress: number | null; at: boolean } | null {
+  if (!isShown(pos, nowMs) || !pos.last_stop) return null;
+  const progress = shownProgress(pos, nowMs);
+  return { row: pos.last_stop.index, progress, at: pos.status === 'at_stop' && progress === 0 };
 }
 
 /** "Train is 2 stops away · at Getafe Centro". */

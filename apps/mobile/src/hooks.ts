@@ -116,11 +116,17 @@ export function useReduceMotion(): boolean {
  * poll keeps the last answer: it hides itself once too old (utils/trainPosition.ts).
  */
 export function useTrainPosition(leg: Leg): TripPosition | null {
-  const [pos, setPos] = useState<TripPosition | null>(null);
   const now = useNow(60_000);
-  const track = canTrack(leg, now);
-  const tripId = leg.trip_id;
-  const from = leg.from_stop_id;
+  return useTripPosition(leg.trip_id, leg.from_stop_id, canTrack(leg, now));
+}
+
+/** The same polling for any trip (the trip screen); `track` false stops it. */
+export function useTripPosition(
+  tripId: string | null | undefined,
+  from: string | null | undefined,
+  track: boolean,
+): TripPosition | null {
+  const [pos, setPos] = useState<TripPosition | null>(null);
   useEffect(() => {
     if (!track || !tripId) return;
     let stopped = false;
