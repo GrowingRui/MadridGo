@@ -9,7 +9,7 @@ import asyncpg
 from fastapi import Depends, FastAPI, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import __version__, journeys, stops
+from app import __version__, journeys, stops, trips
 from app.config import Settings, get_settings
 from app.dbpool import close_pool, get_pool
 from app.feeds import FeedStatus, feed_statuses
@@ -71,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(stops.router)
     app.include_router(journeys.router)
     app.include_router(realtime_api.router)
+    app.include_router(trips.router)
     return app
 
 

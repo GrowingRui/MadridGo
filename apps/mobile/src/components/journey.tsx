@@ -2,12 +2,31 @@
 // the journey page in the app and the detail pane of the website's split view.
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  type LayoutChangeEvent,
+  Pressable,
+  Platform as RNPlatform,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { type Journey, type Leg, type Transfer, delayMin, shownTime } from '../api/journeys';
+import { useNow, useReduceMotion, useTrainPosition } from '../hooks';
 import { colors, modeColors, space, type } from '../theme';
 import { formatDuration, formatTime } from '../utils/time';
+import {
+  type Placement,
+  sourceText,
+  approachText,
+  place,
+  positionAgeS,
+  ridingText,
+  trackY,
+} from '../utils/trainPosition';
 import { Notice } from './layout';
 import { changesLabel, PearlChain } from './planner';
 import {
@@ -134,19 +153,77 @@ function TransitLeg({ leg }: { leg: Leg }) {
   const [open, setOpen] = useState(false);
   const color = leg.line ? lineColors(leg.line).bg : (modeColors[leg.mode]?.bg ?? colors.brand);
   const late = delayMin(leg.departure);
+
+  // Live train position (Cercanías only; see utils/trainPosition.ts for the rules).
+  const pos = useTrainPosition(leg);
+  const now = useNow(pos ? 1000 : 60_000);
+  const placement: Placement = pos ? place(pos, leg, now) : { kind: 'none' };
+  const age = pos ? positionAgeS(pos, now) : null;
+  const riding = placement.kind === 'riding';
+  // Riding: open the stops once, so the point has stations to move between.
+  const autoOpened = useRef(false);
+  useEffect(() => {
+    if (riding && !autoOpened.current && leg.intermediate.length) {
+      autoOpened.current = true;
+      setOpen(true);
+    }
+  }, [riding, leg.intermediate.length]);
+
+  // Centre of each stop marker, measured: approach, then rows 0 (boarding) .. n+1 (alighting).
+  const [ys, setYs] = useState<Record<string, number>>({});
+  const measure = (key: string, centre: number) => (e: LayoutChangeEvent) => {
+    const { y, height } = e.nativeEvent.layout;
+    const value = y + (centre < 0 ? height / 2 : centre);
+    setYs((prev) => (prev[key] === value ? prev : { ...prev, [key]: value }));
+  };
+  const rowCount = leg.intermediate.length + 2;
+  let dotY: number | null = null;
+  if (placement.kind === 'approaching') dotY = ys.approach ?? null;
+  if (placement.kind === 'riding') {
+    const rowYs = Array.from({ length: rowCount }, (_, r) =>
+      r === 0 || r === rowCount - 1 || open ? ys[String(r)] : undefined,
+    );
+    dotY = trackY(rowYs, placement.row, placement.progress);
+  }
+  // A stop the train has already left (riding only): drawn faded.
+  const passed = (r: number) =>
+    placement.kind === 'riding' && (r < placement.row || (r === placement.row && !placement.at));
+
   return (
     <View>
+      {placement.kind === 'approaching' ? (
+        <View style={styles.approach} onLayout={measure('approach', -1)}>
+          <View style={styles.timeCol} />
+          <View style={styles.track}>
+            <View style={[styles.lineSeg, styles.lineAhead, { backgroundColor: color, top: 0 }]} />
+          </View>
+          <View style={styles.approachBody}>
+            <Text style={styles.liveStrong}>{approachText(placement)}</Text>
+            {pos ? <Text style={styles.small}>{sourceText(pos, age)}</Text> : null}
+          </View>
+        </View>
+      ) : null}
+
       {/* Boarding stop */}
-      <View style={styles.stopRow}>
+      <View style={styles.stopRow} onLayout={measure('0', NODE_CENTRE)}>
         <View style={styles.timeCol}>
           <TimeWithDelay time={leg.departure} />
         </View>
         <View style={styles.track}>
+          {placement.kind === 'approaching' ? (
+            <View
+              style={[
+                styles.lineSeg,
+                styles.lineAhead,
+                { backgroundColor: color, top: 0, height: 14 },
+              ]}
+            />
+          ) : null}
           <View style={[styles.lineSeg, { backgroundColor: color, top: 14 }]} />
           <View style={[styles.node, { borderColor: color }]} />
         </View>
         <View style={styles.stopBody}>
-          <Text style={styles.stopName}>{leg.from}</Text>
+          <Text style={[styles.stopName, passed(0) && styles.passedText]}>{leg.from}</Text>
         </View>
         <Platform value={leg.departure.platform} />
       </View>
@@ -177,6 +254,12 @@ function TransitLeg({ leg }: { leg: Leg }) {
               <Text style={[styles.small, { color: colors.delay }]}>{late} min late</Text>
             ) : null}
           </View>
+          {riding && pos ? (
+            <Text style={styles.small}>
+              <Text style={styles.liveStrong}>{ridingText(pos, placement.at)}</Text>
+              {` · ${sourceText(pos, age)}`}
+            </Text>
+          ) : null}
           {leg.intermediate.length ? (
             <Pressable
               onPress={() => setOpen((o) => !o)}
@@ -196,19 +279,34 @@ function TransitLeg({ leg }: { leg: Leg }) {
           ) : (
             <Text style={styles.small}>{formatDuration(leg.duration_min)}</Text>
           )}
-          {open
-            ? leg.intermediate.map((s, k) => (
-                <View key={`${k}:${s.name}`} style={styles.inter}>
-                  <Text style={styles.interTime}>{formatTime(s.time)}</Text>
-                  <Text style={styles.small}>{s.name}</Text>
-                </View>
-              ))
-            : null}
         </View>
       </View>
 
+      {/* Intermediate stops, on the line */}
+      {open
+        ? leg.intermediate.map((s, k) => (
+            <View
+              key={`${k}:${s.name}`}
+              style={styles.interRow}
+              onLayout={measure(String(k + 1), INTER_NODE_CENTRE)}>
+              <View style={styles.timeCol}>
+                <Text style={[styles.interTime, passed(k + 1) && styles.passedText]}>
+                  {formatTime(s.time)}
+                </Text>
+              </View>
+              <View style={styles.track}>
+                <View style={[styles.lineSeg, { backgroundColor: color, top: 0, bottom: 0 }]} />
+                <View style={[styles.interNode, { borderColor: color }]} />
+              </View>
+              <View style={styles.interBody}>
+                <Text style={[styles.interName, passed(k + 1) && styles.passedText]}>{s.name}</Text>
+              </View>
+            </View>
+          ))
+        : null}
+
       {/* Alighting stop */}
-      <View style={styles.stopRow}>
+      <View style={styles.stopRow} onLayout={measure(String(rowCount - 1), NODE_CENTRE)}>
         <View style={styles.timeCol}>
           <TimeWithDelay time={leg.arrival} />
         </View>
@@ -221,12 +319,53 @@ function TransitLeg({ leg }: { leg: Leg }) {
         </View>
         <Platform value={leg.arrival.platform} />
       </View>
+
+      {dotY != null ? <TrainDot y={dotY} estimated={pos?.kind === 'estimated'} /> : null}
     </View>
+  );
+}
+
+/**
+ * The moving point on the line. Each new target is reached in a 1 s linear move, so the
+ * once-a-second targets while riding read as continuous movement, and a new GPS fix is a
+ * short glide. With "reduce motion" on, it jumps.
+ */
+function TrainDot({ y, estimated }: { y: number; estimated: boolean }) {
+  const reduce = useReduceMotion();
+  const [anim] = useState(() => new Animated.Value(y));
+  useEffect(() => {
+    if (reduce) {
+      anim.setValue(y);
+      return;
+    }
+    const a = Animated.timing(anim, {
+      toValue: y,
+      duration: 1000,
+      easing: Easing.linear,
+      useNativeDriver: RNPlatform.OS !== 'web',
+    });
+    a.start();
+    return () => a.stop();
+  }, [y, reduce, anim]);
+  return (
+    <Animated.View
+      pointerEvents="none"
+      importantForAccessibility="no-hide-descendants"
+      accessibilityElementsHidden
+      style={[
+        styles.dot,
+        estimated && styles.dotEstimated,
+        { transform: [{ translateY: Animated.subtract(anim, DOT / 2) }] },
+      ]}
+    />
   );
 }
 
 const TIME_W = 64;
 const TRACK = 24;
+const NODE_CENTRE = 15; // marginTop 8 + half of 14
+const INTER_NODE_CENTRE = 12; // marginTop 7 + half of 10
+const DOT = 18;
 const styles = StyleSheet.create({
   summary: { padding: space.lg, gap: 2 },
   summaryTitle: { ...type.heading, fontSize: 20, color: colors.text },
@@ -261,8 +400,48 @@ const styles = StyleSheet.create({
   rideBadges: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   toggleText: { ...type.smallStrong, color: colors.brand },
-  inter: { flexDirection: 'row', gap: space.sm },
-  interTime: { ...type.small, color: colors.textMuted, width: 44, fontVariant: ['tabular-nums'] },
+  interRow: { flexDirection: 'row', paddingHorizontal: space.lg, minHeight: 30 },
+  interNode: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 2,
+    backgroundColor: colors.surface,
+    marginTop: 7,
+    zIndex: 1,
+  },
+  interTime: {
+    ...type.small,
+    color: colors.textMuted,
+    paddingTop: 3,
+    fontVariant: ['tabular-nums'],
+  },
+  interBody: { flex: 1, paddingLeft: space.sm, paddingTop: 3, paddingBottom: space.xs },
+  interName: { ...type.small, color: colors.text },
+  passedText: { color: colors.textFaint },
+  lineAhead: { opacity: 0.35 },
+  approach: { flexDirection: 'row', paddingHorizontal: space.lg, minHeight: 44 },
+  approachBody: { flex: 1, paddingLeft: space.sm, paddingVertical: space.sm, gap: 2 },
+  liveStrong: { ...type.smallStrong, color: colors.live },
+  dot: {
+    position: 'absolute',
+    top: 0,
+    left: space.lg + TIME_W + TRACK / 2 - DOT / 2,
+    width: DOT,
+    height: DOT,
+    borderRadius: DOT / 2,
+    backgroundColor: colors.accent,
+    borderWidth: 3,
+    borderColor: colors.surface,
+    zIndex: 2,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  // Estimated (timetable) position: hollow, so it is never mistaken for a live one.
+  dotEstimated: { backgroundColor: colors.surface, borderColor: colors.accent, borderWidth: 4 },
   small: { ...type.small, color: colors.textMuted },
   walk: { flexDirection: 'row', paddingHorizontal: space.lg, minHeight: 40 },
   walkLine: {

@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { type PressableStateCallbackType, Platform, useWindowDimensions } from 'react-native';
+import {
+  AccessibilityInfo,
+  AppState,
+  type PressableStateCallbackType,
+  Platform,
+  useWindowDimensions,
+} from 'react-native';
 
 import { ApiError } from './api/client';
+import type { Leg } from './api/journeys';
+import { type TripPosition, getTripPosition } from './api/trips';
+import { canTrack, keepForward } from './utils/trainPosition';
 
 export function useDebounced<T>(value: T, ms = 250): T {
   const [v, setV] = useState(value);
@@ -83,3 +92,64 @@ export function useIsWide(): boolean {
  * React Native types only declare it when Expo's generated expo-env.d.ts is present).
  */
 export type PressState = PressableStateCallbackType & { hovered?: boolean };
+
+/** The user's "reduce motion" setting: animations then jump instead of moving. */
+export function useReduceMotion(): boolean {
+  const [reduce, setReduce] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((r) => alive && setReduce(r))
+      .catch(() => undefined);
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduce);
+    return () => {
+      alive = false;
+      sub.remove();
+    };
+  }, []);
+  return reduce;
+}
+
+/**
+ * Live position of a leg's train, polled every ~30 s (the server's poll_after_s) while the
+ * journey is open and the app is in the foreground; never re-runs the route search. A failed
+ * poll keeps the last answer: it hides itself once too old (utils/trainPosition.ts).
+ */
+export function useTrainPosition(leg: Leg): TripPosition | null {
+  const [pos, setPos] = useState<TripPosition | null>(null);
+  const now = useNow(60_000);
+  const track = canTrack(leg, now);
+  const tripId = leg.trip_id;
+  const from = leg.from_stop_id;
+  useEffect(() => {
+    if (!track || !tripId) return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = (s: number) => {
+      clearTimeout(timer);
+      timer = setTimeout(poll, s * 1000);
+    };
+    function poll() {
+      if (stopped || AppState.currentState !== 'active') return; // resumed when active
+      getTripPosition(tripId as string, from)
+        .then((p) => {
+          if (stopped) return;
+          setPos((prev) => keepForward(prev, p, Date.now()));
+          schedule(p.poll_after_s || 30);
+        })
+        .catch(() => {
+          if (!stopped) schedule(30);
+        });
+    }
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') poll();
+    });
+    poll();
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      sub.remove();
+    };
+  }, [track, tripId, from]);
+  return track && pos?.trip_id === tripId ? pos : null;
+}
