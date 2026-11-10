@@ -84,6 +84,9 @@
   - **Estimated position (added 2026-11-10 at the user's request, as in SBB):** every Cercanías train gets a point, not only those Renfe reports. Without a usable live position, the server places the train from the timetable (plus Renfe's live delay when known) and the point moves continuously with the clock, leaving each station at its estimated departure. Live positions placed from Renfe's predicted times also move continuously. Estimated points are hollow and labelled "Estimated from the timetable" (or "Estimated · timetable + N min live delay"); live points are solid with "Live · position N s ago". Limitation: a train that is not running but not marked cancelled (e.g. during a strike) still gets an estimate, which is why the label matters.
   - The same data drives moving trains on the Map screen.
   - Estimate: 1–2 days.
+- **Trip screen** (built 2026-11-10, PR #5: `GET /trips/{trip_id}` in `app/trips.py`, `app/trip.tsx`, `components/trip.tsx`): tapping a ride in the journey timeline opens the train's whole route, from its first stop to its terminus. The passenger's section is drawn in the line colour, stops already passed are grey, and the same live or estimated point moves along it.
+- **Approach dot:** when the train is one stop before the boarding stop, the point now slides down towards the boarding stop instead of waiting at the previous station.
+- **Train direction from the terminus:** Renfe's GTFS has no headsign, so legs used to fall back to the passenger's destination as "Direction", which could be wrong. The API now gives the trip's last stop as the direction, and the app never shows the destination there.
 - **Exit:** usability test with 5 users; all labels per RELIABILITY_STRATEGY.md visible.
 
 ## Phase 6 — Reliability and notifications (L)
