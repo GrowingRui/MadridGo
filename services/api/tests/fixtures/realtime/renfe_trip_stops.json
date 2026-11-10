@@ -1,0 +1,433 @@
+{
+ "_meta": "Timetable (Renfe GTFS, cercanias-c6e6683ddc0e) of three trains in renfe_vehicle_positions.pb, recorded 2026-11-09.",
+ "1012L75852C7": [
+  {
+   "native_id": "10000",
+   "name": "Madrid-Príncipe Pío",
+   "lat": 40.4214895,
+   "lon": -3.7189689,
+   "arrival_s": 65340,
+   "departure_s": 65340
+  },
+  {
+   "native_id": "10001",
+   "name": "Aravaca",
+   "lat": 40.4484551,
+   "lon": -3.7855547,
+   "arrival_s": 65580,
+   "departure_s": 65580
+  },
+  {
+   "native_id": "10002",
+   "name": "Pozuelo",
+   "lat": 40.4474569,
+   "lon": -3.8002779,
+   "arrival_s": 65760,
+   "departure_s": 65760
+  },
+  {
+   "native_id": "10010",
+   "name": "El Barrial-Centro Comercial Pozuelo",
+   "lat": 40.4653918,
+   "lon": -3.8076854,
+   "arrival_s": 65940,
+   "departure_s": 65940
+  },
+  {
+   "native_id": "10007",
+   "name": "Majadahonda",
+   "lat": 40.4742885,
+   "lon": -3.8462931,
+   "arrival_s": 66180,
+   "departure_s": 66180
+  },
+  {
+   "native_id": "10005",
+   "name": "Las Rozas",
+   "lat": 40.4942887,
+   "lon": -3.8681747,
+   "arrival_s": 66360,
+   "departure_s": 66360
+  },
+  {
+   "native_id": "97100",
+   "name": "Pitis",
+   "lat": 40.4954173,
+   "lon": -3.7261603,
+   "arrival_s": 67080,
+   "departure_s": 67080
+  },
+  {
+   "native_id": "97200",
+   "name": "Mirasierra-Paco de Lucía",
+   "lat": 40.499759,
+   "lon": -3.7092505,
+   "arrival_s": 67260,
+   "departure_s": 67260
+  },
+  {
+   "native_id": "97201",
+   "name": "Madrid-Ramón y Cajal",
+   "lat": 40.4881473,
+   "lon": -3.6948037,
+   "arrival_s": 67380,
+   "departure_s": 67380
+  },
+  {
+   "native_id": "17000",
+   "name": "Madrid-Chamartín-Clara Campoamor",
+   "lat": 40.4711789,
+   "lon": -3.6829524,
+   "arrival_s": 67860,
+   "departure_s": 67920
+  },
+  {
+   "native_id": "18002",
+   "name": "Madrid-Nuevos Ministerios",
+   "lat": 40.4466271,
+   "lon": -3.6923468,
+   "arrival_s": 68160,
+   "departure_s": 68160
+  },
+  {
+   "native_id": "18001",
+   "name": "Madrid-Recoletos",
+   "lat": 40.4233731,
+   "lon": -3.690931,
+   "arrival_s": 68400,
+   "departure_s": 68400
+  },
+  {
+   "native_id": "18000",
+   "name": "Madrid-Atocha Cercanías",
+   "lat": 40.4066191,
+   "lon": -3.6894391,
+   "arrival_s": 68700,
+   "departure_s": 68760
+  },
+  {
+   "native_id": "70002",
+   "name": "Asamblea de Madrid-Entrevías",
+   "lat": 40.3818618,
+   "lon": -3.6680454,
+   "arrival_s": 69000,
+   "departure_s": 69000
+  },
+  {
+   "native_id": "70003",
+   "name": "El Pozo",
+   "lat": 40.3760377,
+   "lon": -3.6561407,
+   "arrival_s": 69120,
+   "departure_s": 69120
+  },
+  {
+   "native_id": "70001",
+   "name": "Vallecas",
+   "lat": 40.3819607,
+   "lon": -3.6245835,
+   "arrival_s": 69300,
+   "departure_s": 69300
+  },
+  {
+   "native_id": "70109",
+   "name": "Santa Eugenia",
+   "lat": 40.3869545,
+   "lon": -3.6089855,
+   "arrival_s": 69420,
+   "departure_s": 69420
+  },
+  {
+   "native_id": "70100",
+   "name": "Vicálvaro",
+   "lat": 40.4012524,
+   "lon": -3.595897,
+   "arrival_s": 69600,
+   "departure_s": 69600
+  },
+  {
+   "native_id": "70108",
+   "name": "Coslada",
+   "lat": 40.423237,
+   "lon": -3.5611109,
+   "arrival_s": 69780,
+   "departure_s": 69780
+  },
+  {
+   "native_id": "70101",
+   "name": "San Fernando de Henares",
+   "lat": 40.4427805,
+   "lon": -3.5339866,
+   "arrival_s": 70020,
+   "departure_s": 70020
+  },
+  {
+   "native_id": "70102",
+   "name": "Torrejón de Ardoz",
+   "lat": 40.4547895,
+   "lon": -3.47973,
+   "arrival_s": 70320,
+   "departure_s": 70320
+  },
+  {
+   "native_id": "70112",
+   "name": "Soto del Henares",
+   "lat": 40.463964,
+   "lon": -3.4414076,
+   "arrival_s": 70560,
+   "departure_s": 70560
+  },
+  {
+   "native_id": "70111",
+   "name": "La Garena",
+   "lat": 40.4805448,
+   "lon": -3.3930055,
+   "arrival_s": 70800,
+   "departure_s": 70800
+  },
+  {
+   "native_id": "70103",
+   "name": "Alcalá de Henares",
+   "lat": 40.4890814,
+   "lon": -3.3662457,
+   "arrival_s": 71100,
+   "departure_s": 71100
+  }
+ ],
+ "1012L27281C4a": [
+  {
+   "native_id": "37012",
+   "name": "Parla",
+   "lat": 40.2410986,
+   "lon": -3.7692699,
+   "arrival_s": 63780,
+   "departure_s": 63780
+  },
+  {
+   "native_id": "37011",
+   "name": "Getafe-Sector 3",
+   "lat": 40.2883893,
+   "lon": -3.7374991,
+   "arrival_s": 64140,
+   "departure_s": 64140
+  },
+  {
+   "native_id": "37002",
+   "name": "Getafe-Centro",
+   "lat": 40.3100045,
+   "lon": -3.7339878,
+   "arrival_s": 64320,
+   "departure_s": 64320
+  },
+  {
+   "native_id": "37010",
+   "name": "Las Margaritas",
+   "lat": 40.3230989,
+   "lon": -3.7272863,
+   "arrival_s": 64440,
+   "departure_s": 64440
+  },
+  {
+   "native_id": "37001",
+   "name": "Madrid-Villaverde Alto",
+   "lat": 40.3415895,
+   "lon": -3.7123508,
+   "arrival_s": 64680,
+   "departure_s": 64680
+  },
+  {
+   "native_id": "60100",
+   "name": "Madrid-Villaverde Bajo",
+   "lat": 40.3526762,
+   "lon": -3.6838977,
+   "arrival_s": 64920,
+   "departure_s": 64920
+  },
+  {
+   "native_id": "18000",
+   "name": "Madrid-Atocha Cercanías",
+   "lat": 40.4066191,
+   "lon": -3.6894391,
+   "arrival_s": 65460,
+   "departure_s": 65520
+  },
+  {
+   "native_id": "18101",
+   "name": "Sol",
+   "lat": 40.4168665,
+   "lon": -3.7028765,
+   "arrival_s": 65640,
+   "departure_s": 65640
+  },
+  {
+   "native_id": "18002",
+   "name": "Madrid-Nuevos Ministerios",
+   "lat": 40.4466271,
+   "lon": -3.6923468,
+   "arrival_s": 65940,
+   "departure_s": 65940
+  },
+  {
+   "native_id": "17000",
+   "name": "Madrid-Chamartín-Clara Campoamor",
+   "lat": 40.4711789,
+   "lon": -3.6829524,
+   "arrival_s": 66300,
+   "departure_s": 66360
+  },
+  {
+   "native_id": "17001",
+   "name": "Fuencarral",
+   "lat": 40.5015603,
+   "lon": -3.6825042,
+   "arrival_s": 66600,
+   "departure_s": 66600
+  },
+  {
+   "native_id": "17009",
+   "name": "Universidad-Cantoblanco",
+   "lat": 40.5438416,
+   "lon": -3.7001551,
+   "arrival_s": 66900,
+   "departure_s": 66900
+  },
+  {
+   "native_id": "19001",
+   "name": "Universidad Pontificia de Comillas",
+   "lat": 40.5539697,
+   "lon": -3.6836997,
+   "arrival_s": 67080,
+   "departure_s": 67080
+  },
+  {
+   "native_id": "19002",
+   "name": "Valdelasfuentes",
+   "lat": 40.5474339,
+   "lon": -3.6543237,
+   "arrival_s": 67260,
+   "departure_s": 67260
+  },
+  {
+   "native_id": "19003",
+   "name": "Alcobendas-San Sebastián de los Reyes",
+   "lat": 40.5465765,
+   "lon": -3.6351731,
+   "arrival_s": 67440,
+   "departure_s": 67440
+  }
+ ],
+ "1012L27629C8b": [
+  {
+   "native_id": "17000",
+   "name": "Madrid-Chamartín-Clara Campoamor",
+   "lat": 40.4711789,
+   "lon": -3.6829524,
+   "arrival_s": 65520,
+   "departure_s": 65700
+  },
+  {
+   "native_id": "97201",
+   "name": "Madrid-Ramón y Cajal",
+   "lat": 40.4881473,
+   "lon": -3.6948037,
+   "arrival_s": 65880,
+   "departure_s": 65880
+  },
+  {
+   "native_id": "97200",
+   "name": "Mirasierra-Paco de Lucía",
+   "lat": 40.499759,
+   "lon": -3.7092505,
+   "arrival_s": 66060,
+   "departure_s": 66060
+  },
+  {
+   "native_id": "97100",
+   "name": "Pitis",
+   "lat": 40.4954173,
+   "lon": -3.7261603,
+   "arrival_s": 66300,
+   "departure_s": 66300
+  },
+  {
+   "native_id": "10100",
+   "name": "Pinar de las Rozas",
+   "lat": 40.5222672,
+   "lon": -3.8822477,
+   "arrival_s": 66960,
+   "departure_s": 66960
+  },
+  {
+   "native_id": "10101",
+   "name": "Las Matas",
+   "lat": 40.5523869,
+   "lon": -3.8967664,
+   "arrival_s": 67140,
+   "departure_s": 67140
+  },
+  {
+   "native_id": "10103",
+   "name": "Torrelodones",
+   "lat": 40.574554,
+   "lon": -3.9566013,
+   "arrival_s": 67560,
+   "departure_s": 67560
+  },
+  {
+   "native_id": "10104",
+   "name": "Galapagar-La Navata",
+   "lat": 40.6003138,
+   "lon": -3.982259,
+   "arrival_s": 67740,
+   "departure_s": 67740
+  },
+  {
+   "native_id": "10200",
+   "name": "Villalba de Guadarrama",
+   "lat": 40.6264893,
+   "lon": -4.0080301,
+   "arrival_s": 68040,
+   "departure_s": 68100
+  },
+  {
+   "native_id": "12001",
+   "name": "Los Negrales",
+   "lat": 40.638567,
+   "lon": -4.0218746,
+   "arrival_s": 68220,
+   "departure_s": 68220
+  },
+  {
+   "native_id": "12002",
+   "name": "Alpedrete",
+   "lat": 40.6581044,
+   "lon": -4.0349719,
+   "arrival_s": 68460,
+   "departure_s": 68460
+  },
+  {
+   "native_id": "12004",
+   "name": "Collado Mediano",
+   "lat": 40.6928982,
+   "lon": -4.0359271,
+   "arrival_s": 68880,
+   "departure_s": 68880
+  },
+  {
+   "native_id": "12005",
+   "name": "Los Molinos-Guadarrama",
+   "lat": 40.7066407,
+   "lon": -4.0671991,
+   "arrival_s": 69120,
+   "departure_s": 69120
+  },
+  {
+   "native_id": "12006",
+   "name": "Cercedilla",
+   "lat": 40.7376129,
+   "lon": -4.0662985,
+   "arrival_s": 69540,
+   "departure_s": 69540
+  }
+ ]
+}
