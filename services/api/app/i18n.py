@@ -304,4 +304,31 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
     "pos.at": {"en": "At {stop}", "es": "En {stop}"},
     "pos.between": {"en": "Between {a} and {b}", "es": "Entre {a} y {b}"},
+    # --- Disruptions page ----------------------------------------------------------------
+    "disruptions.ok": {
+        "en": "{operator}: alerts as published by the operator.",
+        "es": "{operator}: avisos tal como los publica el operador.",
+    },
+    "disruptions.stale": {
+        "en": "{operator}: the alert list has not been updated for over 10 minutes.",
+        "es": "{operator}: la lista de avisos lleva más de 10 minutos sin actualizarse.",
+    },
+    "disruptions.no_data": {
+        "en": "{operator}: alerts are unavailable right now.",
+        "es": "{operator}: los avisos no están disponibles en este momento.",
+    },
+    "disruptions.metro": {
+        "en": "Metro de Madrid publishes no open alert feed, so Metro disruptions are not shown.",
+        "es": "Metro de Madrid no publica avisos en abierto, así que sus incidencias no aparecen.",
+    },
+    "disruptions.crtm_name": {
+        "en": "Interurban and urban buses, Metro Ligero",
+        "es": "Autobuses interurbanos y urbanos, Metro Ligero",
+    },
+    "disruptions.crtm": {
+        "en": "Alerts for interurban and urban buses and Metro Ligero are not shown until "
+        "CRTM authorizes its real-time data.",
+        "es": "Los avisos de autobuses interurbanos y urbanos y de Metro Ligero no aparecen "
+        "hasta que el CRTM autorice sus datos en tiempo real.",
+    },
 }

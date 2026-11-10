@@ -23,6 +23,7 @@ import {
 } from '../../components/layout';
 import { ConnectionCard, type PlaceFieldName, PlannerCard } from '../../components/planner';
 import { OptionsSheet, TimeSheet, WhenBar } from '../../components/when';
+import { DisruptionsButton } from '../../components/disruptions';
 import { PlanMap } from '../../components/planMap';
 import { StopSuggestions } from '../../components/stopSearch';
 import { TouchTimetable } from '../../components/touch';
@@ -123,11 +124,14 @@ export default function PlanScreen() {
       subtitle={isWide ? t('plan.modes') : undefined}
       right={
         isWide || editing ? undefined : (
-          <Image
-            source={require('../../../assets/icon.png')}
-            style={styles.logo}
-            accessibilityLabel="MadridGo"
-          />
+          <View style={styles.headerRight}>
+            <DisruptionsButton />
+            <Image
+              source={require('../../../assets/icon.png')}
+              style={styles.logo}
+              accessibilityLabel="MadridGo"
+            />
+          </View>
         )
       }>
       {editing && !isWide ? null : <ViewSwitch view={view} onChange={switchView} />}
@@ -229,9 +233,7 @@ function ViewSwitch({ view, onChange }: { view: PlanView; onChange: (v: PlanView
               active && styles.switchItemActive,
               !active && (pressed || hovered) && styles.switchItemHover,
             ]}>
-            <Text
-              style={[styles.switchText, active && styles.switchTextActive]}
-              numberOfLines={1}>
+            <Text style={[styles.switchText, active && styles.switchTextActive]} numberOfLines={1}>
               {t(v.label)}
             </Text>
           </Pressable>
@@ -394,7 +396,8 @@ function Connections({
 }
 
 /** A stop id, or the point for "Current location". */
-const planPlace = (p: Place) => (p.lat != null && p.lon != null ? { lat: p.lat, lon: p.lon } : p.id);
+const planPlace = (p: Place) =>
+  p.lat != null && p.lon != null ? { lat: p.lat, lon: p.lon } : p.id;
 
 function PageLink({
   label,
@@ -508,6 +511,7 @@ function Start() {
 
 const styles = StyleSheet.create({
   logo: { width: 40, height: 40, borderRadius: 10 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
   switch: {
     flexDirection: 'row',
     backgroundColor: colors.brandDark,
