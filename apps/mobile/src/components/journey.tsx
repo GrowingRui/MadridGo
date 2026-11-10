@@ -17,6 +17,7 @@ import {
 
 import { type Journey, type Leg, type Transfer, delayMin, shownTime } from '../api/journeys';
 import { useNow, useReduceMotion, useTrainPosition } from '../hooks';
+import { useT } from '../i18n';
 import { colors, modeColors, space, type } from '../theme';
 import { formatDuration, formatTime } from '../utils/time';
 import {
@@ -32,16 +33,17 @@ import { Notice } from './layout';
 import { changesLabel, PearlChain } from './planner';
 import {
   LinePill,
-  MODE_LABEL,
   ModeIcon,
   StatusBadge,
   TimeWithDelay,
   TransferBadge,
   lineColors,
+  modeLabel,
 } from './transit';
 
 /** "Parla → Atocha" with times, duration and the pearl chain; heads the website detail pane. */
 export function JourneySummary({ journey }: { journey: Journey }) {
+  useT();
   const first = journey.legs[0];
   const last = journey.legs[journey.legs.length - 1];
   return (
@@ -62,11 +64,12 @@ export function JourneySummary({ journey }: { journey: Journey }) {
 
 /** Problems first (not possible, cancelled), then operator alerts on the lines used. */
 export function JourneyNotices({ journey }: { journey: Journey }) {
+  const { t } = useT();
   if (journey.feasible && !journey.alerts.length) return null;
   return (
     <View style={{ gap: space.sm, marginTop: space.lg }}>
       {!journey.feasible ? (
-        <Notice tone="danger" icon="close-octagon-outline" title="This connection is not possible">
+        <Notice tone="danger" icon="close-octagon-outline" title={t('journey.notPossible')}>
           {journey.issues.join(' ')}
         </Notice>
       ) : null}
@@ -74,8 +77,10 @@ export function JourneyNotices({ journey }: { journey: Journey }) {
         <Notice
           key={`${a.source}:${a.source_alert_id}`}
           tone="warning"
-          title={`Service alert · ${a.operator === 'EMT_MADRID' ? 'EMT Madrid' : 'Renfe Cercanías'}`}>
-          {a.header ?? a.description ?? 'Service alert'}
+          title={t('journey.alert', {
+            operator: a.operator === 'EMT_MADRID' ? 'EMT Madrid' : 'Renfe Cercanías',
+          })}>
+          {a.header ?? a.description ?? t('journey.alertFallback')}
         </Notice>
       ))}
     </View>
@@ -83,12 +88,15 @@ export function JourneyNotices({ journey }: { journey: Journey }) {
 }
 
 export function JourneyTimeline({ journey }: { journey: Journey }) {
+  const { t } = useT();
   return (
     <View style={{ paddingVertical: space.sm }}>
       <View style={styles.colHeads}>
-        <Text style={[styles.colHead, { width: TIME_W }]}>Time</Text>
-        <Text style={[styles.colHead, { flex: 1, marginLeft: TRACK + space.sm }]}>Stop</Text>
-        <Text style={[styles.colHead, styles.colHeadRight]}>Platform</Text>
+        <Text style={[styles.colHead, { width: TIME_W }]}>{t('journey.colTime')}</Text>
+        <Text style={[styles.colHead, { flex: 1, marginLeft: TRACK + space.sm }]}>
+          {t('journey.colStop')}
+        </Text>
+        <Text style={[styles.colHead, styles.colHeadRight]}>{t('journey.colPlatform')}</Text>
       </View>
       {journey.legs.map((leg, i) => {
         // The change is noted right after the vehicle you get off, before any walk.
@@ -109,14 +117,20 @@ export function JourneyTimeline({ journey }: { journey: Journey }) {
 }
 
 function ChangeNote({ change }: { change: Transfer }) {
+  const { t } = useT();
   return (
-    <View style={styles.change} accessibilityLabel={`Change at ${change.at}. ${change.message}`}>
+    <View
+      style={styles.change}
+      accessibilityLabel={t('journey.changeAt', { stop: change.at, message: change.message })}>
       <MaterialCommunityIcons name="swap-horizontal" size={16} color={colors.textMuted} />
       <View style={styles.changeBody}>
         {change.label ? (
           <TransferBadge label={change.label} />
         ) : (
-          <StatusBadge status="frequency" text={`Wait up to ${change.wait_up_to_min} min`} />
+          <StatusBadge
+            status="frequency"
+            text={t('journey.waitUpTo', { n: change.wait_up_to_min ?? '?' })}
+          />
         )}
         <Text style={styles.small}>{change.message}</Text>
       </View>
@@ -125,6 +139,7 @@ function ChangeNote({ change }: { change: Transfer }) {
 }
 
 function WalkLeg({ leg }: { leg: Leg }) {
+  const { t } = useT();
   return (
     <View style={styles.walk}>
       <View style={styles.timeCol} />
@@ -134,8 +149,11 @@ function WalkLeg({ leg }: { leg: Leg }) {
       <View style={styles.walkBody}>
         <ModeIcon mode="walk" size={18} />
         <Text style={styles.small}>
-          Walk {leg.duration_min} min
-          {leg.distance_m ? ` · ${Math.round(leg.distance_m / 10) * 10} m` : ''} to {leg.to}
+          {t('journey.walk', {
+            min: leg.duration_min,
+            distance: leg.distance_m ? ` · ${Math.round(leg.distance_m / 10) * 10} m` : '',
+            stop: leg.to,
+          })}
         </Text>
       </View>
     </View>
@@ -143,10 +161,11 @@ function WalkLeg({ leg }: { leg: Leg }) {
 }
 
 function Platform({ value }: { value?: string | null }) {
+  const { t } = useT();
   return (
     <View style={styles.platformCol}>
       {value ? (
-        <Text style={styles.platform} accessibilityLabel={`Platform ${value}`}>
+        <Text style={styles.platform} accessibilityLabel={t('journey.platform', { p: value })}>
           {value}
         </Text>
       ) : null}
@@ -168,6 +187,7 @@ function TransitLeg({
   journeyId: string;
   legIndex: number;
 }) {
+  const { t, tn } = useT();
   const [open, setOpen] = useState(false);
   const color = leg.line ? lineColors(leg.line).bg : (modeColors[leg.mode]?.bg ?? colors.brand);
   const late = delayMin(leg.departure);
@@ -262,13 +282,13 @@ function TransitLeg({
             onPress={leg.trip_id ? () => openTrip(journeyId, legIndex) : undefined}
             disabled={!leg.trip_id}
             accessibilityRole={leg.trip_id ? 'button' : undefined}
-            accessibilityHint={leg.trip_id ? 'Shows every stop of this train' : undefined}
+            accessibilityHint={leg.trip_id ? t('journey.showStops') : undefined}
             style={({ pressed }) => [styles.rideHead, pressed && styles.pressed]}>
             {leg.line ? <LinePill line={leg.line} /> : <ModeIcon mode={leg.mode} />}
             <Text style={styles.rideDir} numberOfLines={3}>
-              {MODE_LABEL[leg.mode]}
+              {modeLabel(leg.mode)}
               {/* Never the passenger's destination: that may not be where the train ends. */}
-              {leg.headsign ? ` · Direction ${leg.headsign}` : ''}
+              {leg.headsign ? ` · ${t('conn.direction', { name: leg.headsign })}` : ''}
             </Text>
             {leg.trip_id ? (
               <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brand} />
@@ -279,12 +299,14 @@ function TransitLeg({
               status={leg.departure.status}
               text={
                 leg.departure.status === 'frequency' && leg.headway_min
-                  ? `Every ~${leg.headway_min} min`
+                  ? t('status.everyN', { n: leg.headway_min })
                   : undefined
               }
             />
             {late > 0 ? (
-              <Text style={[styles.small, { color: colors.delay }]}>{late} min late</Text>
+              <Text style={[styles.small, { color: colors.delay }]}>
+                {t('journey.late', { n: late })}
+              </Text>
             ) : null}
           </View>
           {riding && pos ? (
@@ -300,8 +322,7 @@ function TransitLeg({
               accessibilityState={{ expanded: open }}
               style={styles.toggle}>
               <Text style={styles.toggleText}>
-                {leg.intermediate.length} stop{leg.intermediate.length > 1 ? 's' : ''} ·{' '}
-                {formatDuration(leg.duration_min)}
+                {tn('journey.stops', leg.intermediate.length)} · {formatDuration(leg.duration_min)}
               </Text>
               <MaterialCommunityIcons
                 name={open ? 'chevron-up' : 'chevron-down'}

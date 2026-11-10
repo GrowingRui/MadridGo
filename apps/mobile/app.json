@@ -26,7 +26,16 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-localization",
+        {
+          "supportedLocales": [
+            "es",
+            "en"
+          ]
+        }
+      ]
     ],
     "scheme": "madridgo",
     "experiments": {

@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from app.dbpool import get_pool
 from app.feeds import ExpiryState, expiry_state
+from app.i18n import tr
 from app.ingest.gtfs import fold
 from app.ingest.sources import SOURCES_BY_KEY
 from app.realtime import board as live
@@ -379,12 +380,11 @@ def _notices(
             continue
         state, days = expiry_state(service_end.get(src_key), today, src.expiry_warning_days)
         if state == "expired":
-            msg = (
-                f"The official {src.operator_name} timetable expired on "
-                f"{service_end.get(src_key)}. No scheduled times are available for it."
+            msg = tr(
+                "notice.expired_board", operator=src.operator_name, end=service_end.get(src_key)
             )
         elif state == "expiring":
-            msg = f"The {src.operator_name} timetable ends in {days} days."
+            msg = tr("notice.expiring", operator=src.operator_name, days=days)
         else:
             continue
         notices.append(

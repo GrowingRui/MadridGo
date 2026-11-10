@@ -39,6 +39,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel
 
 from app.dbpool import get_pool
+from app.i18n import tr
 from app.realtime import renfe
 from app.realtime.board import add_seconds, renfe_freshness
 from app.realtime.freshness import is_usable
@@ -60,11 +61,11 @@ ESTIMATE_POLL_AFTER_S = 15
 
 # Static feeds without vehicle positions, and why.
 NO_POSITIONS = {
-    "metro": "Metro de Madrid does not publish train positions.",
-    "ml": "Metro Ligero does not publish vehicle positions.",
-    "emt": "Bus positions are not available in MadridGo yet.",
-    "interurban": "Bus positions are not available in MadridGo yet.",
-    "urban": "Bus positions are not available in MadridGo yet.",
+    "metro": "pos.none.metro",
+    "ml": "pos.none.ml",
+    "emt": "pos.none.bus",
+    "interurban": "pos.none.bus",
+    "urban": "pos.none.bus",
 }
 
 PositionStatus = Literal["at_stop", "between", "unavailable"]
@@ -178,7 +179,7 @@ def not_supported(trip_id: str, feed: str) -> TripPosition:
         trip_id=trip_id,
         status="unavailable",
         reason="not_supported",
-        message=NO_POSITIONS.get(feed, "No vehicle positions for this line."),
+        message=tr(NO_POSITIONS.get(feed, "pos.none.default")),
     )
 
 
@@ -258,10 +259,10 @@ def locate(
     def estimated(delay_s: int | None, why: str) -> TripPosition:
         e = estimate(stops, now, delay_s or 0)
         if e is None or e.state == "finished":
-            return unavailable("not_running", "This train is not running now.")
+            return unavailable("not_running", tr("pos.not_running"))
         if e.state == "not_started" and e.departs_at is not None:
             at = e.departs_at.astimezone(MADRID).strftime("%H:%M")
-            return unavailable("not_started", f"This train starts at {e.last.name} at {at}.")
+            return unavailable("not_started", tr("pos.not_started", stop=e.last.name, time=at))
         board = base.board_index
         common: dict[str, object] = {
             "kind": "estimated",
@@ -281,11 +282,11 @@ def locate(
                     "status": "at_stop",
                     "progress": 0.0,
                     "departs_at": e.departs_at,
-                    "message": f"Estimated at {e.last.name}. {why}",
+                    "message": tr("pos.estimated_at", stop=e.last.name, why=why),
                 }
             )
         if e.nxt is None or e.left_at is None or e.arrives_next is None:
-            return unavailable("not_running", "This train is not running now.")
+            return unavailable("not_running", tr("pos.not_running"))
         run = (e.arrives_next - e.left_at).total_seconds()
         progress = (now - e.left_at).total_seconds() / run if run > 0 else 0.5
         return base.model_copy(
@@ -295,22 +296,22 @@ def locate(
                 "progress": round(max(0.05, min(0.95, progress)), 3),
                 "segment_run_s": round(run) if run > 0 else None,
                 "left_at": e.left_at,
-                "message": f"Estimated between {e.last.name} and {e.nxt.name}. {why}",
+                "message": tr("pos.estimated_between", a=e.last.name, b=e.nxt.name, why=why),
             }
         )
 
     if snap is None or not is_usable(fresh):
-        return estimated(None, "Live data is unavailable or outdated: timetable estimate.")
+        return estimated(None, tr("pos.why_no_live_data"))
     tu = snap.trips.get(native)
     if tu is not None and tu.cancelled:
-        return unavailable("cancelled", "This train is cancelled.")
+        return unavailable("cancelled", tr("pos.cancelled"))
     vehicle = snap.vehicles.get(native)
     by_native = {s.native_id: s for s in stops}
     last = by_native.get(vehicle.stop_id) if vehicle and vehicle.stop_id else None
     if vehicle is None or last is None:
         if tu is not None and tu.delay_s is not None:
-            return estimated(tu.delay_s, "From the timetable and the live delay.")
-        return estimated(None, "No live position for this train: timetable estimate.")
+            return estimated(tu.delay_s, tr("pos.why_delay"))
+        return estimated(None, tr("pos.why_no_position"))
 
     base = base.model_copy(
         update={
@@ -342,7 +343,7 @@ def locate(
         return base.model_copy(
             update={
                 "status": "at_stop",
-                "message": f"At {last.name}",
+                "message": tr("pos.at", stop=last.name),
                 "next_stop": nxt.ref() if nxt else None,
                 "progress": 0.0,
                 "progress_basis": "gps" if gps else None,
@@ -364,7 +365,7 @@ def locate(
     return base.model_copy(
         update={
             "status": "between",
-            "message": f"Between {last.name} and {nxt.name}",
+            "message": tr("pos.between", a=last.name, b=nxt.name),
             "next_stop": nxt.ref(),
             "progress": progress,
             "progress_basis": basis,

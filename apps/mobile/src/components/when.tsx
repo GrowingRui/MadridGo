@@ -9,6 +9,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 
 import type { SortOption } from '../api/journeys';
 import { type PressState, useIsWide, useNow } from '../hooks';
+import { useT } from '../i18n';
 import { colors, radius, space, type } from '../theme';
 import {
   dayLabel,
@@ -38,18 +39,24 @@ export function WhenBar({
   onNow: () => void;
   onOpenOptions: () => void;
 }) {
+  const { t } = useT();
   const now = useNow();
   const at = when ?? now;
   const isNow = when == null && !arriveBy;
-  const timeLabel = `${formatTime(at)} ${arriveBy ? 'Arr' : 'Dep'}`;
+  const timeLabel = `${formatTime(at)} ${arriveBy ? t('when.arr') : t('when.dep')}`;
   return (
     <View style={styles.bar}>
       <Pressable
         onPress={onOpenTime}
         accessibilityRole="button"
-        accessibilityLabel={`${arriveBy ? 'Arrive by' : 'Depart at'} ${formatDateShort(
-          at,
-        )} ${formatTime(at)}${isNow ? ', now' : ''}. Change date and time`}
+        accessibilityLabel={
+          t(arriveBy ? 'when.a11yArr' : 'when.a11yDep', {
+            date: formatDateShort(at),
+            time: formatTime(at),
+          }) +
+          (isNow ? t('when.a11yNow') : '') +
+          t('when.a11yChange')
+        }
         style={({ pressed, hovered }: PressState) => [
           styles.barMain,
           (pressed || hovered) && styles.pressed,
@@ -63,7 +70,7 @@ export function WhenBar({
         onPress={onNow}
         disabled={isNow}
         accessibilityRole="button"
-        accessibilityLabel="Depart now"
+        accessibilityLabel={t('when.departNow')}
         accessibilityState={{ disabled: isNow }}
         hitSlop={6}
         style={({ pressed, hovered }: PressState) => [
@@ -81,7 +88,7 @@ export function WhenBar({
       <Pressable
         onPress={onOpenOptions}
         accessibilityRole="button"
-        accessibilityLabel={`Connection options${optionsActive ? ', changed' : ''}`}
+        accessibilityLabel={t('when.options') + (optionsActive ? t('when.optionsChanged') : '')}
         hitSlop={6}
         style={({ pressed, hovered }: PressState) => [
           styles.iconBtn,
@@ -111,6 +118,7 @@ function Sheet({
   children: ReactNode;
   footer: ReactNode;
 }) {
+  const { t } = useT();
   const isWide = useIsWide();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -119,7 +127,7 @@ function Sheet({
           style={StyleSheet.absoluteFill}
           onPress={onClose}
           accessibilityRole="button"
-          accessibilityLabel="Dismiss"
+          accessibilityLabel={t('common.dismiss')}
         />
         <View
           style={[styles.sheet, isWide ? styles.sheetWide : styles.sheetApp]}
@@ -131,7 +139,7 @@ function Sheet({
             <Pressable
               onPress={onClose}
               accessibilityRole="button"
-              accessibilityLabel="Close"
+              accessibilityLabel={t('common.close')}
               hitSlop={10}>
               <MaterialCommunityIcons name="close" size={22} color={colors.textMuted} />
             </Pressable>
@@ -185,12 +193,13 @@ function Stepper({
   onMinus: () => void;
   onPlus: () => void;
 }) {
+  const { t } = useT();
   return (
     <View style={styles.stepper}>
       <Pressable
         onPress={onPlus}
         accessibilityRole="button"
-        accessibilityLabel={`Later ${label}`}
+        accessibilityLabel={t('when.later', { unit: label })}
         style={({ pressed, hovered }: PressState) => [
           styles.stepBtn,
           (pressed || hovered) && styles.pressed,
@@ -203,7 +212,7 @@ function Stepper({
       <Pressable
         onPress={onMinus}
         accessibilityRole="button"
-        accessibilityLabel={`Earlier ${label}`}
+        accessibilityLabel={t('when.earlier', { unit: label })}
         style={({ pressed, hovered }: PressState) => [
           styles.stepBtn,
           (pressed || hovered) && styles.pressed,
@@ -247,6 +256,7 @@ function TimeSheetBody({
   onClose: () => void;
   onApply: (when: number | null, arriveBy: boolean) => void;
 }) {
+  const { t } = useT();
   // A fresh draft each time the sheet opens (this body is mounted only while visible).
   const [now] = useState(() => Date.now());
   const start = madridParts(when ?? now);
@@ -275,22 +285,26 @@ function TimeSheetBody({
   return (
     <Sheet
       visible
-      title="Date and time"
+      title={t('when.title')}
       onClose={onClose}
       footer={
         <>
-          <Button label="Now" variant="secondary" onPress={() => onApply(null, false)} />
+          <Button
+            label={t('common.now')}
+            variant="secondary"
+            onPress={() => onApply(null, false)}
+          />
           <View style={{ flex: 1 }} />
-          <Button label="Done" onPress={apply} />
+          <Button label={t('common.done')} onPress={apply} />
         </>
       }>
       <Segmented
-        label="Departure or arrival"
+        label={t('when.depOrArr')}
         value={mode}
         onChange={setMode}
         options={[
-          { value: 'dep', label: 'Departure' },
-          { value: 'arr', label: 'Arrival' },
+          { value: 'dep', label: t('when.departure') },
+          { value: 'arr', label: t('when.arrival') },
         ]}
       />
       <ScrollView
@@ -298,7 +312,7 @@ function TimeSheetBody({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.days}
         accessibilityRole="radiogroup"
-        accessibilityLabel="Day">
+        accessibilityLabel={t('when.day')}>
         {days.map((d, i) => {
           const on = i === dayOffset;
           return (
@@ -315,35 +329,27 @@ function TimeSheetBody({
       </ScrollView>
       <View style={styles.time}>
         <Stepper
-          label="hour"
+          label={t('when.hour')}
           value={two(hour)}
           onPlus={() => setHour((h) => (h + 1) % 24)}
           onMinus={() => setHour((h) => (h + 23) % 24)}
         />
         <Text style={styles.colon}>:</Text>
         <Stepper
-          label="minutes"
+          label={t('when.minutes')}
           value={two(minute)}
           onPlus={() => stepMinute(5)}
           onMinus={() => stepMinute(-5)}
         />
       </View>
       <Text style={styles.hint}>
-        {mode === 'arr'
-          ? 'Connections that arrive by this time.'
-          : 'Connections that leave from this time.'}{' '}
-        Madrid time.
+        {mode === 'arr' ? t('when.hintArr') : t('when.hintDep')} {t('when.madridTime')}
       </Text>
     </Sheet>
   );
 }
 
-const SORTS: { value: SortOption; label: string; hint: string }[] = [
-  { value: 'earliest_arrival', label: 'Earliest arrival', hint: 'Get there as early as possible' },
-  { value: 'fastest', label: 'Shortest travel time', hint: 'Least time on the way' },
-  { value: 'fewest_transfers', label: 'Fewest changes', hint: 'Prefer direct connections' },
-  { value: 'least_walking', label: 'Least walking', hint: 'Avoid long walks' },
-];
+const SORTS: SortOption[] = ['earliest_arrival', 'fastest', 'fewest_transfers', 'least_walking'];
 
 export function OptionsSheet({
   visible,
@@ -356,25 +362,26 @@ export function OptionsSheet({
   onClose: () => void;
   onApply: (sort: SortOption) => void;
 }) {
+  const { t } = useT();
   return (
     <Sheet
       visible={visible}
-      title="Connection options"
+      title={t('when.options')}
       onClose={onClose}
       footer={
         <>
           <View style={{ flex: 1 }} />
-          <Button label="Done" onPress={onClose} />
+          <Button label={t('common.done')} onPress={onClose} />
         </>
       }>
-      <Text style={styles.groupLabel}>Sort connections by</Text>
-      <View accessibilityRole="radiogroup" accessibilityLabel="Sort connections by">
-        {SORTS.map((o) => {
-          const on = o.value === sort;
+      <Text style={styles.groupLabel}>{t('sort.title')}</Text>
+      <View accessibilityRole="radiogroup" accessibilityLabel={t('sort.title')}>
+        {SORTS.map((value) => {
+          const on = value === sort;
           return (
             <Pressable
-              key={o.value}
-              onPress={() => onApply(o.value)}
+              key={value}
+              onPress={() => onApply(value)}
               accessibilityRole="radio"
               accessibilityState={{ selected: on }}
               style={({ pressed, hovered }: PressState) => [
@@ -387,8 +394,8 @@ export function OptionsSheet({
                 color={on ? colors.brand : colors.textFaint}
               />
               <View style={{ flex: 1 }}>
-                <Text style={styles.optionLabel}>{o.label}</Text>
-                <Text style={styles.optionHint}>{o.hint}</Text>
+                <Text style={styles.optionLabel}>{t(`sort.${value}`)}</Text>
+                <Text style={styles.optionHint}>{t(`sort.${value}.hint`)}</Text>
               </View>
             </Pressable>
           );

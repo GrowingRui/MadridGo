@@ -8,6 +8,7 @@ import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-na
 
 import type { Journey, Leg } from '../api/journeys';
 import { delayMin, shownTime } from '../api/journeys';
+import { t, tn, useT } from '../i18n';
 import type { Place } from '../state/planner';
 import { colors, modeColors, radius, space, type } from '../theme';
 import { countdown, formatDuration, formatTime } from '../utils/time';
@@ -57,11 +58,12 @@ export function PlannerCard({
   /** A row under the fields, inside the card (the date and time row). */
   footer?: ReactNode;
 }) {
+  const { t } = useT();
   const field = (name: PlaceFieldName) => (
     <PlaceField
-      label={name === 'from' ? 'From' : 'To'}
+      label={name === 'from' ? t('plan.from') : t('plan.to')}
       place={name === 'from' ? from : to}
-      placeholder={name === 'from' ? 'Stop or station' : 'Where to?'}
+      placeholder={name === 'from' ? t('plan.fromPlaceholder') : t('plan.whereTo')}
       active={editing === name}
       text={text}
       onPress={() => onEdit(name)}
@@ -123,11 +125,12 @@ function SwapButton({
   onSwap: () => void;
   icon: 'swap-vertical' | 'swap-horizontal';
 }) {
+  const { t } = useT();
   return (
     <Pressable
       onPress={onSwap}
       accessibilityRole="button"
-      accessibilityLabel="Swap origin and destination"
+      accessibilityLabel={t('plan.swap')}
       hitSlop={8}
       style={({ pressed }) => [styles.swap, pressed && { backgroundColor: colors.brandTint }]}>
       <MaterialCommunityIcons name={icon} size={22} color={colors.brand} />
@@ -154,6 +157,7 @@ function PlaceField({
   onText: (text: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useT();
   if (active) {
     return (
       <View style={styles.field}>
@@ -163,12 +167,12 @@ function PlaceField({
             autoFocus
             value={text}
             onChangeText={onText}
-            placeholder={place?.name ?? 'Stop, station or stop code'}
+            placeholder={place?.name ?? t('search.placeholder')}
             placeholderTextColor={colors.textFaint}
             style={styles.input}
             autoCorrect={false}
             returnKeyType="search"
-            accessibilityLabel={`${label}: search stops`}
+            accessibilityLabel={t('plan.searchLabel', { field: label })}
             // The highlighted field is the focus indicator; hide the browser's focus ring.
             {...(Platform.OS === 'web'
               ? { style: [styles.input, { outlineStyle: 'none' } as object] }
@@ -180,7 +184,7 @@ function PlaceField({
           <Pressable
             onPress={onClose}
             accessibilityRole="button"
-            accessibilityLabel="Close search"
+            accessibilityLabel={t('plan.closeSearch')}
             hitSlop={10}>
             <MaterialCommunityIcons name="close" size={20} color={colors.textMuted} />
           </Pressable>
@@ -251,7 +255,7 @@ export function journeyStatus(j: Journey) {
 }
 
 export function changesLabel(n: number) {
-  return n === 0 ? 'Direct' : `${n} change${n > 1 ? 's' : ''}`;
+  return n === 0 ? t('conn.direct') : tn('conn.changes', n);
 }
 
 /**
@@ -271,6 +275,7 @@ export function ConnectionCard({
   now: number;
   selected?: boolean;
 }) {
+  const { t } = useT();
   const transit = journey.legs.filter((l) => l.mode !== 'walk');
   const first = transit[0];
   const delay = delayMin(journey.arrival);
@@ -282,11 +287,15 @@ export function ConnectionCard({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      accessibilityLabel={`${journey.feasible ? '' : 'Not possible. '}Departs ${formatTime(
-        shownTime(journey.departure),
-      )}, arrives ${formatTime(shownTime(journey.arrival))}, ${formatDuration(
-        journey.duration_min,
-      )}, ${changesLabel(journey.transfers)}`}
+      accessibilityLabel={
+        (journey.feasible ? '' : t('conn.a11yNotPossible')) +
+        t('conn.a11y', {
+          dep: formatTime(shownTime(journey.departure)),
+          arr: formatTime(shownTime(journey.arrival)),
+          duration: formatDuration(journey.duration_min),
+          changes: changesLabel(journey.transfers),
+        })
+      }
       style={({ pressed, hovered }: PressState) => [
         styles.conn,
         (pressed || hovered) && { backgroundColor: '#F7F8FA' },
@@ -299,7 +308,7 @@ export function ConnectionCard({
           )}
           {first?.headsign ? (
             <Text style={styles.direction} numberOfLines={1}>
-              Direction {first.headsign}
+              {t('conn.direction', { name: first.headsign })}
             </Text>
           ) : null}
         </View>
@@ -317,9 +326,11 @@ export function ConnectionCard({
       <View style={styles.connMeta}>
         <View style={styles.metaLeft}>
           {first?.departure.platform ? (
-            <Text style={styles.platform}>Pl. {first.departure.platform}</Text>
+            <Text style={styles.platform}>
+              {t('conn.platformShort', { p: first.departure.platform })}
+            </Text>
           ) : null}
-          <StatusBadge status={status} text={mixed ? 'Partly live' : undefined} />
+          <StatusBadge status={status} text={mixed ? t('status.partlyLive') : undefined} />
         </View>
         <Text style={styles.meta}>
           <Text style={styles.metaStrong}>{formatDuration(journey.duration_min)}</Text>
@@ -328,12 +339,10 @@ export function ConnectionCard({
         </Text>
       </View>
       {delay > 0 ? (
-        <Text style={styles.delayNote}>Arrives about {delay} min late (live data)</Text>
+        <Text style={styles.delayNote}>{t('conn.arrivesLate', { n: delay })}</Text>
       ) : null}
       {!journey.feasible ? (
-        <Text style={styles.delayNote}>
-          {journey.issues[0] ?? 'This connection is not possible.'}
-        </Text>
+        <Text style={styles.delayNote}>{journey.issues[0] ?? t('conn.notPossible')}</Text>
       ) : journey.reliability && journey.reliability !== 'comfortable' ? (
         <TransferBadge label={journey.reliability} />
       ) : null}

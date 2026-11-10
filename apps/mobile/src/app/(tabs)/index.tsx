@@ -25,7 +25,9 @@ import { ConnectionCard, type PlaceFieldName, PlannerCard } from '../../componen
 import { OptionsSheet, TimeSheet, WhenBar } from '../../components/when';
 import { StopSuggestions } from '../../components/stopSearch';
 import { StopRow } from '../../components/stops';
+import { Rich } from '../../components/Rich';
 import { useAsync, useIsWide, useNow, type PressState } from '../../hooks';
+import { useT } from '../../i18n';
 import { journeyCache } from '../../state/journeys';
 import { DEFAULT_SORT, type Place, setPlanner, swapPlaces, usePlanner } from '../../state/planner';
 import { type SavedStop, addRecent, useSaved } from '../../state/saved';
@@ -35,6 +37,7 @@ import { formatDay, formatTime } from '../../utils/time';
 export default function PlanScreen() {
   const { from, to, when, arriveBy, sort } = usePlanner();
   const isWide = useIsWide();
+  const { t } = useT();
   const [sheet, setSheet] = useState<'time' | 'options' | null>(null);
   // The field being typed into, in place in the header (no separate search page).
   const [editing, setEditing] = useState<PlaceFieldName | null>(null);
@@ -83,8 +86,8 @@ export default function PlanScreen() {
   const header = (
     <BrandHeader
       wide
-      title={isWide ? 'Plan your journey' : ready || editing ? undefined : 'Where to?'}
-      subtitle={isWide ? 'Metro · Cercanías · Bus · Metro Ligero' : undefined}>
+      title={isWide ? t('plan.titleWide') : ready || editing ? undefined : t('plan.whereTo')}
+      subtitle={isWide ? t('plan.modes') : undefined}>
       {isWide ? (
         <View style={styles.wideForm}>
           <PlannerCard
@@ -154,6 +157,7 @@ function Connections({
   sort: SortOption;
 }) {
   const isWide = useIsWide();
+  const { t } = useT();
   const now = useNow();
   // Earlier/Later pages come from the server's cursors; null is the first page.
   const [cursor, setCursor] = useState<string | null>(null);
@@ -170,7 +174,7 @@ function Connections({
 
   if (!data) {
     if (plan.error) return <ErrorState message={plan.error} onRetry={plan.reload} />;
-    return <Loading label="Finding connections…" />;
+    return <Loading label={t('plan.finding')} />;
   }
 
   const page = (c: string | null) => {
@@ -185,12 +189,15 @@ function Connections({
   const list = (
     <>
       <Text style={styles.listHead}>
-        {formatDay(searched)} · {data.arrive_by ? 'arrive by' : 'from'} {formatTime(searched)}
-        {plan.loading ? ' · updating…' : ''}
+        {t(data.arrive_by ? 'plan.headArriveBy' : 'plan.headFrom', {
+          day: formatDay(searched),
+          time: formatTime(searched),
+        })}
+        {plan.loading ? t('plan.updating') : ''}
       </Text>
       <Card>
         <PageLink
-          label="Earlier connections"
+          label={t('plan.earlier')}
           icon="chevron-up"
           disabled={!data.earlier_cursor || plan.loading}
           onPress={() => page(data.earlier_cursor)}
@@ -211,14 +218,14 @@ function Connections({
             <Divider />
             <EmptyState
               icon="map-marker-off-outline"
-              title="No connections found"
-              body={data.message ?? 'Try another time or nearby stops.'}
+              title={t('plan.noneTitle')}
+              body={data.message ?? t('plan.noneBody')}
             />
           </>
         ) : null}
         <Divider />
         <PageLink
-          label="Later connections"
+          label={t('plan.later')}
           icon="chevron-down"
           disabled={!data.later_cursor || plan.loading}
           onPress={() => page(data.later_cursor)}
@@ -313,15 +320,20 @@ function PageLink({
 }
 
 function Legend() {
+  const { t } = useT();
   return (
-    <Text style={styles.legend}>
-      <Text style={{ color: colors.live, fontWeight: '700' }}>Live</Text> times come from the
-      operator&apos;s real-time feed; a red <Text style={{ color: colors.delay }}>+4′</Text> is the
-      delay. <Text style={{ fontWeight: '700' }}>Scheduled</Text> times are the official timetable.{' '}
-      <Text style={{ color: colors.warning, fontWeight: '700' }}>Frequency</Text> lines publish only
-      “every N minutes”. Changes are marked tight, at risk or uncertain when the time to change is
-      short or cannot be known.
-    </Text>
+    <Rich
+      k="plan.legend"
+      style={styles.legend}
+      slots={{
+        live: <Text style={{ color: colors.live, fontWeight: '700' }}>{t('status.live')}</Text>,
+        delay: <Text style={{ color: colors.delay }}>+4′</Text>,
+        scheduled: <Text style={{ fontWeight: '700' }}>{t('status.scheduled')}</Text>,
+        frequency: (
+          <Text style={{ color: colors.warning, fontWeight: '700' }}>{t('status.frequency')}</Text>
+        ),
+      }}
+    />
   );
 }
 
@@ -332,6 +344,7 @@ function Start() {
   const { from } = usePlanner();
   const saved = useSaved();
   const isWide = useIsWide();
+  const { t } = useT();
 
   const pickInto = (s: SavedStop) => {
     if (!from) setPlanner({ from: { id: s.id, name: s.name } });
@@ -346,7 +359,7 @@ function Start() {
 
   const picks = quick.length ? (
     <View>
-      <SectionTitle>{from ? 'Choose a destination' : 'Start from'}</SectionTitle>
+      <SectionTitle>{from ? t('plan.chooseDestination') : t('plan.startFrom')}</SectionTitle>
       <Card>
         {quick.slice(0, 6).map((s, i) => (
           <View key={s.id}>
@@ -360,14 +373,20 @@ function Start() {
 
   const hint = (
     <View style={styles.hint}>
-      <Text style={styles.hintTitle}>Plan door to door across Madrid</Text>
-      <Text style={styles.hintBody}>
-        Choose where you start and where you are going. Every time MadridGo shows is labelled{' '}
-        <Text style={{ color: colors.live, fontWeight: '700' }}>Live</Text>,{' '}
-        <Text style={{ fontWeight: '700' }}>Scheduled</Text> or{' '}
-        <Text style={{ color: colors.warning, fontWeight: '700' }}>Every ~N min</Text>, so you
-        always know how much to trust it.
-      </Text>
+      <Text style={styles.hintTitle}>{t('plan.hintTitle')}</Text>
+      <Rich
+        k="plan.hintBody"
+        style={styles.hintBody}
+        slots={{
+          live: <Text style={{ color: colors.live, fontWeight: '700' }}>{t('status.live')}</Text>,
+          scheduled: <Text style={{ fontWeight: '700' }}>{t('status.scheduled')}</Text>,
+          every: (
+            <Text style={{ color: colors.warning, fontWeight: '700' }}>
+              {t('status.everyGeneric')}
+            </Text>
+          ),
+        }}
+      />
     </View>
   );
 

@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.dbpool import get_pool
 from app.feeds import ExpiryState, expiry_state
+from app.i18n import tr
 from app.ingest.sources import SOURCES_BY_KEY
 from app.otp import OtpClient, OtpUnavailable, get_otp
 from app.realtime import board as live
@@ -635,10 +636,14 @@ def build_journey(it: _Itinerary) -> Journey:
         name = lg.line.short_name if lg.line else lg.mode
         when = lg.departure.scheduled.strftime("%H:%M")
         if lg.departure.status == "cancelled":
-            issues.append(f"{name} {when} from {lg.from_} is cancelled.")
+            issues.append(tr("issue.cancelled", line=name, time=when, stop=lg.from_))
         if d.passed:
-            issues.append(f"{name} {when} has already left {lg.from_}.")
-    issues += [f"Change at {c.at}: {c.message}" for c in changes if c.label == "not_feasible"]
+            issues.append(tr("issue.left", line=name, time=when, stop=lg.from_))
+    issues += [
+        tr("issue.change", stop=c.at, message=c.message)
+        for c in changes
+        if c.label == "not_feasible"
+    ]
 
     first, last = legs[0], legs[-1]
     if first.mode == "walk" and transit:
@@ -719,17 +724,20 @@ def journey_alerts(snapshots: list[AlertSnapshot], j: Journey, now: datetime) ->
 # ---------------------------------------------------------------------------
 # Notices and messages
 
-ROUTING_MESSAGES = {
-    "NO_TRANSIT_CONNECTION": "No public transport connection found.",
-    "NO_TRANSIT_CONNECTION_IN_SEARCH_WINDOW": "No connection in this time window. "
-    "Try later connections.",
-    "OUTSIDE_SERVICE_PERIOD": "There is no timetable for this date yet.",
-    "OUTSIDE_BOUNDS": "Start or destination is outside the area MadridGo covers.",
-    "LOCATION_NOT_FOUND": "Start or destination could not be found on the map.",
-    "NO_STOPS_IN_RANGE": "There is no stop within walking distance of the start or destination.",
-    "WALKING_BETTER_THAN_TRANSIT": "It is quicker to walk.",
-    "NO_DIRECT_MODE_CONNECTION": "No connection found.",
+# OTP routing error codes with a message of their own (app/i18n.py "routing.<code>").
+ROUTING_CODES = {
+    "NO_TRANSIT_CONNECTION",
+    "NO_TRANSIT_CONNECTION_IN_SEARCH_WINDOW",
+    "OUTSIDE_SERVICE_PERIOD",
+    "OUTSIDE_BOUNDS",
+    "LOCATION_NOT_FOUND",
+    "NO_STOPS_IN_RANGE",
+    "WALKING_BETTER_THAN_TRANSIT",
 }
+
+
+def routing_message(code: str) -> str:
+    return tr(f"routing.{code}" if code in ROUTING_CODES else "routing.default")
 
 
 def plan_notices(info: FeedInfo, used: set[str], today: date) -> list[DataNotice]:
@@ -740,12 +748,9 @@ def plan_notices(info: FeedInfo, used: set[str], today: date) -> list[DataNotice
             continue
         state, days = expiry_state(end, today, src.expiry_warning_days)
         if state == "expired":
-            msg = (
-                f"The official {src.operator_name} timetable expired on {end}. "
-                f"{src.operator_name} is not used in these journeys."
-            )
+            msg = tr("notice.expired_journeys", operator=src.operator_name, end=end)
         elif state == "expiring" and key in used:
-            msg = f"The {src.operator_name} timetable ends in {days} days."
+            msg = tr("notice.expiring", operator=src.operator_name, days=days)
         else:
             continue
         out.append(
@@ -905,7 +910,7 @@ async def journeys(
         notices=plan_notices(info, used, now.date()),
         realtime=statuses,
         routing_error=code,
-        message=ROUTING_MESSAGES.get(code or "", "No connection found.") if code else None,
+        message=routing_message(code) if code else None,
     )
 
 
@@ -916,7 +921,7 @@ def _emt_status(results: list[LiveFetch], now: datetime) -> SourceStatus:
             operator=_operator("emt"),
             source=emt.SOURCE,
             status="not_available",
-            message="Live EMT times are shown for buses leaving in the next 45 minutes.",
+            message=tr("rt.emt_window"),
             attribution=emt.ATTRIBUTION,
         )
     # The oldest answer speaks for all EMT legs, so the status never looks better than the

@@ -14,6 +14,7 @@ from app.config import Settings, get_settings
 from app.dbpool import close_pool, get_pool
 from app.feeds import FeedStatus, feed_statuses
 from app.health import Check, HealthResponse, make_database_check, make_redis_check, run_checks
+from app.i18n import LanguageMiddleware
 from app.otp import close_otp
 from app.realtime import api as realtime_api
 from app.realtime.cache import close_kv
@@ -46,6 +47,8 @@ def create_app() -> FastAPI:
         allow_methods=["GET"],
         allow_headers=["*"],
     )
+    # Outermost: messages in the app's language (Accept-Language: es | en).
+    app.add_middleware(LanguageMiddleware)
 
     @app.get("/health", response_model=HealthResponse, tags=["system"])
     async def health(

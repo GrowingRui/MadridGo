@@ -8,15 +8,21 @@ import { StyleSheet, TextInput, View } from 'react-native';
 
 import { BrandHeader, Screen } from '../components/layout';
 import { StopSuggestions } from '../components/stopSearch';
+import { type MessageKey, useT } from '../i18n';
 import { setPlanner } from '../state/planner';
 import { type SavedStop, addRecent } from '../state/saved';
 import { colors, radius, space, type } from '../theme';
 
-const TITLES = { from: 'From', to: 'To', board: 'Departures from' } as const;
+const TITLES: Record<string, MessageKey> = {
+  from: 'pick.from',
+  to: 'pick.to',
+  board: 'pick.board',
+};
 
 export default function PickScreen() {
   const { field = 'to' } = useLocalSearchParams<{ field?: 'from' | 'to' | 'board' }>();
   const [text, setText] = useState('');
+  const { t } = useT();
 
   const choose = (s: SavedStop) => {
     addRecent(s);
@@ -31,19 +37,19 @@ export default function PickScreen() {
   return (
     <Screen
       header={
-        <BrandHeader title={TITLES[field] ?? 'Stop'} onBack={() => router.back()}>
+        <BrandHeader title={t(TITLES[field] ?? 'pick.stop')} onBack={() => router.back()}>
           <View style={styles.search}>
             <MaterialCommunityIcons name="magnify" size={22} color={colors.textMuted} />
             <TextInput
               autoFocus
               value={text}
               onChangeText={setText}
-              placeholder="Stop, station or stop code"
+              placeholder={t('search.placeholder')}
               placeholderTextColor={colors.textFaint}
               style={styles.input}
               autoCorrect={false}
               returnKeyType="search"
-              accessibilityLabel="Search stops"
+              accessibilityLabel={t('search.label')}
             />
             {text ? (
               <MaterialCommunityIcons
@@ -51,7 +57,7 @@ export default function PickScreen() {
                 size={20}
                 color={colors.textFaint}
                 onPress={() => setText('')}
-                accessibilityLabel="Clear"
+                accessibilityLabel={t('common.clear')}
               />
             ) : null}
           </View>

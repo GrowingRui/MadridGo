@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 
 import { ApiError } from './api/client';
+import { t, useLanguage } from './i18n';
 import type { Leg } from './api/journeys';
 import { type TripPosition, getTripPosition } from './api/trips';
 import { canTrack, keepForward } from './utils/trainPosition';
@@ -36,6 +37,8 @@ export function useAsync<T>(fn: (() => Promise<T>) | null, key: string): AsyncSt
   const [nonce, setNonce] = useState(0);
   const seq = useRef(0);
   const fnRef = useRef(fn);
+  // A new language asks again: the server's messages come in the app's language.
+  const { lang } = useLanguage();
   // Keep the latest fn without re-running the request when only its identity changes.
   useEffect(() => {
     fnRef.current = fn;
@@ -57,12 +60,13 @@ export function useAsync<T>(fn: (() => Promise<T>) | null, key: string): AsyncSt
         if (id === seq.current) setData(d);
       })
       .catch((e: unknown) => {
-        if (id === seq.current) setError(e instanceof ApiError ? e.message : 'Unexpected error');
+        if (id === seq.current)
+          setError(e instanceof ApiError ? e.message : t('common.unexpected'));
       })
       .finally(() => {
         if (id === seq.current) setLoading(false);
       });
-  }, [key, nonce]);
+  }, [key, nonce, lang]);
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
   return { data, error, loading, reload };

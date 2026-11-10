@@ -20,8 +20,9 @@ import {
   SectionTitle,
 } from '../../components/layout';
 import { DepartureRow, FrequencyRow, LiveArrivalRow } from '../../components/stops';
-import { LinePills, MODE_LABEL } from '../../components/transit';
+import { LinePills, modeLabel } from '../../components/transit';
 import { useAsync, useNow } from '../../hooks';
+import { useT } from '../../i18n';
 import { setPlanner } from '../../state/planner';
 import { addRecent, isFavorite, toSaved, toggleFavorite, useSaved } from '../../state/saved';
 import { colors, space, type } from '../../theme';
@@ -29,6 +30,7 @@ import { formatTime } from '../../utils/time';
 
 export default function StopBoardScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { t } = useT();
   const board = useAsync(() => stopBoard(id), id);
   const saved = useSaved();
   const now = useNow();
@@ -57,11 +59,11 @@ export default function StopBoardScreen() {
       onRefresh={board.reload}
       header={
         <BrandHeader
-          title={stop?.name ?? 'Departures'}
+          title={stop?.name ?? t('dep.title')}
           subtitle={
             stop
-              ? stop.modes.map((m) => MODE_LABEL[m]).join(' · ') +
-                (stop.code ? ` · stop ${stop.code}` : '')
+              ? stop.modes.map((m) => modeLabel(m)).join(' · ') +
+                (stop.code ? ` · ${t('board.stopCode', { code: stop.code })}` : '')
               : undefined
           }
           onBack={() => (router.canGoBack() ? router.back() : router.replace('/departures'))}
@@ -70,7 +72,7 @@ export default function StopBoardScreen() {
               <View style={styles.actions}>
                 <HeaderIconButton
                   icon="map-marker-path"
-                  label="Plan a journey from here"
+                  label={t('board.planFromHere')}
                   onPress={() => {
                     setPlanner({ from: { id: stop.id, name: stop.name } });
                     router.navigate('/');
@@ -78,7 +80,7 @@ export default function StopBoardScreen() {
                 />
                 <HeaderIconButton
                   icon={fav ? 'star' : 'star-outline'}
-                  label={fav ? 'Remove from saved' : 'Save stop'}
+                  label={fav ? t('board.unsave') : t('board.save')}
                   onPress={() => toggleFavorite(toSaved(stop))}
                 />
               </View>
@@ -92,7 +94,7 @@ export default function StopBoardScreen() {
         </BrandHeader>
       }>
       {board.loading && !board.data ? (
-        <Loading label="Loading departures…" />
+        <Loading label={t('board.loading')} />
       ) : board.error ? (
         <ErrorState message={board.error} onRetry={board.reload} />
       ) : board.data ? (
@@ -111,7 +113,7 @@ export default function StopBoardScreen() {
 
           {board.data.alerts.length ? (
             <>
-              <SectionTitle>Service alerts</SectionTitle>
+              <SectionTitle>{t('board.alerts')}</SectionTitle>
               <Card>
                 {board.data.alerts.slice(0, 5).map((a, i) => (
                   <View key={a.source_alert_id} style={styles.alert}>
@@ -133,7 +135,7 @@ export default function StopBoardScreen() {
 
           {liveArrivals.length ? (
             <>
-              <SectionTitle>Live arrivals</SectionTitle>
+              <SectionTitle>{t('board.liveArrivals')}</SectionTitle>
               <Card>
                 {liveArrivals.map((a, i) => (
                   <View key={`${a.line.route_id}-${a.realtime.vehicle_id ?? i}-${a.time}`}>
@@ -147,7 +149,7 @@ export default function StopBoardScreen() {
 
           {board.data.frequencies.length ? (
             <>
-              <SectionTitle>Frequent lines</SectionTitle>
+              <SectionTitle>{t('board.frequent')}</SectionTitle>
               <Card>
                 {board.data.frequencies.map((f, i) => (
                   <View key={`${f.line.route_id}-${f.headsign}-${f.stop_id}`}>
@@ -161,7 +163,7 @@ export default function StopBoardScreen() {
 
           {upcoming.length ? (
             <>
-              <SectionTitle>Next departures</SectionTitle>
+              <SectionTitle>{t('board.next')}</SectionTitle>
               <Card>
                 {upcoming.map((d, i) => (
                   <View key={`${d.trip_id}-${d.time}`}>
@@ -176,14 +178,14 @@ export default function StopBoardScreen() {
           {!upcoming.length && !board.data.frequencies.length && !liveArrivals.length ? (
             <EmptyState
               icon="clock-remove-outline"
-              title="No departures in the next 90 minutes"
-              body="Service may have ended for today, or this stop is not served at this time."
+              title={t('board.noneTitle')}
+              body={t('board.noneBody')}
             />
           ) : null}
 
           <Text style={styles.footer}>
-            Updated {formatTime(board.data.generated_at)} · Powered by CRTM · Renfe (CC BY 4.0) ·
-            Powered by EMT de Madrid
+            {t('board.updated', { time: formatTime(board.data.generated_at) })} · Powered by CRTM ·
+            Renfe (CC BY 4.0) · Powered by EMT de Madrid
           </Text>
         </>
       ) : null}
@@ -191,10 +193,10 @@ export default function StopBoardScreen() {
   );
 }
 
-/** "updated 12 s ago" / "updated 3 min ago". */
-function ago(s: number | null | undefined): string {
-  if (s == null) return '';
-  return s < 120 ? `${s} s ago` : `${Math.floor(s / 60)} min ago`;
+/** "12 s" / "3 min": the age of live data, put into a sentence by the caller. */
+function age(s: number | null | undefined): string {
+  if (s == null) return '?';
+  return s < 120 ? `${s} s` : `${Math.floor(s / 60)} min`;
 }
 
 /**
@@ -202,20 +204,24 @@ function ago(s: number | null | undefined): string {
  * are healthy get a quiet line; degraded or missing live data gets a visible notice.
  */
 function SourceNotice({ st }: { st: SourceStatus }) {
+  const { t } = useT();
   if (st.status === 'live') {
-    const basis = st.freshness?.age_basis === 'retrieved' ? 'fetched' : 'updated';
+    const key = st.freshness?.age_basis === 'retrieved' ? 'board.liveFetched' : 'board.liveUpdated';
     return (
       <View style={styles.liveLine} accessibilityRole="text">
         <View style={styles.liveDot} />
         <Text style={styles.liveText}>
-          Live {st.operator} data · {basis} {ago(st.freshness?.age_s)}
+          {t(key, { operator: st.operator, age: age(st.freshness?.age_s) })}
         </Text>
       </View>
     );
   }
   if (st.status === 'not_available') {
     return (
-      <Notice tone="info" icon="clock-outline" title={`${st.operator}: scheduled times`}>
+      <Notice
+        tone="info"
+        icon="clock-outline"
+        title={t('board.scheduledTitle', { operator: st.operator })}>
         {st.message}
       </Notice>
     );
@@ -224,9 +230,9 @@ function SourceNotice({ st }: { st: SourceStatus }) {
     <Notice
       tone="warning"
       icon={st.status === 'delayed_update' ? 'clock-alert-outline' : 'access-point-network-off'}
-      title={
-        st.status === 'delayed_update' ? `${st.operator}: live` : `${st.operator}: no live data`
-      }>
+      title={t(st.status === 'delayed_update' ? 'board.liveTitle' : 'board.noLiveTitle', {
+        operator: st.operator,
+      })}>
       {st.message}
     </Notice>
   );

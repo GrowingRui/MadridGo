@@ -6,13 +6,19 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { type StopSummary, searchStops } from '../api/stops';
 import { useAsync, useDebounced } from '../hooks';
+import { t, useT } from '../i18n';
 import { type SavedStop, toSaved, useSaved } from '../state/saved';
 import { colors, space, type } from '../theme';
 import { Card, Divider, EmptyState, ErrorState, Loading, SectionTitle } from './layout';
 import { StopRow } from './stops';
 
 const detail = (s: StopSummary) =>
-  [s.is_station ? 'Station' : 'Stop', s.code ? `code ${s.code}` : null].filter(Boolean).join(' · ');
+  [
+    s.is_station ? t('search.station') : t('search.stop'),
+    s.code ? t('search.code', { code: s.code }) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
 export function StopSuggestions({
   text,
@@ -27,6 +33,7 @@ export function StopSuggestions({
   /** Compact rendering for the website's dropdown panel (no cards, no big empty states). */
   dropdown?: boolean;
 }) {
+  const { t } = useT();
   const q = useDebounced(text.trim(), 250);
   const saved = useSaved();
   const results = useAsync(q.length >= 2 ? () => searchStops(q) : null, q);
@@ -58,35 +65,35 @@ export function StopSuggestions({
     );
     if (!favorites.length && !recents.length) {
       return dropdown ? (
-        <Text style={styles.hint}>Type a stop or station name, or a stop code.</Text>
+        <Text style={styles.hint}>{t('search.typeHint')}</Text>
       ) : (
         <EmptyState
           icon="map-search-outline"
-          title="Search all of Madrid"
-          body="Type a stop or station name, like “Atocha” or “Plaza de Castilla”, or a stop code from the bus-stop sign."
+          title={t('search.emptyTitle')}
+          body={t('search.emptyBody')}
         />
       );
     }
     const Title = dropdown ? DropdownTitle : SectionTitle;
     return (
       <>
-        {favorites.length ? <Title>Saved</Title> : null}
+        {favorites.length ? <Title>{t('section.saved')}</Title> : null}
         {favorites.length ? rows(favorites) : null}
-        {recents.length ? <Title>Recent</Title> : null}
+        {recents.length ? <Title>{t('section.recent')}</Title> : null}
         {recents.length ? rows(recents.slice(0, 6)) : null}
       </>
     );
   }
-  if (results.loading && !results.data) return <Loading label="Searching…" />;
+  if (results.loading && !results.data) return <Loading label={t('search.searching')} />;
   if (results.error) return <ErrorState message={results.error} onRetry={results.reload} />;
   if (!results.data?.length) {
     return dropdown ? (
-      <Text style={styles.hint}>No stops match “{q}”.</Text>
+      <Text style={styles.hint}>{t('search.noMatch', { q })}.</Text>
     ) : (
       <EmptyState
         icon="map-marker-question-outline"
-        title={`No stops match “${q}”`}
-        body="Check the spelling or try a nearby street."
+        title={t('search.noMatch', { q })}
+        body={t('search.noMatchBody')}
       />
     );
   }

@@ -15,6 +15,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.i18n import tr
 from app.realtime import emt, renfe
 from app.realtime.freshness import THRESHOLDS, assess, is_usable
 from app.realtime.models import (
@@ -46,13 +47,13 @@ class SourceStatus(BaseModel):
     attribution: str | None = None
 
 
-# Static feed -> why there is no live data, for operators without an authorized source.
+# Static feed -> why there is no live data (message keys in app/i18n.py), for operators
+# without an authorized source.
 NO_REALTIME = {
-    "metro": "Metro de Madrid does not publish real-time data. Times come from the timetable.",
-    "ml": "Metro Ligero does not publish real-time data. Times come from the timetable.",
-    "interurban": "Real-time is not available for this line in MadridGo. "
-    "Times come from the timetable.",
-    "urban": "Real-time is not available for this line in MadridGo. Times come from the timetable.",
+    "metro": "rt.none.metro",
+    "ml": "rt.none.ml",
+    "interurban": "rt.none.bus",
+    "urban": "rt.none.bus",
 }
 
 
@@ -86,15 +87,15 @@ def live_status(
 ) -> SourceStatus:
     state = _state(f)
     if state == "live":
-        msg = f"Live data from {operator}."
+        msg = tr("rt.live", operator=operator)
     elif state == "delayed_update":
-        msg = f"Live data from {operator}, last updated {_minutes(f.age_s)} ago."
+        msg = tr("rt.delayed_update", operator=operator, age=_minutes(f.age_s))
     elif state == "stale":
-        msg = f"Live data is outdated (last update {_minutes(f.age_s)} ago). Showing the timetable."
+        msg = tr("rt.stale", age=_minutes(f.age_s))
     else:
-        msg = "Live data is unavailable right now. Showing the timetable."
+        msg = tr("rt.unavailable")
     if error == "not_configured":
-        state, msg = "unavailable", "Live data is not set up on this server. Showing the timetable."
+        state, msg = "unavailable", tr("rt.not_configured")
     return SourceStatus(
         feed=feed,
         operator=operator,
@@ -114,7 +115,7 @@ def no_realtime_status(feed: str, operator: str) -> SourceStatus:
         operator=operator,
         source=None,
         status="not_available",
-        message=NO_REALTIME.get(feed, "No real-time data. Times come from the timetable."),
+        message=tr(NO_REALTIME.get(feed, "rt.none.default")),
     )
 
 

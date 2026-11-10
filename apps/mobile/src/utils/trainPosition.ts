@@ -19,6 +19,7 @@
 
 import { type Leg, type LegTime } from '../api/journeys';
 import type { TripPosition } from '../api/trips';
+import { t, tn } from '../i18n';
 
 export const MAX_AGE_S = 180;
 export const MAX_AHEAD_S = 45;
@@ -51,7 +52,7 @@ export function positionAgeS(pos: TripPosition, nowMs: number): number | null {
 
 /** "position 20 s ago", "position 2 min ago". */
 export function ageText(ageS: number): string {
-  return ageS < 120 ? `position ${ageS} s ago` : `position ${Math.floor(ageS / 60)} min ago`;
+  return t('pos.age', { age: ageS < 120 ? `${ageS} s` : `${Math.floor(ageS / 60)} min` });
 }
 
 /** Only recent positions are drawn. The age is checked here too: polling may have stopped. */
@@ -151,15 +152,14 @@ export function placeOnTrip(
 
 /** "Train is 2 stops away · at Getafe Centro". */
 export function approachText(p: { stopsAway: number; at: boolean; near: string }): string {
-  const n = p.stopsAway;
-  return `Train is ${n} stop${n === 1 ? '' : 's'} away · ${p.at ? 'at' : 'after'} ${p.near}`;
+  return tn(p.at ? 'pos.approachAt' : 'pos.approachAfter', p.stopsAway, { near: p.near });
 }
 
 /** "Now between Getafe Centro and Las Margaritas", "Now at Getafe Centro". */
 export function ridingText(pos: TripPosition, at: boolean): string {
   const last = pos.last_stop?.name ?? '';
-  if (at || !pos.next_stop) return `Now at ${last}`;
-  return `Now between ${last} and ${pos.next_stop.name}`;
+  if (at || !pos.next_stop) return t('pos.nowAt', { stop: last });
+  return t('pos.nowBetween', { a: last, b: pos.next_stop.name });
 }
 
 /**
@@ -169,11 +169,11 @@ export function ridingText(pos: TripPosition, at: boolean): string {
 export function sourceText(pos: TripPosition, ageS: number | null): string {
   if (pos.kind === 'estimated') {
     const late = pos.delay_s ? Math.round(pos.delay_s / 60) : 0;
-    if (pos.delay_s != null && late > 0) return `Estimated · timetable + ${late} min live delay`;
-    if (pos.delay_s != null) return 'Estimated · timetable, on time (live)';
-    return 'Estimated from the timetable';
+    if (pos.delay_s != null && late > 0) return t('pos.estimatedDelay', { n: late });
+    if (pos.delay_s != null) return t('pos.estimatedOnTime');
+    return t('pos.estimated');
   }
-  return ageS != null ? `Live · ${ageText(ageS)}` : 'Live';
+  return ageS != null ? t('pos.liveAge', { age: ageText(ageS) }) : t('pos.live');
 }
 
 /**

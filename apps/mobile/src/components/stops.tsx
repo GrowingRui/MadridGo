@@ -5,8 +5,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Departure, FrequencyService, Line, LiveArrival, Mode } from '../api/stops';
 import { bestTime } from '../api/stops';
+import { useT } from '../i18n';
 import { colors, space, type } from '../theme';
-import { countdown, formatTime } from '../utils/time';
+import { countdownShort, formatTime } from '../utils/time';
 import { LinePill, LinePills, ModeIcon, StatusBadge } from './transit';
 
 export function StopRow({
@@ -58,18 +59,28 @@ function delayMinutes(dep: Departure): number {
  * The scheduled time is always shown; a live estimate is shown next to it, never instead.
  */
 export function DepartureRow({ dep, now }: { dep: Departure; now: number }) {
+  const { t } = useT();
   const cancelled = dep.status === 'cancelled';
   const live = dep.status === 'live' && dep.realtime;
   const delay = live ? delayMinutes(dep) : 0;
-  const soon = cancelled ? null : countdown(bestTime(dep), now);
+  const soon = cancelled ? null : countdownShort(bestTime(dep), now);
   const platform = dep.realtime?.platform;
+  const base = t('dep.a11yBase', {
+    line: dep.line.short_name,
+    headsign: dep.headsign ?? t('dep.a11yUnknown'),
+    time: formatTime(dep.time),
+  });
   const label = cancelled
-    ? `${dep.line.short_name} to ${dep.headsign ?? 'unknown'}, scheduled ${formatTime(dep.time)}, cancelled`
+    ? `${base}, ${t('dep.a11yCancelled')}`
     : live
-      ? `${dep.line.short_name} to ${dep.headsign ?? 'unknown'}, scheduled ${formatTime(dep.time)}, ${
-          delay > 0 ? `${delay} minutes late` : delay < 0 ? `${-delay} minutes early` : 'on time'
+      ? `${base}, ${
+          delay > 0
+            ? t('dep.a11yLate', { n: delay })
+            : delay < 0
+              ? t('dep.a11yEarly', { n: -delay })
+              : t('dep.a11yOnTime')
         }`
-      : `${dep.line.short_name} to ${dep.headsign ?? 'unknown'}, scheduled ${formatTime(dep.time)}`;
+      : base;
   return (
     <View
       style={[styles.dep, cancelled && styles.depCancelled]}
@@ -99,43 +110,51 @@ export function DepartureRow({ dep, now }: { dep: Departure; now: number }) {
           ) : live ? (
             <StatusBadge
               status="live"
-              text={dep.realtime?.estimated_from_trip_delay ? 'Live · est.' : 'Live'}
+              text={dep.realtime?.estimated_from_trip_delay ? t('status.liveEstimated') : undefined}
             />
           ) : (
             <StatusBadge status="scheduled" />
           )}
           {live && delay !== 0 && dep.realtime?.predicted_time ? (
-            <Text style={styles.until}>now {formatTime(dep.realtime.predicted_time)}</Text>
+            <Text style={styles.until}>
+              {t('dep.now', { time: formatTime(dep.realtime.predicted_time) })}
+            </Text>
           ) : null}
-          {platform ? <Text style={styles.until}>Platform {platform}</Text> : null}
+          {platform ? <Text style={styles.until}>{t('dep.platform', { p: platform })}</Text> : null}
           {dep.wheelchair_accessible ? (
             <MaterialCommunityIcons
               name="wheelchair-accessibility"
               size={16}
               color={colors.textMuted}
-              accessibilityLabel="Wheelchair accessible"
+              accessibilityLabel={t('dep.wheelchair')}
             />
           ) : null}
         </View>
       </View>
-      <Text style={[styles.countdown, !soon && styles.countdownEmpty]}>
-        {soon?.replace('in ', '') ?? ''}
-      </Text>
+      <Text style={[styles.countdown, !soon && styles.countdownEmpty]}>{soon ?? ''}</Text>
     </View>
   );
 }
 
 /** A live EMT prediction: minutes away, with no timetable behind it. */
 export function LiveArrivalRow({ a, now }: { a: LiveArrival; now: number }) {
+  const { t } = useT();
   const mins = a.time ? Math.max(0, Math.floor((Date.parse(a.time) - now) / 60_000)) : null;
-  const text = mins === null ? '>45′' : mins === 0 ? 'now' : `${mins}′`;
+  const text = mins === null ? '>45′' : mins === 0 ? t('time.now') : `${mins}′`;
   return (
     <View
       style={styles.dep}
       accessible
-      accessibilityLabel={`${a.line.short_name} to ${a.headsign ?? 'unknown'}, live, ${
-        mins === null ? 'more than 45 minutes' : mins === 0 ? 'arriving now' : `in ${mins} minutes`
-      }`}>
+      accessibilityLabel={t('dep.a11yLive', {
+        line: a.line.short_name,
+        headsign: a.headsign ?? t('dep.a11yUnknown'),
+        when:
+          mins === null
+            ? t('dep.a11yOver45')
+            : mins === 0
+              ? t('dep.a11yArrivingNow')
+              : t('dep.a11yInMinutes', { n: mins }),
+      })}>
       <View style={styles.depTime}>
         <Text style={[type.timeL, { color: colors.live }]}>{text}</Text>
       </View>
@@ -148,7 +167,9 @@ export function LiveArrivalRow({ a, now }: { a: LiveArrival; now: number }) {
         </Text>
         <View style={styles.depBadges}>
           <StatusBadge status="live" />
-          {a.time ? <Text style={styles.until}>about {formatTime(a.time)}</Text> : null}
+          {a.time ? (
+            <Text style={styles.until}>{t('dep.about', { time: formatTime(a.time) })}</Text>
+          ) : null}
         </View>
       </View>
     </View>
@@ -157,11 +178,16 @@ export function LiveArrivalRow({ a, now }: { a: LiveArrival; now: number }) {
 
 /** A frequency-based line (Metro, EMT): no exact times exist, so none are shown. */
 export function FrequencyRow({ f }: { f: FrequencyService }) {
+  const { t } = useT();
   return (
     <View
       style={styles.dep}
       accessible
-      accessibilityLabel={`${f.line.short_name} to ${f.headsign ?? 'unknown'}, about every ${f.headway_min} minutes`}>
+      accessibilityLabel={t('dep.a11yFrequency', {
+        line: f.line.short_name,
+        headsign: f.headsign ?? t('dep.a11yUnknown'),
+        n: f.headway_min,
+      })}>
       <View style={styles.depTime}>
         <Text style={[type.timeL, { color: colors.text }]}>~{f.headway_min}′</Text>
       </View>
@@ -173,8 +199,8 @@ export function FrequencyRow({ f }: { f: FrequencyService }) {
           {f.headsign ?? '—'}
         </Text>
         <View style={styles.depBadges}>
-          <StatusBadge status="frequency" text={`Every ~${f.headway_min} min`} />
-          <Text style={styles.until}>until {formatTime(f.until_time)}</Text>
+          <StatusBadge status="frequency" text={t('status.everyN', { n: f.headway_min })} />
+          <Text style={styles.until}>{t('dep.until', { time: formatTime(f.until_time) })}</Text>
         </View>
       </View>
     </View>
