@@ -143,6 +143,15 @@ export const es: Record<MessageKey, string> = {
   'sort.least_walking.hint': 'Evitar caminatas largas',
 
   // Journey
+  'conn.title': 'Conexión',
+  'conn.summary': '{day}, {duration}',
+  'conn.save': 'Guardar esta conexión',
+  'conn.unsave': 'Quitar esta conexión de guardadas',
+  'conn.map': 'Ver el recorrido en el mapa',
+  'conn.saved': 'Conexiones guardadas',
+  'conn.notOffered':
+    'El planificador ya no ofrece esta conexión. Estas horas son de las {time} y pueden haber cambiado.',
+  'routeMap.title': 'Recorrido',
   'journey.title': 'Viaje',
   'journey.gone': 'Este viaje ya no está disponible',
   'journey.searchAgain': 'Vuelve a buscar para ver las conexiones actuales.',
@@ -299,6 +308,37 @@ export const es: Record<MessageKey, string> = {
   'more.title': 'Más',
   'more.language': 'Idioma',
   'more.languageSystem': 'Idioma del dispositivo',
+  'more.appearance': 'Apariencia',
+  'more.appearanceLight': 'Claro',
+  'more.appearanceDark': 'Oscuro',
+  'more.location': 'Ubicación',
+  'more.locationAccess': 'Acceso a la ubicación',
+  'more.locationGranted': 'Permitido',
+  'more.locationDenied': 'No permitido',
+  'more.locationAsk': 'Aún no se ha pedido',
+  'more.locationUnknown': 'Desconocido',
+  'more.locationBody':
+    'Solo se usa cuando tocas Ubicación actual: nunca en segundo plano y nunca se guarda.',
+  'more.locationDeniedBody':
+    'Para usar Ubicación actual, permite la ubicación para MadridGo en los ajustes del dispositivo.',
+  'more.locationDeniedWeb':
+    'Para usar Ubicación actual, permite la ubicación para este sitio en los ajustes del navegador.',
+  'more.openSettings': 'Abrir ajustes',
+  'more.data': 'Tus datos en este dispositivo',
+  'more.dataBody':
+    '{starred}, {recent} y {connections}. Solo se guardan en este dispositivo y nunca se envían a MadridGo.',
+  'more.connections.one': '{n} conexión guardada',
+  'more.connections.other': '{n} conexiones guardadas',
+  'more.starred.one': '{n} parada guardada',
+  'more.starred.other': '{n} paradas guardadas',
+  'more.recent.one': '{n} parada reciente',
+  'more.recent.other': '{n} paradas recientes',
+  'more.clearRecents': 'Borrar paradas recientes',
+  'more.clearAll': 'Borrar paradas y conexiones guardadas',
+  'more.clearAllConfirm':
+    '¿Borrar todas las paradas guardadas, las recientes y las conexiones guardadas de este dispositivo?',
+  'more.cancel': 'Cancelar',
+  'more.delete': 'Borrar',
   'more.timetables': 'Datos de horarios',
   'more.service': 'Estado del servicio',
   'more.server': 'Servidor de MadridGo',

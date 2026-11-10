@@ -10,7 +10,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import type { SortOption } from '../api/journeys';
 import { type PressState, useIsWide, useNow } from '../hooks';
 import { useT } from '../i18n';
-import { colors, radius, space, type } from '../theme';
+import { colors, radius, space, themed, type } from '../theme';
 import {
   dayLabel,
   formatDateShort,
@@ -405,7 +405,7 @@ export function OptionsSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
   },
   pressed: { backgroundColor: colors.brandTint },
 
-  backdrop: { flex: 1, backgroundColor: 'rgba(8, 24, 54, 0.45)' },
+  backdrop: { flex: 1, backgroundColor: colors.backdrop },
   backdropApp: { justifyContent: 'flex-end' },
   backdropWide: { justifyContent: 'center', alignItems: 'center' },
   sheet: { backgroundColor: colors.surface, padding: space.lg, gap: space.lg },
@@ -477,9 +477,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  dayOn: { backgroundColor: colors.brand, borderColor: colors.brand },
+  dayOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   dayText: { ...type.smallStrong, color: colors.text },
-  dayTextOn: { color: colors.onBrand },
+  dayTextOn: { color: colors.onPrimary },
 
   time: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.md },
   stepper: { alignItems: 'center' },
@@ -505,4 +505,4 @@ const styles = StyleSheet.create({
   },
   optionLabel: { ...type.bodyStrong, color: colors.text },
   optionHint: { ...type.small, color: colors.textMuted },
-});
+}));

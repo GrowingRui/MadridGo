@@ -235,6 +235,22 @@ def test_recorded_parla_atocha_answer(setup: Callable[..., TestClient]) -> None:
     assert j["walk_min"] == round((73 + 683) / 60)
 
 
+def test_route_map_geometry_and_coordinates(setup: Callable[..., TestClient]) -> None:
+    """The route map draws each leg's OTP shape and puts dots on its stops."""
+    raw = load("parla_atocha")
+    rail = raw["data"]["planConnection"]["edges"][0]["node"]["legs"][3]
+    rail["legGeometry"] = {"points": "_p~iF~ps|U_ulLnnqC"}
+    rail["intermediatePlaces"][0].update(lat=40.3, lon=-3.75)
+    j = plan(setup(FakeOtp(raw)))["journeys"][0]
+    walk, rail_leg = j["legs"][0], j["legs"][3]
+    assert rail_leg["geometry"] == "_p~iF~ps|U_ulLnnqC"
+    assert rail_leg["intermediate"][0]["lat"] == 40.3
+    assert rail_leg["intermediate"][0]["lon"] == -3.75
+    assert walk["geometry"] is None  # no shape in the recording: the app draws a straight line
+    for lg in j["legs"]:
+        assert lg["from_lat"] is not None and lg["to_lon"] is not None
+
+
 def test_walk_only_option_is_dropped_when_transit_is_faster(
     setup: Callable[..., TestClient],
 ) -> None:

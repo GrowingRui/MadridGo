@@ -7,7 +7,7 @@ import type { LegTime, TimeStatus, TransferLabel } from '../api/journeys';
 import { delayMin, shownTime } from '../api/journeys';
 import type { Line, Mode } from '../api/stops';
 import { t, useT } from '../i18n';
-import { colors, modeColors, radius, type } from '../theme';
+import { colors, currentScheme, modeColors, radius, themed, type } from '../theme';
 import { formatTime } from '../utils/time';
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -53,6 +53,17 @@ export function lineColors(line: Line): { bg: string; fg: string } {
   };
 }
 
+/** Relative luminance of a #RRGGBB colour (0 = black, 1 = white). */
+function luminance(hex: string): number {
+  const n = parseInt(hex.slice(1, 7), 16);
+  if (Number.isNaN(n)) return 1;
+  const ch = (v: number) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * ch((n >> 16) & 255) + 0.7152 * ch((n >> 8) & 255) + 0.0722 * ch(n & 255);
+}
+
 /** Line pictogram: Metro lines are round (as on Madrid signage), everything else a rounded box. */
 export function LinePill({
   line,
@@ -77,6 +88,8 @@ export function LinePill({
         { backgroundColor: bg },
         round && { borderRadius: radius.pill, minWidth: small ? 20 : 26, paddingHorizontal: 0 },
         onDark && styles.pillOnDark,
+        // Dark mode: dark line colours (C4 navy) get a faint outline on the dark cards.
+        !onDark && currentScheme() === 'dark' && luminance(bg) < 0.06 && styles.pillOutline,
       ]}>
       <Text style={[styles.pillText, small && styles.pillTextSm, { color: fg }]} numberOfLines={1}>
         {line.short_name}
@@ -107,12 +120,12 @@ export function LinePills({
 
 export type BadgeStatus = TimeStatus;
 
-const STATUS_STYLE: Record<BadgeStatus, { fg: string; bg: string }> = {
+const STATUS_STYLE: Record<BadgeStatus, { fg: string; bg: string }> = themed(() => ({
   live: { fg: colors.live, bg: colors.liveBg },
   cancelled: { fg: colors.delay, bg: colors.delayBg },
   scheduled: { fg: colors.scheduled, bg: colors.scheduledBg },
   frequency: { fg: colors.warning, bg: colors.warningBg },
-};
+}));
 
 /** The reliability label. Every time in the app is shown next to one of these. */
 export function StatusBadge({ status, text }: { status: BadgeStatus; text?: string }) {
@@ -126,13 +139,13 @@ export function StatusBadge({ status, text }: { status: BadgeStatus; text?: stri
   );
 }
 
-const TRANSFER_STYLE: Record<TransferLabel, { fg: string; bg: string }> = {
+const TRANSFER_STYLE: Record<TransferLabel, { fg: string; bg: string }> = themed(() => ({
   comfortable: { fg: colors.live, bg: colors.liveBg },
   tight: { fg: colors.warning, bg: colors.warningBg },
   at_risk: { fg: colors.delay, bg: colors.delayBg },
   not_feasible: { fg: colors.delay, bg: colors.delayBg },
   uncertain: { fg: colors.scheduled, bg: colors.scheduledBg },
-};
+}));
 
 /** How safe a change is (RELIABILITY_STRATEGY.md §5). Words only, never a percentage. */
 export function TransferBadge({ label }: { label: TransferLabel }) {
@@ -171,7 +184,7 @@ export function TimeWithDelay({ time, big }: { time: LegTime; big?: boolean }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   pill: {
     minWidth: 30,
     height: 24,
@@ -181,6 +194,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pillOnDark: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.85)' },
+  pillOutline: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)' },
   pillSm: { minWidth: 24, height: 20, paddingHorizontal: 5 },
   pillText: { fontSize: 13, fontWeight: '800' },
   pillTextSm: { fontSize: 11 },
@@ -199,4 +213,4 @@ const styles = StyleSheet.create({
   liveDot: { width: 6, height: 6, borderRadius: 3 },
   timeRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
   delay: { color: colors.delay },
-});
+}));

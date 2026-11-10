@@ -9,7 +9,8 @@ import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { type Journey, planJourneys, type SortOption } from '../../api/journeys';
-import { JourneyNotices, JourneySummary, JourneyTimeline } from '../../components/journey';
+import { ConnectionActions, ConnectionHeader, SavedConnections } from '../../components/connection';
+import { JourneyNotices, JourneyTimeline } from '../../components/journey';
 import {
   BrandHeader,
   Card,
@@ -43,7 +44,7 @@ import {
   usePlanner,
 } from '../../state/planner';
 import { type SavedStop, addRecent, useSaved } from '../../state/saved';
-import { colors, radius, space, type } from '../../theme';
+import { colors, radius, space, themed, type } from '../../theme';
 import type { Point } from '../../utils/location';
 import { formatDay, formatTime } from '../../utils/time';
 
@@ -383,7 +384,10 @@ function Connections({
         <View style={styles.splitDetail}>
           {current ? (
             <Card style={styles.detailCard}>
-              <JourneySummary journey={current} />
+              <ConnectionHeader journey={current} />
+              <View style={styles.detailActions}>
+                <ConnectionActions journey={current} from={from} to={to} />
+              </View>
               <JourneyNotices journey={current} />
               <Divider />
               <JourneyTimeline journey={current} />
@@ -419,7 +423,7 @@ function PageLink({
       accessibilityState={{ disabled }}
       style={({ pressed, hovered }: PressState) => [
         styles.pageLink,
-        !disabled && (pressed || hovered) && { backgroundColor: '#F7F8FA' },
+        !disabled && (pressed || hovered) && { backgroundColor: colors.pressed },
       ]}>
       <MaterialCommunityIcons name={icon} size={20} color={color} />
       <Text style={[styles.pageLinkText, { color }]}>{label}</Text>
@@ -501,20 +505,29 @@ function Start() {
   if (isWide) {
     return (
       <View style={styles.split}>
-        <View style={styles.splitList}>{picks ?? hint}</View>
+        <View style={styles.splitList}>
+          <SavedConnections />
+          {picks ?? hint}
+        </View>
         <View style={styles.splitDetail}>{picks ? hint : null}</View>
       </View>
     );
   }
-  return picks ?? hint;
+  return (
+    <>
+      <SavedConnections />
+      {picks ?? hint}
+    </>
+  );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   logo: { width: 40, height: 40, borderRadius: 10 },
+  detailActions: { marginTop: -space.md, marginBottom: space.sm, marginLeft: -space.md },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
   switch: {
     flexDirection: 'row',
-    backgroundColor: colors.brandDark,
+    backgroundColor: colors.headerDark,
     borderRadius: radius.pill,
     padding: 4,
     marginTop: space.md,
@@ -567,4 +580,4 @@ const styles = StyleSheet.create({
   hint: { margin: space.lg, marginTop: space.xl, gap: space.sm },
   hintTitle: { ...type.heading, color: colors.text },
   hintBody: { ...type.body, color: colors.textMuted, lineHeight: 22 },
-});
+}));

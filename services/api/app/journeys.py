@@ -87,6 +87,8 @@ class LegStop(BaseModel):
     name: str
     stop_id: str | None
     time: datetime  # scheduled
+    lat: float | None = None
+    lon: float | None = None
 
 
 class Leg(BaseModel):
@@ -106,6 +108,13 @@ class Leg(BaseModel):
     distance_m: int | None = None
     headway_min: int | None = None  # frequency-based legs only
     intermediate: list[LegStop] = []
+    # For the route map: where the leg starts and ends, and its path as a Google encoded
+    # polyline (precision 5, from OTP's legGeometry). None when OTP has no shape.
+    from_lat: float | None = None
+    from_lon: float | None = None
+    to_lat: float | None = None
+    to_lon: float | None = None
+    geometry: str | None = None
 
 
 class Transfer(BaseModel):
@@ -342,6 +351,11 @@ def parse_itinerary(node: dict[str, Any], origin: Place, destination: Place) -> 
             "arrival": LegTime(scheduled=end),
             "duration_min": max(0, round(duration_s / 60)),
             "distance_m": round(raw["distance"]) if raw.get("distance") is not None else None,
+            "from_lat": raw["from"].get("lat"),
+            "from_lon": raw["from"].get("lon"),
+            "to_lat": raw["to"].get("lat"),
+            "to_lon": raw["to"].get("lon"),
+            "geometry": (raw.get("legGeometry") or {}).get("points"),
         }
         if not raw.get("transitLeg") or raw.get("route") is None:
             drafts.append(_Draft(leg=Leg(mode="walk", **common), duration_s=duration_s))
@@ -366,6 +380,8 @@ def parse_itinerary(node: dict[str, Any], origin: Place, destination: Place) -> 
                 name=_name(p, "Stop"),
                 stop_id=global_stop_id(p["stop"]["gtfsId"]) if p.get("stop") else None,
                 time=_dt((p.get("departure") or p.get("arrival"))["scheduledTime"]),
+                lat=p.get("lat"),
+                lon=p.get("lon"),
             )
             for p in raw.get("intermediatePlaces") or []
             if (p.get("departure") or p.get("arrival"))

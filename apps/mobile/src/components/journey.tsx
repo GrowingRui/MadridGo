@@ -15,11 +15,11 @@ import {
   View,
 } from 'react-native';
 
-import { type Journey, type Leg, type Transfer, delayMin, shownTime } from '../api/journeys';
+import { type Journey, type Leg, type Transfer, delayMin } from '../api/journeys';
 import { byAlertSeverity, isSevereAlert } from '../api/stops';
 import { useNow, useReduceMotion, useTrainPosition } from '../hooks';
 import { useT } from '../i18n';
-import { colors, modeColors, space, type } from '../theme';
+import { colors, modeColors, space, themed, type } from '../theme';
 import { formatDuration, formatTime } from '../utils/time';
 import {
   type Placement,
@@ -31,7 +31,6 @@ import {
   trackY,
 } from '../utils/trainPosition';
 import { Notice } from './layout';
-import { changesLabel, PearlChain } from './planner';
 import {
   LinePill,
   ModeIcon,
@@ -41,27 +40,6 @@ import {
   lineColors,
   modeLabel,
 } from './transit';
-
-/** "Parla → Atocha" with times, duration and the pearl chain; heads the website detail pane. */
-export function JourneySummary({ journey }: { journey: Journey }) {
-  useT();
-  const first = journey.legs[0];
-  const last = journey.legs[journey.legs.length - 1];
-  return (
-    <View style={styles.summary}>
-      <Text style={styles.summaryTitle} accessibilityRole="header" numberOfLines={2}>
-        {first.from} → {last.to}
-      </Text>
-      <Text style={styles.small}>
-        {formatTime(shownTime(journey.departure))} – {formatTime(shownTime(journey.arrival))} ·{' '}
-        {formatDuration(journey.duration_min)} · {changesLabel(journey.transfers)}
-      </Text>
-      <View style={{ marginTop: space.md }}>
-        <PearlChain legs={journey.legs} />
-      </View>
-    </View>
-  );
-}
 
 /** Problems first (not possible, cancelled), then operator alerts on the lines used. */
 export function JourneyNotices({ journey }: { journey: Journey }) {
@@ -424,9 +402,7 @@ const TRACK = 24;
 const NODE_CENTRE = 15; // marginTop 8 + half of 14
 const INTER_NODE_CENTRE = 12; // marginTop 7 + half of 10
 const DOT = 18;
-const styles = StyleSheet.create({
-  summary: { padding: space.lg, gap: 2 },
-  summaryTitle: { ...type.heading, fontSize: 20, color: colors.text },
+const styles = themed(() => StyleSheet.create({
   colHeads: {
     flexDirection: 'row',
     paddingHorizontal: space.lg,
@@ -528,4 +504,4 @@ const styles = StyleSheet.create({
     marginLeft: space.lg + TIME_W + TRACK + space.sm,
     paddingVertical: space.sm,
   },
-});
+}));

@@ -12,7 +12,7 @@ import { NearbyStops, StopSuggestions } from '../../components/stopSearch';
 import { useIsWide } from '../../hooks';
 import { useT } from '../../i18n';
 import { type SavedStop, addRecent, clearRecents, useSaved } from '../../state/saved';
-import { colors, radius, space, type } from '../../theme';
+import { colors, radius, space, themed, type } from '../../theme';
 import type { Point } from '../../utils/location';
 
 export default function DeparturesScreen() {
@@ -56,7 +56,7 @@ export default function DeparturesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   fakeSearch: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -74,4 +74,4 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     padding: space.lg,
   },
-});
+}));

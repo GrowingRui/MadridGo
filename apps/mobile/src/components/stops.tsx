@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Departure, FrequencyService, Line, LiveArrival, Mode } from '../api/stops';
 import { bestTime } from '../api/stops';
 import { useT } from '../i18n';
-import { colors, space, type } from '../theme';
+import { colors, space, themed, type } from '../theme';
 import { countdownShort, formatTime } from '../utils/time';
 import { LinePill, LinePills, ModeIcon, StatusBadge } from './transit';
 
@@ -253,7 +253,7 @@ export function FrequencyRow({ f }: { f: FrequencyService }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     backgroundColor: colors.surface,
   },
-  pressed: { backgroundColor: '#F8F9FB' },
+  pressed: { backgroundColor: colors.pressed },
   rowWithTrailing: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -303,4 +303,4 @@ const styles = StyleSheet.create({
   depHeadsign: { ...type.bodyStrong, color: colors.text },
   depBadges: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: 4 },
   until: { ...type.small, color: colors.textMuted },
-});
+}));

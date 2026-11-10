@@ -22,6 +22,8 @@ export interface LegStop {
   name: string;
   stop_id?: string | null;
   time: string;
+  lat?: number | null;
+  lon?: number | null;
 }
 
 export interface Leg {
@@ -39,6 +41,12 @@ export interface Leg {
   distance_m?: number | null;
   headway_min?: number | null;
   intermediate: LegStop[];
+  /** For the route map: where the leg starts and ends, and its path (Google encoded polyline). */
+  from_lat?: number | null;
+  from_lon?: number | null;
+  to_lat?: number | null;
+  to_lon?: number | null;
+  geometry?: string | null;
 }
 
 /** RELIABILITY_STRATEGY.md §5. No percentages until a delay model is validated. */

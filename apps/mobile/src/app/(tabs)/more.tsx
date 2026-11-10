@@ -1,12 +1,25 @@
-// More: data status (which timetables are active, which expired), backend status, attribution.
+// More: settings (language, appearance, location, data on this device), data status
+// (which timetables are active, which expired), backend status, attribution.
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import * as Location from 'expo-location';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  AppState,
+  Linking,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { fetchHealth, getApiBaseUrl } from '../../api/health';
 import { type FeedStatus, feedStatuses } from '../../api/stops';
 import {
   BrandHeader,
+  Button,
   Card,
   Divider,
   ErrorState,
@@ -15,15 +28,28 @@ import {
   SectionTitle,
 } from '../../components/layout';
 import { type PressState, useAsync } from '../../hooks';
-import { type LangPreference, setLanguagePreference, useLanguage, useT } from '../../i18n';
-import { colors, space, type } from '../../theme';
+import {
+  type LangPreference,
+  type MessageKey,
+  setLanguagePreference,
+  useLanguage,
+  useT,
+} from '../../i18n';
+import { clearConnections, useSavedConnections } from '../../state/connections';
+import { clearAllSaved, clearRecents, useSaved } from '../../state/saved';
+import {
+  type AppearancePreference,
+  setAppearance,
+  useSettings,
+} from '../../state/settings';
+import { colors, space, themed, type } from '../../theme';
 import { formatIsoDate } from '../../utils/time';
 
-const EXPIRY = {
+const EXPIRY = themed(() => ({
   ok: { color: colors.live, icon: 'check-circle' },
   expiring: { color: colors.warning, icon: 'alert-circle' },
   expired: { color: colors.delay, icon: 'close-circle' },
-} as const;
+}) as const);
 
 export default function MoreScreen() {
   const { t } = useT();
@@ -53,6 +79,15 @@ export default function MoreScreen() {
       onRefresh={refresh}>
       <SectionTitle>{t('more.language')}</SectionTitle>
       <LanguagePicker />
+
+      <SectionTitle>{t('more.appearance')}</SectionTitle>
+      <AppearancePicker />
+
+      <SectionTitle>{t('more.location')}</SectionTitle>
+      <LocationCard />
+
+      <SectionTitle>{t('more.data')}</SectionTitle>
+      <DataCard />
 
       <SectionTitle>{t('more.timetables')}</SectionTitle>
       {feeds.loading && !feeds.data ? (
@@ -103,26 +138,65 @@ export default function MoreScreen() {
 function LanguagePicker() {
   const { t } = useT();
   const { preference } = useLanguage();
-  const options: { value: LangPreference; label: string }[] = [
-    { value: 'system', label: t('more.languageSystem') },
-    { value: 'es', label: 'Español' },
-    { value: 'en', label: 'English' },
+  return (
+    <Choices<LangPreference>
+      label={t('more.language')}
+      value={preference}
+      onChange={setLanguagePreference}
+      options={[
+        { value: 'system', label: t('more.languageSystem') },
+        { value: 'es', label: 'Español' },
+        { value: 'en', label: 'English' },
+      ]}
+    />
+  );
+}
+
+/** Light (default) or dark. Switching redraws the app at once. */
+function AppearancePicker() {
+  const { t } = useT();
+  const { appearance } = useSettings();
+  const options: { value: AppearancePreference; label: MessageKey }[] = [
+    { value: 'light', label: 'more.appearanceLight' },
+    { value: 'dark', label: 'more.appearanceDark' },
   ];
   return (
+    <Choices
+      label={t('more.appearance')}
+      value={appearance}
+      onChange={setAppearance}
+      options={options.map((o) => ({ value: o.value, label: t(o.label) }))}
+    />
+  );
+}
+
+/** A card of radio rows. */
+function Choices<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+}) {
+  return (
     <Card>
-      <View accessibilityRole="radiogroup" accessibilityLabel={t('more.language')}>
+      <View accessibilityRole="radiogroup" accessibilityLabel={label}>
         {options.map((o, i) => {
-          const on = o.value === preference;
+          const on = o.value === value;
           return (
             <View key={o.value}>
               {i > 0 ? <Divider inset={space.lg} /> : null}
               <Pressable
-                onPress={() => setLanguagePreference(o.value)}
+                onPress={() => onChange(o.value)}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: on }}
                 style={({ pressed, hovered }: PressState) => [
                   styles.row,
-                  (pressed || hovered) && { backgroundColor: '#F7F8FA' },
+                  (pressed || hovered) && { backgroundColor: colors.pressed },
                 ]}>
                 <MaterialCommunityIcons
                   name={on ? 'radiobox-marked' : 'radiobox-blank'}
@@ -134,6 +208,115 @@ function LanguagePicker() {
             </View>
           );
         })}
+      </View>
+    </Card>
+  );
+}
+
+type Permission = 'granted' | 'denied' | 'undetermined' | 'unknown';
+
+/** Whether the app may use the location; checked again whenever the app comes to the front. */
+function useLocationPermission(): Permission {
+  const [status, setStatus] = useState<Permission>('unknown');
+  const check = useCallback(() => {
+    Location.getForegroundPermissionsAsync()
+      .then((p) => setStatus(p.status as Permission))
+      .catch(() => setStatus('unknown'));
+  }, []);
+  useEffect(() => {
+    check();
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') check();
+    });
+    return () => sub.remove();
+  }, [check]);
+  return status;
+}
+
+function LocationCard() {
+  const { t } = useT();
+  const status = useLocationPermission();
+  const label = {
+    granted: t('more.locationGranted'),
+    denied: t('more.locationDenied'),
+    undetermined: t('more.locationAsk'),
+    unknown: t('more.locationUnknown'),
+  }[status];
+  const color =
+    status === 'granted' ? colors.live : status === 'denied' ? colors.delay : colors.textMuted;
+  const web = Platform.OS === 'web';
+  return (
+    <Card>
+      <View style={styles.row}>
+        <MaterialCommunityIcons name="crosshairs-gps" size={20} color={color} />
+        <Text style={[styles.title, { flex: 1 }]}>{t('more.locationAccess')}</Text>
+        <Text style={[styles.status, { color }]}>{label}</Text>
+      </View>
+      <View style={styles.block}>
+        <Text style={styles.body}>
+          {status === 'denied'
+            ? t(web ? 'more.locationDeniedWeb' : 'more.locationDeniedBody')
+            : t('more.locationBody')}
+        </Text>
+        {status === 'denied' && !web ? (
+          <Button
+            label={t('more.openSettings')}
+            variant="secondary"
+            icon="cog-outline"
+            onPress={() => void Linking.openSettings()}
+          />
+        ) : null}
+      </View>
+    </Card>
+  );
+}
+
+/** Asks before deleting: a dialog in the app, the browser's confirm box on the website. */
+function confirmDelete(message: string, ok: string, cancel: string, run: () => void) {
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined' && window.confirm(message)) run();
+    return;
+  }
+  Alert.alert(message, undefined, [
+    { text: cancel, style: 'cancel' },
+    { text: ok, style: 'destructive', onPress: run },
+  ]);
+}
+
+/** Starred and recent stops and saved connections: how many there are, and buttons to delete them. */
+function DataCard() {
+  const { t, tn } = useT();
+  const { favorites, recents } = useSaved();
+  const connections = useSavedConnections();
+  return (
+    <Card>
+      <View style={[styles.block, { paddingTop: space.lg }]}>
+        <Text style={styles.body}>
+          {t('more.dataBody', {
+            starred: tn('more.starred', favorites.length),
+            recent: tn('more.recent', recents.length),
+            connections: tn('more.connections', connections.length),
+          })}
+        </Text>
+        <Button
+          label={t('more.clearRecents')}
+          variant="secondary"
+          icon="history"
+          disabled={recents.length === 0}
+          onPress={clearRecents}
+        />
+        <Button
+          label={t('more.clearAll')}
+          variant="secondary"
+          icon="delete-outline"
+          disabled={favorites.length === 0 && recents.length === 0 && connections.length === 0}
+          onPress={() =>
+            confirmDelete(t('more.clearAllConfirm'), t('more.delete'), t('more.cancel'), () => {
+              clearAllSaved();
+              clearConnections();
+            })
+          }
+        />
       </View>
     </Card>
   );
@@ -175,12 +358,13 @@ function Link({ label, url }: { label: string; url: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg },
+  block: { gap: space.md, paddingHorizontal: space.lg, paddingBottom: space.lg },
   title: { ...type.bodyStrong, color: colors.text },
   small: { ...type.small, color: colors.textMuted },
   status: { ...type.smallStrong },
   body: { ...type.small, color: colors.text, lineHeight: 19 },
   link: { ...type.smallStrong, color: colors.brand },
   footer: { ...type.small, color: colors.textFaint, textAlign: 'center', margin: space.lg },
-});
+}));

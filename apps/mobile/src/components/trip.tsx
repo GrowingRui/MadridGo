@@ -7,7 +7,7 @@ import { type LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 
 import type { TripDetails, TripPosition, TripStopTime } from '../api/trips';
 import { t, useT } from '../i18n';
-import { colors, space, type } from '../theme';
+import { colors, space, themed, type } from '../theme';
 import { formatTime } from '../utils/time';
 import { placeOnTrip, positionAgeS, ridingText, sourceText, trackY } from '../utils/trainPosition';
 import { TrainDot } from './journey';
@@ -178,7 +178,7 @@ function stopLabel(
   return parts.join(', ');
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   status: { paddingHorizontal: space.lg, paddingTop: space.md, gap: 2 },
   live: { ...type.smallStrong, color: colors.live },
   small: { ...type.small, color: colors.textMuted },
@@ -214,4 +214,4 @@ const styles = StyleSheet.create({
   nameKey: { ...type.bodyStrong, color: colors.text },
   tag: { ...type.smallStrong, color: colors.brand, marginTop: 2 },
   passed: { color: colors.textFaint },
-});
+}));

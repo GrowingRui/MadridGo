@@ -18,7 +18,7 @@ import {
 } from '../api/disruptions';
 import type { PressState } from '../hooks';
 import { tn, useT } from '../i18n';
-import { colors, radius, space, type } from '../theme';
+import { colors, radius, space, themed, type } from '../theme';
 import { dayLabel, formatTime } from '../utils/time';
 import { LinePills } from './transit';
 
@@ -210,12 +210,12 @@ export function DisruptionCard({ d, now }: { d: Disruption; now: number }) {
 
 // --- Coverage -----------------------------------------------------------------------------
 
-const SOURCE_STYLE: Record<DisruptionSource['state'], { icon: IconName; fg: string }> = {
+const SOURCE_STYLE: Record<DisruptionSource['state'], { icon: IconName; fg: string }> = themed(() => ({
   ok: { icon: 'check-circle-outline', fg: colors.live },
   stale: { icon: 'clock-alert-outline', fg: colors.warning },
   no_data: { icon: 'cloud-off-outline', fg: colors.delay },
   not_available: { icon: 'minus-circle-outline', fg: colors.textMuted },
-};
+}));
 
 export function SourcesCard({ sources }: { sources: DisruptionSource[] }) {
   const { t } = useT();
@@ -244,7 +244,7 @@ export function SourcesCard({ sources }: { sources: DisruptionSource[] }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   headerBtn: { padding: 2 },
   badge: {
     position: 'absolute',
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: colors.brand,
+    borderColor: colors.header,
   },
   badgeText: { fontSize: 10, fontWeight: '800', color: colors.brandDark },
   card: {
@@ -287,4 +287,4 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: space.lg },
   link: { ...type.smallStrong, color: colors.brand, paddingVertical: 2 },
   source: { flexDirection: 'row', gap: space.sm, alignItems: 'flex-start' },
-});
+}));

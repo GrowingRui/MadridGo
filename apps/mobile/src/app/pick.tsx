@@ -11,7 +11,7 @@ import { NearbyStops, StopSuggestions } from '../components/stopSearch';
 import { type MessageKey, useT } from '../i18n';
 import { HERE_ID, setPlanner } from '../state/planner';
 import { type SavedStop, addRecent } from '../state/saved';
-import { colors, radius, space, type } from '../theme';
+import { colors, radius, space, themed, type } from '../theme';
 import type { Point } from '../utils/location';
 
 const TITLES: Record<string, MessageKey> = {
@@ -86,7 +86,7 @@ export default function PickScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   search: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -98,4 +98,4 @@ const styles = StyleSheet.create({
   },
   // outlineWidth 0: the whole search box is the focus target; the browser ring looked broken.
   input: { flex: 1, ...type.body, color: colors.text, paddingVertical: 12, outlineWidth: 0 },
-});
+}));

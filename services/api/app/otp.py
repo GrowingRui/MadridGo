@@ -49,8 +49,9 @@ query Plan(
         end { scheduledTime estimated { time delay } }
         route { gtfsId shortName longName type color textColor agency { gtfsId } }
         trip { gtfsId tripHeadsign }
+        legGeometry { points }
         intermediatePlaces {
-          name stop { gtfsId } arrival { scheduledTime } departure { scheduledTime }
+          name lat lon stop { gtfsId } arrival { scheduledTime } departure { scheduledTime }
         }
       }
     } }

@@ -25,6 +25,11 @@ Colour is never the only signal: every label also has text.
 | `text` / `textMuted` | `#16181D` / `#5B6270` | Body / secondary |
 | `live`, `delay`, `warning` | `#0E7C3A`, `#C4161C`, `#8A5300` | Reliability states |
 
+### Dark mode
+More → Appearance: Light (default) or Dark; stored on the device. The dark palette (`theme/index.ts`) uses dark grey surfaces (`bg` `#0F1217`, `surface` `#191D24`), light text (`#E9ECF1`), a lighter blue for links, icons and selected states (`brand` `#8CB2F2`) and lighter reliability colours on dark backgrounds. Navy bars (header, Plan view switch, touch tiles) use `header` / `headerDark`; filled buttons use `primary` / `onPrimary`. Line colours from GTFS never change; very dark lines (C4 navy) get a faint outline on dark cards. The map uses the OpenFreeMap "dark" style. Every text and label pair keeps at least 4.5:1 contrast in both schemes (`theme/theme.test.ts`).
+
+Style sheets are written as `themed(() => StyleSheet.create({ ... }))` and colours are read from `colors` at render time, so a new scheme re-mounts the screens (the navigation state is kept) and every style is read again.
+
 - Spacing: 4 / 8 / 12 / 16 / 24 / 32. Radius: 6 (pictograms), 10 (inputs, buttons), 14 (cards).
 - Type: the system font. Times use tabular figures (22 / 18 / 16 pt bold); headings 24 / 17 pt bold; labels 12 pt upper case.
 - Width: content is capped at 760 px and centred; the planner and split views use up to 1200 px.
@@ -61,10 +66,11 @@ One codebase, two layouts with the same colours and components. The switch is `u
 | Plan (`/`) | Header with From/To and time chips. Before a search: saved and recent stops. Once both are set: timetable notices (for example "Metro timetable expired"), operators whose live data is down, then connections with Earlier/Later under the planner (website: list and journey side by side) | `/journeys` |
 | From/To search (in place on Plan) | Tapping From or To turns the field into a text box. App: saved, recent and matching stops are listed under the header; after choosing From, To opens by itself; ✕ closes. Website: the same list drops down under the field (Esc closes) | `/stops/search` |
 | Stop picker (`/pick`) | Departures tab only: search a stop to open its board | `/stops/search` |
-| Journey (`/journey/[id]`) | "Not possible" banner and service alerts, then a vertical timeline: times, platforms, expandable intermediate stops, walking and each change with its label and reason | The tapped `/journeys` result |
+| Journey (`/journey/[id]`) | "Connection" bar with a card overlapping it (From → To, "Today, 1 h 29 min", times around the line with travelled part and now dot), round ☆ save and route-map buttons, "Not possible" banner and service alerts, then a vertical timeline: times, platforms, expandable intermediate stops, walking and each change with its label and reason | The tapped `/journeys` result |
 | Departures (`/departures`, `/stop/[id]`) | Stop board: frequent lines, then next departures; data notices; save and plan-from-here | `/stops/{id}/departures` (real) |
 | Saved | Favourite stops, stored on the device only | AsyncStorage |
-| More | Timetable status per operator (expiry), server status, attributions | `/feeds`, `/health` |
+| Route map (`/route-map`) | One connection on the map: legs in line colours along their shapes, walks dashed, stops; a stop opens its board | `/journeys` leg `geometry` |
+| More | Settings: language, appearance (light, the default, or dark), location access (allowed or not, with Open settings in the app), starred and recent stops on this device (clear recents, delete both). Then timetable status per operator (expiry), server status, attributions | `/feeds`, `/health`, AsyncStorage |
 
 ## 5. Accessibility
 - All tappable elements have a role and label. Line pictograms read as "Cercanías C4".
@@ -72,4 +78,4 @@ One codebase, two layouts with the same colours and components. The switch is `u
 - Minimum tap target is 40 px. Text contrast meets WCAG AA; amber is used only as a background or on navy.
 
 ## 6. Next
-- Phase 5: map tab (MapLibre), ES/EN i18n, dark mode, a usability test with five users.
+- Phase 5: live train map, a usability test with five users. (Map tab, ES/EN i18n and dark mode are done.)

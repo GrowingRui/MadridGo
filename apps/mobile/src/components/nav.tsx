@@ -5,7 +5,7 @@ import { router, usePathname } from 'expo-router';
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { type Lang, setLanguagePreference, useT } from '../i18n';
-import { colors, space, type, WIDE_MAX_WIDTH } from '../theme';
+import { colors, space, themed, type, WIDE_MAX_WIDTH } from '../theme';
 import type { PressState } from '../hooks';
 
 const LINKS = [
@@ -123,7 +123,7 @@ export function Footer() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   nav: {
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   langs: { flexDirection: 'row', gap: space.xs },
   lang: { paddingHorizontal: space.sm, paddingVertical: space.xs, borderRadius: 6 },
   langOn: { backgroundColor: colors.brandTint },
-  langHover: { backgroundColor: '#F7F8FA' },
+  langHover: { backgroundColor: colors.pressed },
   langText: { ...type.smallStrong, color: colors.textMuted },
   langTextOn: { color: colors.brand },
   footer: {
@@ -186,4 +186,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.xl,
     marginTop: space.lg,
   },
-});
+}));

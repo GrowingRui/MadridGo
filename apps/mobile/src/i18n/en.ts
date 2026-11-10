@@ -143,6 +143,15 @@ export const en = {
 
   // Journey
   'journey.title': 'Journey',
+  'conn.title': 'Connection',
+  'conn.summary': '{day}, {duration}',
+  'conn.save': 'Save this connection',
+  'conn.unsave': 'Remove this saved connection',
+  'conn.map': 'Show the route on a map',
+  'conn.saved': 'Saved connections',
+  'conn.notOffered':
+    'The planner no longer offers this connection. These times are from {time} and may have changed.',
+  'routeMap.title': 'Route',
   'journey.gone': 'This journey is no longer available',
   'journey.searchAgain': 'Search again to see current connections.',
   'journey.notPossible': 'This connection is not possible',
@@ -294,6 +303,37 @@ export const en = {
   'more.title': 'More',
   'more.language': 'Language',
   'more.languageSystem': 'Device language',
+  'more.appearance': 'Appearance',
+  'more.appearanceLight': 'Light',
+  'more.appearanceDark': 'Dark',
+  'more.location': 'Location',
+  'more.locationAccess': 'Location access',
+  'more.locationGranted': 'Allowed',
+  'more.locationDenied': 'Not allowed',
+  'more.locationAsk': 'Not asked yet',
+  'more.locationUnknown': 'Unknown',
+  'more.locationBody':
+    'Used only when you tap Current location: never in the background, never stored.',
+  'more.locationDeniedBody':
+    'To use Current location, allow location for MadridGo in your device settings.',
+  'more.locationDeniedWeb':
+    'To use Current location, allow location for this site in your browser’s site settings.',
+  'more.openSettings': 'Open settings',
+  'more.data': 'Your data on this device',
+  'more.dataBody':
+    '{starred}, {recent} and {connections}. Kept only on this device, never sent to MadridGo.',
+  'more.connections.one': '{n} saved connection',
+  'more.connections.other': '{n} saved connections',
+  'more.starred.one': '{n} starred stop',
+  'more.starred.other': '{n} starred stops',
+  'more.recent.one': '{n} recent stop',
+  'more.recent.other': '{n} recent stops',
+  'more.clearRecents': 'Clear recent stops',
+  'more.clearAll': 'Delete saved stops and connections',
+  'more.clearAllConfirm':
+    'Delete all starred stops, recent stops and saved connections from this device?',
+  'more.cancel': 'Cancel',
+  'more.delete': 'Delete',
   'more.timetables': 'Timetable data',
   'more.service': 'Service status',
   'more.server': 'MadridGo server',
