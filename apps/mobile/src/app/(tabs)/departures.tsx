@@ -6,8 +6,10 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
+import { DisruptionsButton } from '../../components/disruptions';
 import { BrandHeader, Screen } from '../../components/layout';
 import { NearbyStops, StopSuggestions } from '../../components/stopSearch';
+import { useIsWide } from '../../hooks';
 import { useT } from '../../i18n';
 import { type SavedStop, addRecent, clearRecents, useSaved } from '../../state/saved';
 import { colors, radius, space, type } from '../../theme';
@@ -16,6 +18,7 @@ import type { Point } from '../../utils/location';
 export default function DeparturesScreen() {
   const saved = useSaved();
   const { t } = useT();
+  const isWide = useIsWide(); // the website links the page from its top navigation
   const [near, setNear] = useState<Point | null>(null);
   const open = (s: SavedStop) => {
     addRecent(s);
@@ -24,7 +27,10 @@ export default function DeparturesScreen() {
   return (
     <Screen
       header={
-        <BrandHeader title={t('dep.title')} subtitle={t('dep.subtitle')}>
+        <BrandHeader
+          title={t('dep.title')}
+          subtitle={t('dep.subtitle')}
+          right={isWide ? undefined : <DisruptionsButton />}>
           <Pressable
             onPress={() => router.push({ pathname: '/pick', params: { field: 'board' } })}
             accessibilityRole="search"
