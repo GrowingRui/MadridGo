@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 
 import { type Journey, type Leg, type Transfer, delayMin, shownTime } from '../api/journeys';
+import { byAlertSeverity, isSevereAlert } from '../api/stops';
 import { useNow, useReduceMotion, useTrainPosition } from '../hooks';
 import { useT } from '../i18n';
 import { colors, modeColors, space, type } from '../theme';
@@ -73,16 +74,19 @@ export function JourneyNotices({ journey }: { journey: Journey }) {
           {journey.issues.join(' ')}
         </Notice>
       ) : null}
-      {journey.alerts.slice(0, 3).map((a) => (
-        <Notice
-          key={`${a.source}:${a.source_alert_id}`}
-          tone="warning"
-          title={t('journey.alert', {
-            operator: a.operator === 'EMT_MADRID' ? 'EMT Madrid' : 'Renfe Cercanías',
-          })}>
-          {a.header ?? a.description ?? t('journey.alertFallback')}
-        </Notice>
-      ))}
+      {byAlertSeverity(journey.alerts)
+        .slice(0, 3)
+        .map((a) => (
+          <Notice
+            key={`${a.source}:${a.source_alert_id}`}
+            tone={isSevereAlert(a) ? 'danger' : 'warning'}
+            icon={isSevereAlert(a) ? 'alert-octagon-outline' : undefined}
+            title={t('journey.alert', {
+              operator: a.operator === 'EMT_MADRID' ? 'EMT Madrid' : 'Renfe Cercanías',
+            })}>
+            {a.header ?? a.description ?? t('journey.alertFallback')}
+          </Notice>
+        ))}
     </View>
   );
 }

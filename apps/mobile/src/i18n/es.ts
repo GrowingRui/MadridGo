@@ -106,6 +106,9 @@ export const es: Record<MessageKey, string> = {
   'conn.notPossible': 'Esta conexión no es posible.',
   'conn.a11yNotPossible': 'No es posible. ',
   'conn.a11y': 'Sale a las {dep}, llega a las {arr}, {duration}, {changes}',
+  'conn.a11yAlert': 'Aviso: {text}',
+  'conn.moreAlerts.one': '+{n} aviso más',
+  'conn.moreAlerts.other': '+{n} avisos más',
 
   // Date, time and options
   'when.dep': 'Salida',
