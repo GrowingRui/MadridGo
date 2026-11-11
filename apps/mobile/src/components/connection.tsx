@@ -5,7 +5,8 @@
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { type Journey, shownTime } from '../api/journeys';
 import { type PressState, useNow } from '../hooks';
@@ -19,6 +20,7 @@ import {
 import { journeyCache } from '../state/journeys';
 import type { Place } from '../state/planner';
 import { colors, radius, space, themed, type } from '../theme';
+import { addConnectionToCalendar, shareConnection, type ShareResult } from '../utils/shareActions';
 import { dayLabel, formatDuration, formatTime } from '../utils/time';
 import { Card, SectionTitle } from './layout';
 import { PearlChain } from './planner';
@@ -68,24 +70,56 @@ export function ConnectionActions({
 }) {
   const { t } = useT();
   const saved = isConnectionSaved(journey.id, useSavedConnections());
+  const [message, setMessage] = useState<string | null>(null);
+  useEffect(() => {
+    if (!message) return;
+    const timer = setTimeout(() => setMessage(null), 4000);
+    return () => clearTimeout(timer);
+  }, [message]);
+  const run = (action: (j: Journey) => Promise<ShareResult>) => {
+    action(journey)
+      .then((r) =>
+        setMessage(
+          r === 'copied' ? t('share.copied') : r === 'downloaded' ? t('share.downloaded') : null,
+        ),
+      )
+      .catch(() => setMessage(t('share.failed')));
+  };
   return (
-    <View style={styles.actions}>
-      {from && to ? (
+    <View>
+      <View style={styles.actions}>
+        {from && to ? (
+          <RoundButton
+            icon={saved ? 'star' : 'star-outline'}
+            label={t(saved ? 'conn.unsave' : 'conn.save')}
+            selected={saved}
+            onPress={() => toggleConnection(journey, from, to)}
+          />
+        ) : null}
         <RoundButton
-          icon={saved ? 'star' : 'star-outline'}
-          label={t(saved ? 'conn.unsave' : 'conn.save')}
-          selected={saved}
-          onPress={() => toggleConnection(journey, from, to)}
+          icon="map-outline"
+          label={t('conn.map')}
+          onPress={() => {
+            journeyCache.set(journey.id, journey);
+            router.push({ pathname: '/route-map', params: { id: journey.id } });
+          }}
         />
+        <RoundButton
+          icon={Platform.OS === 'ios' ? 'export-variant' : 'share-variant'}
+          label={t('share.share')}
+          onPress={() => run(shareConnection)}
+        />
+        <RoundButton
+          icon="calendar-plus"
+          label={t('share.calendar')}
+          onPress={() => run(addConnectionToCalendar)}
+        />
+      </View>
+      {message ? (
+        <Text style={styles.message} accessibilityLiveRegion="polite" role="status">
+          {message}
+        </Text>
       ) : null}
-      <RoundButton
-        icon="map-outline"
-        label={t('conn.map')}
-        onPress={() => {
-          journeyCache.set(journey.id, journey);
-          router.push({ pathname: '/route-map', params: { id: journey.id } });
-        }}
-      />
     </View>
   );
 }
@@ -162,6 +196,12 @@ const styles = themed(() =>
       gap: space.md,
       marginHorizontal: space.lg + space.md,
       marginTop: space.md,
+    },
+    message: {
+      ...type.body,
+      color: colors.textMuted,
+      marginHorizontal: space.lg + space.md,
+      marginTop: space.sm,
     },
     round: {
       width: 52,
