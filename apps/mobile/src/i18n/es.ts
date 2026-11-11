@@ -173,6 +173,13 @@ export const es: Record<MessageKey, string> = {
   'conn.notOffered':
     'El planificador ya no ofrece esta conexión. Estas horas son de las {time} y pueden haber cambiado.',
   'routeMap.title': 'Recorrido',
+  'liveMap.title': 'Mapa en directo',
+  'liveMap.open': 'Mapa en directo',
+  'liveMap.openHint': 'Muestra tu tren moviéndose en el mapa',
+  'liveMap.looking': 'Buscando tu tren…',
+  'liveMap.nextStop': 'Próxima parada: {stop}',
+  'liveMap.board': 'Subes en {stop}',
+  'liveMap.getOff': 'Bajas en {stop}',
   'journey.title': 'Viaje',
   'journey.gone': 'Este viaje ya no está disponible',
   'journey.searchAgain': 'Vuelve a buscar para ver las conexiones actuales.',

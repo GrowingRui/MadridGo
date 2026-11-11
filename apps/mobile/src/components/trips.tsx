@@ -19,6 +19,7 @@ import {
 } from '../state/connections';
 import { journeyCache } from '../state/journeys';
 import { colors, radius, space, themed, type } from '../theme';
+import { followedLeg } from '../utils/liveMap';
 import { dayLabel, formatTime, madridDayStart, minutesUntil } from '../utils/time';
 import { ConnectionHeader } from './connection';
 import { Button, SectionTitle } from './layout';
@@ -103,6 +104,12 @@ function TripCard({ trip, now }: { trip: SavedConnection; now: number }) {
     router.push({ pathname: '/journey/[id]', params: { id: j.id } });
   };
   const ongoing = tripPhase(j, now) === 'ongoing';
+  // As in SBB Mobile: a "Live" map while a Cercanías ride is on or coming up (90 min before).
+  const liveMap = followedLeg(j, now) != null;
+  const openMap = () => {
+    journeyCache.set(j.id, j);
+    router.push({ pathname: '/route-map', params: { id: j.id } });
+  };
   return (
     <View style={[styles.card, ongoing && styles.cardOngoing]}>
       <Pressable
@@ -119,6 +126,25 @@ function TripCard({ trip, now }: { trip: SavedConnection; now: number }) {
         </View>
         <ConnectionHeader journey={j} />
       </Pressable>
+      {liveMap ? (
+        <Pressable
+          onPress={openMap}
+          accessibilityRole="button"
+          accessibilityHint={t('liveMap.openHint')}
+          style={({ pressed, hovered }: PressState) => [
+            styles.liveMap,
+            (pressed || hovered) && { backgroundColor: colors.pressed },
+          ]}>
+          <MaterialCommunityIcons name="map-marker-radius" size={20} color={colors.brand} />
+          <Text style={styles.liveMapText}>{t('liveMap.open')}</Text>
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={20}
+            color={colors.textMuted}
+            style={{ marginLeft: 'auto' }}
+          />
+        </Pressable>
+      ) : null}
       <Pressable
         onPress={() => removeConnection(j.id)}
         accessibilityRole="button"
@@ -174,6 +200,16 @@ const styles = themed(() =>
     },
     stateRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexWrap: 'wrap' },
     stateText: { ...type.bodyStrong, color: colors.text },
+    liveMap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: space.sm,
+      minHeight: 48,
+      paddingHorizontal: space.lg,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    liveMapText: { ...type.bodyStrong, color: colors.brand },
     remove: {
       position: 'absolute',
       top: space.sm,

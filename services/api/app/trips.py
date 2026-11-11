@@ -80,6 +80,9 @@ class PositionStop(BaseModel):
     index: int  # position in the trip's stop sequence, from 0
     stop_id: str  # global, e.g. 'renfe:18000'
     name: str
+    # The station's position, so the app can draw the train on a map between two stations.
+    lat: float | None = None
+    lon: float | None = None
 
 
 class TripPosition(BaseModel):
@@ -125,7 +128,9 @@ class TripStop:
     departure_s: int | None
 
     def ref(self) -> PositionStop:
-        return PositionStop(index=self.index, stop_id=self.stop_id, name=self.name)
+        return PositionStop(
+            index=self.index, stop_id=self.stop_id, name=self.name, lat=self.lat, lon=self.lon
+        )
 
 
 # ---------------------------------------------------------------------------

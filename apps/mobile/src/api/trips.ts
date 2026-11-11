@@ -7,6 +7,9 @@ export interface PositionStop {
   index: number; // in the trip's full stop sequence
   stop_id: string;
   name: string;
+  /** The station's position, to draw the train on a map. */
+  lat?: number | null;
+  lon?: number | null;
 }
 
 export interface TripPosition {
