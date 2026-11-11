@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { type Journey, planJourneys, type SortOption } from '../../api/journeys';
-import { ConnectionActions, ConnectionHeader, SavedConnections } from '../../components/connection';
+import { ConnectionActions, ConnectionHeader } from '../../components/connection';
 import { JourneyNotices, JourneyTimeline } from '../../components/journey';
 import {
   BrandHeader,
@@ -505,79 +505,73 @@ function Start() {
   if (isWide) {
     return (
       <View style={styles.split}>
-        <View style={styles.splitList}>
-          <SavedConnections />
-          {picks ?? hint}
-        </View>
+        <View style={styles.splitList}>{picks ?? hint}</View>
         <View style={styles.splitDetail}>{picks ? hint : null}</View>
       </View>
     );
   }
-  return (
-    <>
-      <SavedConnections />
-      {picks ?? hint}
-    </>
-  );
+  return <>{picks ?? hint}</>;
 }
 
-const styles = themed(() => StyleSheet.create({
-  logo: { width: 40, height: 40, borderRadius: 10 },
-  detailActions: { marginTop: -space.md, marginBottom: space.sm, marginLeft: -space.md },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
-  switch: {
-    flexDirection: 'row',
-    backgroundColor: colors.headerDark,
-    borderRadius: radius.pill,
-    padding: 4,
-    marginTop: space.md,
-    marginBottom: space.xs,
-  },
-  // Sized by their labels ("Touch timetable" is the longest), sharing the rest of the row.
-  switchItem: {
-    flexGrow: 1,
-    flexShrink: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: space.sm + 2,
-    paddingHorizontal: space.md,
-    borderRadius: radius.pill,
-  },
-  switchItemActive: { backgroundColor: colors.surface },
-  switchItemHover: { backgroundColor: 'rgba(255,255,255,0.08)' },
-  switchText: { ...type.smallStrong, fontSize: 15, color: colors.onBrandMuted },
-  switchTextActive: { color: colors.brand, fontWeight: '700' },
-  touch: { width: '100%', maxWidth: 640, alignSelf: 'center' },
-  // zIndex: the suggestion dropdown must cover the time chips below the form.
-  wideForm: { flexDirection: 'row', marginTop: space.lg, zIndex: 20 },
-  listHead: {
-    ...type.smallStrong,
-    color: colors.textMuted,
-    marginHorizontal: space.lg,
-    marginTop: space.lg,
-    marginBottom: space.sm,
-  },
-  pageLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: space.xs,
-    paddingVertical: space.md,
-  },
-  pageLinkText: { ...type.smallStrong, color: colors.brand },
-  legend: {
-    ...type.small,
-    color: colors.textMuted,
-    marginHorizontal: space.lg,
-    marginTop: space.md,
-    lineHeight: 19,
-  },
-  notices: { gap: space.sm, marginTop: space.lg, marginHorizontal: space.lg },
-  split: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: space.sm },
-  splitList: { width: 460 },
-  splitDetail: { flex: 1, marginTop: space.lg },
-  detailCard: { marginTop: space.xl + space.sm },
-  hint: { margin: space.lg, marginTop: space.xl, gap: space.sm },
-  hintTitle: { ...type.heading, color: colors.text },
-  hintBody: { ...type.body, color: colors.textMuted, lineHeight: 22 },
-}));
+const styles = themed(() =>
+  StyleSheet.create({
+    logo: { width: 40, height: 40, borderRadius: 10 },
+    detailActions: { marginTop: -space.md, marginBottom: space.sm, marginLeft: -space.md },
+    headerRight: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
+    switch: {
+      flexDirection: 'row',
+      backgroundColor: colors.headerDark,
+      borderRadius: radius.pill,
+      padding: 4,
+      marginTop: space.md,
+      marginBottom: space.xs,
+    },
+    // Sized by their labels ("Touch timetable" is the longest), sharing the rest of the row.
+    switchItem: {
+      flexGrow: 1,
+      flexShrink: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: space.sm + 2,
+      paddingHorizontal: space.md,
+      borderRadius: radius.pill,
+    },
+    switchItemActive: { backgroundColor: colors.surface },
+    switchItemHover: { backgroundColor: 'rgba(255,255,255,0.08)' },
+    switchText: { ...type.smallStrong, fontSize: 15, color: colors.onBrandMuted },
+    switchTextActive: { color: colors.brand, fontWeight: '700' },
+    touch: { width: '100%', maxWidth: 640, alignSelf: 'center' },
+    // zIndex: the suggestion dropdown must cover the time chips below the form.
+    wideForm: { flexDirection: 'row', marginTop: space.lg, zIndex: 20 },
+    listHead: {
+      ...type.smallStrong,
+      color: colors.textMuted,
+      marginHorizontal: space.lg,
+      marginTop: space.lg,
+      marginBottom: space.sm,
+    },
+    pageLink: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: space.xs,
+      paddingVertical: space.md,
+    },
+    pageLinkText: { ...type.smallStrong, color: colors.brand },
+    legend: {
+      ...type.small,
+      color: colors.textMuted,
+      marginHorizontal: space.lg,
+      marginTop: space.md,
+      lineHeight: 19,
+    },
+    notices: { gap: space.sm, marginTop: space.lg, marginHorizontal: space.lg },
+    split: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: space.sm },
+    splitList: { width: 460 },
+    splitDetail: { flex: 1, marginTop: space.lg },
+    detailCard: { marginTop: space.xl + space.sm },
+    hint: { margin: space.lg, marginTop: space.xl, gap: space.sm },
+    hintTitle: { ...type.heading, color: colors.text },
+    hintBody: { ...type.body, color: colors.textMuted, lineHeight: 22 },
+  }),
+);

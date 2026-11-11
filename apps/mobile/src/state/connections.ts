@@ -1,12 +1,13 @@
 // Saved connections (the ☆ on a journey, as in SBB Mobile), stored only on this device. A
-// saved connection is kept until it has arrived; the Plan screen lists the ones still ahead.
+// saved connection is kept until it has arrived (live arrival when known); the Trips tab lists
+// the ones still ahead or on the way.
 // Its times are a copy from when it was saved, so the journey screen asks the planner for the
 // same connection again (refreshConnection) before trusting them.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useSyncExternalStore } from 'react';
 
-import { type Journey, planJourneys, shownTime } from '../api/journeys';
+import { type Journey, type LegTime, planJourneys, shownTime } from '../api/journeys';
 import { useNow } from '../hooks';
 import type { Place } from './planner';
 
@@ -21,19 +22,37 @@ export interface SavedConnection {
 
 const KEY = 'madridgo.connections.v1';
 const MAX = 20;
-/** Kept a little after arrival, then dropped. */
-const KEEP_AFTER_ARRIVAL_MS = 10 * 60_000;
 
 let list: SavedConnection[] = [];
 const listeners = new Set<() => void>();
 let loading: Promise<void> | null = null;
 
-const arrivalMs = (c: SavedConnection) => Date.parse(shownTime(c.journey.arrival));
+/** The expected time: the live estimate when there is one, else the timetable. */
+export function expectedMs(time: LegTime): number {
+  const scheduled = Date.parse(time.scheduled);
+  if (time.status !== 'live') return scheduled;
+  if (time.estimated) return Date.parse(time.estimated);
+  const delay = time.realtime?.delay_s;
+  return delay != null ? scheduled + delay * 1000 : Date.parse(shownTime(time));
+}
+
+/** When the trip is over: the expected arrival, never before the timetable's. */
+export function tripEndMs(journey: Journey): number {
+  return Math.max(Date.parse(journey.arrival.scheduled), expectedMs(journey.arrival));
+}
+
+export type TripPhase = 'upcoming' | 'ongoing' | 'over';
+
+export function tripPhase(journey: Journey, now: number = Date.now()): TripPhase {
+  if (now >= tripEndMs(journey)) return 'over';
+  return now >= expectedMs(journey.departure) ? 'ongoing' : 'upcoming';
+}
+
 const departureMs = (c: SavedConnection) => Date.parse(shownTime(c.journey.departure));
 
 function current(now = Date.now()): SavedConnection[] {
   return list
-    .filter((c) => arrivalMs(c) + KEEP_AFTER_ARRIVAL_MS > now)
+    .filter((c) => tripEndMs(c.journey) > now)
     .sort((a, b) => departureMs(a) - departureMs(b));
 }
 
@@ -64,17 +83,19 @@ function subscribe(l: () => void) {
 }
 
 /** Saved connections that have not arrived yet, earliest first; re-renders on change. */
-export function useSavedConnections(): SavedConnection[] {
+export function useSavedConnections(tick = 30_000): SavedConnection[] {
   useEffect(() => {
     loading ??= load();
   }, []);
-  const now = useNow(60_000);
+  const now = useNow(tick);
   const all = useSyncExternalStore(
     subscribe,
     () => list,
     () => list,
   );
-  return all.filter((c) => arrivalMs(c) + KEEP_AFTER_ARRIVAL_MS > now);
+  return all
+    .filter((c) => tripEndMs(c.journey) > now)
+    .sort((a, b) => departureMs(a) - departureMs(b));
 }
 
 export function isConnectionSaved(id: string, saved: SavedConnection[] = list): boolean {
@@ -99,7 +120,8 @@ export function removeConnection(id: string) {
 }
 
 /** A stop id, or the point for "Current location". */
-const planPlace = (p: Place) => (p.lat != null && p.lon != null ? { lat: p.lat, lon: p.lon } : p.id);
+const planPlace = (p: Place) =>
+  p.lat != null && p.lon != null ? { lat: p.lat, lon: p.lon } : p.id;
 
 /**
  * Asks the planner for the same connection again (same trains, same stops: the same id) to get
@@ -117,6 +139,41 @@ export async function refreshConnection(c: SavedConnection): Promise<Journey | n
     );
   }
   return fresh;
+}
+
+/** Trips leaving within this time (or on the way) get their live times refreshed. */
+const REFRESH_AHEAD_MS = 2 * 3600_000;
+const REFRESH_EVERY_MS = 60_000;
+let refreshing = false;
+
+/** One pass: asks the planner again for each trip that is due, one after the other. */
+export async function refreshDueTrips(now: number = Date.now()): Promise<void> {
+  if (refreshing) return;
+  refreshing = true;
+  try {
+    const due = current(now).filter(
+      (c) =>
+        now - c.updatedAt >= REFRESH_EVERY_MS &&
+        expectedMs(c.journey.departure) - now <= REFRESH_AHEAD_MS,
+    );
+    for (const c of due) {
+      // Offline or no longer offered: keep the saved times; the trip screen says so.
+      await refreshConnection(c).catch(() => null);
+    }
+  } finally {
+    refreshing = false;
+  }
+}
+
+/** While a screen showing trips is open: refresh their live times every minute. */
+export function useTripRefresh(active = true) {
+  useEffect(() => {
+    if (!active) return;
+    const run = () => void (loading ?? (loading = load())).then(() => refreshDueTrips());
+    run();
+    const timer = setInterval(run, REFRESH_EVERY_MS);
+    return () => clearInterval(timer);
+  }, [active]);
 }
 
 /** More → "Delete starred and recent stops" also forgets saved connections. */

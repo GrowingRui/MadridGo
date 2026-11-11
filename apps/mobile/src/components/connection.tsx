@@ -1,7 +1,7 @@
 // The connection header, as in SBB Mobile: a card with "From → To", the day and travel time,
 // and the departure and arrival times around the connection's line; under it round buttons
-// to save the connection (☆) and to see its route on a map. Also the Plan screen's list of
-// saved connections.
+// to save the connection (☆), see its route on a map, share it and add it to the calendar.
+// Saved connections are listed in the Trips tab (components/trips.tsx).
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
@@ -11,18 +11,13 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { type Journey, shownTime } from '../api/journeys';
 import { type PressState, useNow } from '../hooks';
 import { useT } from '../i18n';
-import {
-  isConnectionSaved,
-  type SavedConnection,
-  toggleConnection,
-  useSavedConnections,
-} from '../state/connections';
+import { isConnectionSaved, toggleConnection, useSavedConnections } from '../state/connections';
 import { journeyCache } from '../state/journeys';
 import type { Place } from '../state/planner';
 import { colors, radius, space, themed, type } from '../theme';
 import { addConnectionToCalendar, shareConnection, type ShareResult } from '../utils/shareActions';
 import { dayLabel, formatDuration, formatTime } from '../utils/time';
-import { Card, SectionTitle } from './layout';
+import { Card } from './layout';
 import { PearlChain } from './planner';
 
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -150,34 +145,6 @@ function RoundButton({
   );
 }
 
-/** Plan screen, before a search: saved connections still ahead, earliest first. */
-export function SavedConnections() {
-  const { t } = useT();
-  const saved = useSavedConnections();
-  if (!saved.length) return null;
-  const open = (c: SavedConnection) => {
-    journeyCache.set(c.journey.id, c.journey);
-    router.push({ pathname: '/journey/[id]', params: { id: c.journey.id } });
-  };
-  return (
-    <View style={styles.savedWrap}>
-      <SectionTitle>{t('conn.saved')}</SectionTitle>
-      {saved.map((c) => (
-        <Pressable
-          key={c.journey.id}
-          onPress={() => open(c)}
-          accessibilityRole="button"
-          style={({ pressed, hovered }: PressState) => [
-            styles.savedCard,
-            (pressed || hovered) && { backgroundColor: colors.pressed },
-          ]}>
-          <ConnectionHeader journey={c.journey} />
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
 /** The card style for the header, also used by the journey screen. */
 export function ConnectionCard({ children }: { children: React.ReactNode }) {
   return <Card style={styles.card}>{children}</Card>;
@@ -212,14 +179,6 @@ const styles = themed(() =>
       backgroundColor: colors.surface,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    savedWrap: { gap: space.sm },
-    savedCard: {
-      marginHorizontal: space.lg,
-      backgroundColor: colors.surface,
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
   }),
 );
