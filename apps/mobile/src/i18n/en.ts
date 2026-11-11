@@ -173,6 +173,13 @@ export const en = {
   'conn.notOffered':
     'The planner no longer offers this connection. These times are from {time} and may have changed.',
   'routeMap.title': 'Route',
+  'liveMap.title': 'Live map',
+  'liveMap.open': 'Live map',
+  'liveMap.openHint': 'Shows your train moving on the map',
+  'liveMap.looking': 'Looking for your train…',
+  'liveMap.nextStop': 'Next stop: {stop}',
+  'liveMap.board': 'You board at {stop}',
+  'liveMap.getOff': 'You get off at {stop}',
   'journey.gone': 'This journey is no longer available',
   'journey.searchAgain': 'Search again to see current connections.',
   'journey.notPossible': 'This connection is not possible',

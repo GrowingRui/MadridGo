@@ -304,6 +304,9 @@ def test_endpoint_returns_the_position(client: TestClient) -> None:
     body = r.json()
     assert body["status"] == "between"
     assert body["last_stop"]["index"] == 9 and body["stops_away"] == 3
+    # The stations' coordinates, so the app can draw the train on a map.
+    assert body["last_stop"]["lat"] == stops[9].lat and body["last_stop"]["lon"] == stops[9].lon
+    assert body["next_stop"]["lat"] == stops[10].lat
     assert body["poll_after_s"] == 30
 
 

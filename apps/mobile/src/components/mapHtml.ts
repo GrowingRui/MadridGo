@@ -2,6 +2,9 @@
 // OpenFreeMap "positron" style ("dark" in dark mode). It talks to the app with small JSON messages:
 //   app -> map: {type:'center', lat, lon, zoom?} | {type:'me', lat, lon} | {type:'stops', stops}
 //               | {type:'route', lines, stops} (a connection: legs as coloured lines, its stops)
+//               | {type:'train', lon, lat, color, estimated, glide} | {type:'train', hide:true}
+//                 (the live trip map: the followed train's point, solid when live, hollow when
+//                 estimated; it glides to each new place unless "reduce motion" is on)
 //   map -> app: {type:'ready'} | {type:'moved', lat, lon, zoom} | {type:'stop', id}
 // Loading MapLibre from a CDN keeps it out of the app bundle and works in Expo Go.
 
@@ -51,6 +54,13 @@ export function mapHtml(
   #hint { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%);
     background: rgba(22,24,29,0.78); color: #fff; font-size: 13px; padding: 6px 12px;
     border-radius: 999px; pointer-events: none; white-space: nowrap; }
+  .train { width: 20px; height: 20px; border-radius: 50%; border: 3px solid #fff; box-sizing: border-box;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.45); }
+  .train.est { background: #fff !important; border-width: 4px; }
+  .train.live::after { content: ''; position: absolute; inset: -9px; border-radius: 50%;
+    border: 2px solid var(--c); opacity: 0; animation: pulse 2s ease-out infinite; }
+  @keyframes pulse { 0% { transform: scale(0.5); opacity: 0.8; } 100% { transform: scale(1.3); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .train.live::after { animation: none; } }
   .me { width: 16px; height: 16px; border-radius: 50%; background: #1A73E8;
     border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(26,115,232,0.25); }
 </style>
@@ -72,6 +82,43 @@ export function mapHtml(
   });
   map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
   var me = null, popup = null, routeMode = false, hint = document.getElementById('hint');
+  var routeBounds = null, train = null, trainEl = null, trainAt = null, trainAnim = 0, trainFitted = false;
+
+  function showTrain(msg) {
+    if (msg.hide) { if (train) train.remove(); train = null; trainAt = null; return; }
+    if (!train) {
+      trainEl = document.createElement('div');
+      train = new maplibregl.Marker({ element: trainEl });
+    }
+    trainEl.className = 'train ' + (msg.estimated ? 'est' : 'live');
+    trainEl.style.background = msg.color;
+    trainEl.style.borderColor = msg.estimated ? msg.color : '#fff';
+    trainEl.style.setProperty('--c', msg.color);
+    var to = [msg.lon, msg.lat];
+    cancelAnimationFrame(trainAnim);
+    if (!trainAt || !msg.glide) {
+      trainAt = to;
+      train.setLngLat(to).addTo(map);
+    } else {
+      // Glide from where it is drawn now to the new place in under a second.
+      var from = trainAt, start = performance.now();
+      var step = function (t) {
+        var k = Math.min(1, (t - start) / 900);
+        trainAt = [from[0] + (to[0] - from[0]) * k, from[1] + (to[1] - from[1]) * k];
+        train.setLngLat(trainAt);
+        if (k < 1) trainAnim = requestAnimationFrame(step);
+      };
+      trainAnim = requestAnimationFrame(step);
+    }
+    // First time: a train still on its way to you may be outside the route; show both.
+    if (!trainFitted && routeBounds) {
+      trainFitted = true;
+      if (!map.getBounds().contains(to)) {
+        map.fitBounds(new maplibregl.LngLatBounds(routeBounds.getSouthWest(), routeBounds.getNorthEast()).extend(to),
+          { padding: 56, maxZoom: 16, duration: 600 });
+      }
+    }
+  }
 
   map.on('load', function () {
     map.addSource('stops', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
@@ -153,6 +200,8 @@ export function mapHtml(
         return { type: 'Feature', geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
           properties: { id: s.id, name: s.name, mode: s.mode } };
       }) });
+    } else if (msg.type === 'train') {
+      showTrain(msg);
     } else if (msg.type === 'route') {
       var bounds = new maplibregl.LngLatBounds();
       map.getSource('route').setData({ type: 'FeatureCollection', features: msg.lines.map(function (l) {
@@ -166,6 +215,7 @@ export function mapHtml(
           properties: { id: s.id || '', name: s.name, color: s.color, major: s.major } };
       }) });
       routeMode = true;
+      routeBounds = bounds;
       hint.style.display = 'none';
       if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 56, maxZoom: 16, duration: 0 });
     }
