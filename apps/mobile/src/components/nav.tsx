@@ -7,6 +7,7 @@ import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { type Lang, setLanguagePreference, useT } from '../i18n';
 import { colors, space, themed, type, WIDE_MAX_WIDTH } from '../theme';
 import type { PressState } from '../hooks';
+import { CONTACT_EMAIL } from '../utils/contact';
 
 const LINKS = [
   { label: 'nav.plan', href: '/' as const },
@@ -116,6 +117,21 @@ export function Footer() {
           </Text>
           <Text style={styles.footerLink} onPress={open('https://www.openstreetmap.org/copyright')}>
             {t('attr.osm')}
+          </Text>
+        </View>
+        <View style={{ gap: space.xs }}>
+          <Text style={styles.footerTitle}>MadridGo</Text>
+          <Text
+            style={styles.footerLink}
+            accessibilityRole="link"
+            onPress={() => router.navigate('/about')}>
+            {t('about.title')}
+          </Text>
+          <Text
+            style={styles.footerLink}
+            accessibilityRole="link"
+            onPress={open(`mailto:${CONTACT_EMAIL}`)}>
+            {t('about.contact')}
           </Text>
         </View>
       </View>

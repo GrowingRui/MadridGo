@@ -409,4 +409,41 @@ export const es: Record<MessageKey, string> = {
   'dis.state.stale': 'Desactualizado',
   'dis.state.no_data': 'No disponible',
   'dis.state.not_available': 'Sin cobertura',
+  // About page
+  'about.title': 'Acerca de MadridGo',
+  'about.link': 'Acerca de MadridGo y fuentes de datos',
+  'about.version': 'Versión {v}',
+  'about.intro':
+    'MadridGo planifica viajes por la Comunidad de Madrid en Metro, Cercanías, autobús y Metro Ligero, y te dice cuánto puedes fiarte de cada hora que muestra.',
+  'about.labels': 'Qué significan las etiquetas',
+  'about.label.live': 'Del sistema en tiempo real del operador. Una hora en rojo es el retraso.',
+  'about.label.scheduled': 'Del horario oficial. El vehículo puede adelantarse o retrasarse.',
+  'about.label.every': 'El operador solo publica una frecuencia, no horas exactas.',
+  'about.label.estimated': 'Estimado según el horario',
+  'about.label.estimatedBody':
+    'Un punto de tren hueco: situado según el horario (más el retraso en tiempo real si se conoce), no por GPS.',
+  'about.label.outdated': 'Desactualizado',
+  'about.label.outdatedBody':
+    'Los datos en tiempo real de hace más de unos minutos nunca se muestran como tiempo real: MadridGo vuelve al horario.',
+  'about.coverage': 'Tiempo real hoy',
+  'about.cov.rail': 'Cercanías: horas en tiempo real, posición de los trenes y avisos (Renfe).',
+  'about.cov.emt': 'Autobuses urbanos de la EMT: llegadas en tiempo real cuando la EMT apruebe el acceso de MadridGo; hasta entonces, horario y avisos.',
+  'about.cov.metro': 'Metro y Metro Ligero: solo horario. Metro de Madrid no publica datos abiertos en tiempo real.',
+  'about.cov.crtm': 'Autobuses interurbanos y urbanos: solo horario, hasta que el CRTM autorice los datos en tiempo real.',
+  'about.sources': 'Fuentes de datos y licencias',
+  'about.src.crtm': 'Paradas, líneas y horarios de Metro, autobuses, Metro Ligero y Cercanías.',
+  'about.src.emt': 'Datos de los autobuses urbanos de la EMT.',
+  'about.src.renfe': 'Horarios de Cercanías, horas en tiempo real, posición de los trenes y avisos.',
+  'about.src.osm': 'Calles y caminos para los trayectos a pie, y el mapa.',
+  'about.src.openfreemap': 'Teselas del mapa.',
+  'about.src.maplibre': 'Visualización del mapa.',
+  'about.src.otp': 'Planificador de rutas.',
+  'about.licence': 'Licencia',
+  'about.independent':
+    'MadridGo es una app independiente. No está hecha, avalada ni revisada por el CRTM, la EMT de Madrid, Renfe ni Metro de Madrid. Comprueba la información en el lugar cuando sea importante.',
+  'about.privacy': 'Tu privacidad',
+  'about.privacyBody':
+    'Las paradas guardadas y recientes, las conexiones guardadas y los ajustes se quedan en este dispositivo. Tu ubicación solo se usa cuando eliges Ubicación actual, y solo se envía al servidor de MadridGo para planificar ese viaje. MadridGo no tiene cuentas ni publicidad.',
+  'about.contact': 'Contacto y sugerencias',
+  'about.contactBody': '¿Una hora incorrecta, una parada que falta o un error? Escríbenos.',
 };
