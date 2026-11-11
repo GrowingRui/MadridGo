@@ -404,6 +404,43 @@ export const en = {
   'dis.state.stale': 'Out of date',
   'dis.state.no_data': 'Unavailable',
   'dis.state.not_available': 'Not covered',
+  // About page
+  'about.title': 'About MadridGo',
+  'about.link': 'About MadridGo and data sources',
+  'about.version': 'Version {v}',
+  'about.intro':
+    'MadridGo plans journeys across the Community of Madrid by Metro, Cercanías, bus and Metro Ligero, and tells you how far you can trust every time it shows.',
+  'about.labels': 'What the labels mean',
+  'about.label.live': 'From the operator’s real-time feed. A red time is the delay.',
+  'about.label.scheduled': 'From the official timetable. The vehicle may be early or late.',
+  'about.label.every': 'The operator publishes only a frequency, not exact times.',
+  'about.label.estimated': 'Estimated from the timetable',
+  'about.label.estimatedBody':
+    'A hollow train point: placed from the timetable (plus the live delay when known), not from GPS.',
+  'about.label.outdated': 'Outdated',
+  'about.label.outdatedBody':
+    'Live data older than a few minutes is never shown as live: MadridGo falls back to the timetable.',
+  'about.coverage': 'Live data today',
+  'about.cov.rail': 'Cercanías: live times, train positions and alerts (Renfe).',
+  'about.cov.emt': 'EMT city buses: live arrivals once EMT approves MadridGo’s access; timetable and alerts until then.',
+  'about.cov.metro': 'Metro and Metro Ligero: timetable only. Metro de Madrid publishes no open real-time data.',
+  'about.cov.crtm': 'Interurban and urban buses: timetable only, until CRTM authorizes real-time data.',
+  'about.sources': 'Data sources and licences',
+  'about.src.crtm': 'Stops, lines and timetables for Metro, buses, Metro Ligero and Cercanías.',
+  'about.src.emt': 'EMT city bus data.',
+  'about.src.renfe': 'Cercanías timetables, real-time times, train positions and alerts.',
+  'about.src.osm': 'Streets and paths for walking routes, and the map.',
+  'about.src.openfreemap': 'Map tiles.',
+  'about.src.maplibre': 'Map display.',
+  'about.src.otp': 'Route planner.',
+  'about.licence': 'Licence',
+  'about.independent':
+    'MadridGo is an independent app. It is not made, endorsed or checked by CRTM, EMT de Madrid, Renfe or Metro de Madrid. Always check information on site when it matters.',
+  'about.privacy': 'Your privacy',
+  'about.privacyBody':
+    'Starred and recent stops, saved connections and settings stay on this device. Your location is used only when you choose Current location, and is sent to the MadridGo server only to plan that journey. MadridGo has no account and no advertising.',
+  'about.contact': 'Contact and feedback',
+  'about.contactBody': 'Found a wrong time, a missing stop or a bug? Write to us.',
 } as const;
 
 export type MessageKey = keyof typeof en;

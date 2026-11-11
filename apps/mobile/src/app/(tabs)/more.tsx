@@ -3,6 +3,7 @@
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Location from 'expo-location';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -128,6 +129,18 @@ export default function MoreScreen() {
             <Link label={t('attr.osmMap')} url="https://www.openstreetmap.org/copyright" />
           </View>
         </View>
+        <Divider inset={space.lg} />
+        <Pressable
+          onPress={() => router.push('/about')}
+          accessibilityRole="link"
+          style={({ pressed, hovered }: PressState) => [
+            styles.row,
+            (pressed || hovered) && { backgroundColor: colors.pressed },
+          ]}>
+          <MaterialCommunityIcons name="information-outline" size={20} color={colors.brand} />
+          <Text style={[styles.title, { flex: 1 }]}>{t('about.link')}</Text>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textFaint} />
+        </Pressable>
       </Card>
       <Text style={styles.footer}>{t('footer.independent')}</Text>
     </Screen>
