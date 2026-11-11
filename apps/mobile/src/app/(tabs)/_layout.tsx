@@ -41,6 +41,10 @@ export default function TabLayout() {
         options={{ title: t('tab.plan'), tabBarIcon: icon('map-marker-path', 'map-marker-path') }}
       />
       <Tabs.Screen
+        name="trips"
+        options={{ title: t('tab.trips'), tabBarIcon: icon('train', 'train') }}
+      />
+      <Tabs.Screen
         name="departures"
         options={{ title: t('tab.departures'), tabBarIcon: icon('clock-outline', 'clock') }}
       />

@@ -7,6 +7,8 @@ import {
   resetConnectionsForTests,
   savedConnection,
   toggleConnection,
+  tripEndMs,
+  tripPhase,
 } from './connections';
 
 const time = (iso: string) => ({ scheduled: iso, status: 'scheduled' as const });
@@ -42,7 +44,14 @@ const journey: Journey = {
   transfers: 0,
   walk_min: 5,
   legs: [
-    leg({ from: 'Home', to: 'Parla', from_lat: 40.2, from_lon: -3.77, to_lat: 40.23, to_lon: -3.77 }),
+    leg({
+      from: 'Home',
+      to: 'Parla',
+      from_lat: 40.2,
+      from_lon: -3.77,
+      to_lat: 40.23,
+      to_lon: -3.77,
+    }),
     leg({
       mode: 'rail',
       line: C4,
@@ -115,5 +124,55 @@ describe('routeFeatures', () => {
       [-120.2, 38.5],
       [-120.95, 40.7],
     ]);
+  });
+});
+
+describe('trip phase and end', () => {
+  const at = (iso: string) => Date.parse(iso);
+
+  it('is upcoming before departure, ongoing until arrival, then over', () => {
+    expect(tripPhase(journey, at('2030-01-01T09:59:00+01:00'))).toBe('upcoming');
+    expect(tripPhase(journey, at('2030-01-01T10:10:00+01:00'))).toBe('ongoing');
+    expect(tripPhase(journey, at('2030-01-01T10:30:00+01:00'))).toBe('over');
+  });
+
+  it('ends at the live arrival when the train is late, never before the timetable', () => {
+    const late: Journey = {
+      ...journey,
+      arrival: {
+        scheduled: '2030-01-01T10:30:00+01:00',
+        status: 'live',
+        realtime: { delay_s: 600 } as Journey['arrival']['realtime'],
+      },
+    };
+    expect(tripEndMs(late)).toBe(at('2030-01-01T10:40:00+01:00'));
+    const early: Journey = {
+      ...journey,
+      arrival: {
+        scheduled: '2030-01-01T10:30:00+01:00',
+        estimated: '2030-01-01T10:27:00+01:00',
+        status: 'live',
+      },
+    };
+    expect(tripEndMs(early)).toBe(at('2030-01-01T10:30:00+01:00'));
+  });
+
+  it('drops saved trips once they have arrived', async () => {
+    jest.useFakeTimers({ now: at('2030-01-01T10:20:00+01:00') });
+    try {
+      toggleConnection(journey, from, to);
+      expect(isConnectionSaved('j1')).toBe(true);
+      jest.setSystemTime(at('2030-01-01T10:31:00+01:00'));
+      // Saving another trip rewrites the list without the finished one.
+      toggleConnection(
+        { ...journey, id: 'j2', arrival: time('2030-01-01T12:00:00+01:00') },
+        from,
+        to,
+      );
+      expect(isConnectionSaved('j1')).toBe(false);
+      expect(isConnectionSaved('j2')).toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
