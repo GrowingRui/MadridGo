@@ -20,6 +20,7 @@ Legend: **[V]** verified (official source or our own inspection), **[I]** infere
 | 9 | Metro de Madrid real-time | None public | Metro | – | – | Not public | **No** public source found |
 | 10 | NAP (nap.transportes.gob.es) | Static GTFS mirror | Various | Registration | NAP licence | Not for Madrid, as far as found | Optional mirror |
 | 11 | OpenStreetMap (Geofabrik extract) | OSM PBF | Street network for walking | None | ODbL | No | Yes, attribution required |
+| 12 | CartoCiudad geocoder (IGN, cartociudad.es) | REST API (JSON) | Addresses, streets and places (search) | None | CC BY 4.0 [I] | No | **Yes, used for address and place search since 2026-11-12** (§8.1) |
 
 ---
 
@@ -137,6 +138,17 @@ Feeds (all returned HTTP 200, no authentication, 2026-11-09): [V]
 - OSM data: ODbL, attribution "© OpenStreetMap contributors" required; free for commercial use ([OSMF](https://osmfoundation.org/wiki/FAQ)). [V]
 - Walking network for OTP: a Geofabrik Comunidad de Madrid extract (`.osm.pbf`) [I: standard practice; size to measure].
 - Map tiles: OpenFreeMap public instance has no API key, no registration and no request limits ([openfreemap.org](https://openfreemap.org)) [V]; the OSMF vector tile service has a usage policy ([policy](https://operations.osmfoundation.org/policies/vector/)) [V]. Self-hosting PMTiles (Protomaps) is the long-term zero-dependency option [I].
+
+### 8.1 Address and place search (geocoding), chosen 2026-11-12
+
+The planner searches addresses ("Calle Mayor 5"), streets and named places ("Hospital 12 de Octubre") through `GET /places/search` (`services/api/app/places.py`), which calls **CartoCiudad** (Instituto Geográfico Nacional): `candidates?q=…&provincia_filter=Madrid` and, in parallel, `municipio_filter=Madrid`; streets get a point from `find?id=…&type=callejero` (their shape). No key or registration. Licence: IGN/CNIG data under CC BY 4.0 [I: to confirm on the CNIG licence page]; credited as "CartoCiudad © Instituto Geográfico Nacional" in About and "Addresses: CartoCiudad (IGN)" under the results.
+
+Compared on 2026-11-12 [V, by test queries]:
+- **CartoCiudad**: answers in 0.2-1 s; official address points down to the building number, plus named places (hospitals, museums, stadiums, shops). No ranking by distance: "Calle Mayor 5" lists the street in every town that has one, and Madrid city's could be missing from the first 20 region-wide answers, so we also ask for Madrid city and list equal names nearest the centre first. Some names come in capitals and without accents ("Calle Alcala 100"); entries from the company register ("Óptica X, S.L. [calle Mayor 52]") are listed last. Typing the town finds the right one ("calle real 10 parla").
+- **Photon** (komoot, OpenStreetMap): best ranking (prefers results near a point, made for search-as-you-type), but the public server took 35-40 s per query that day (fair-use service, no guarantee). Self-hosting is possible later (Spain extract about 2 GB compressed, needs Java and several GB of disk), the way OTP runs today; the backend only needs a new `Geocoder` behind the same endpoint.
+- **Nominatim** (OpenStreetMap): its public server's policy allows at most 1 request a second and forbids search-as-you-type; not suitable without self-hosting.
+
+Answers are cached for 7 days in Redis; the app asks only from 3 letters, after a pause in typing. If CartoCiudad is down the endpoint answers 503 and the app still lists stops, with a line saying address search is unavailable.
 
 ## 9. Third-party aggregators (not used)
 

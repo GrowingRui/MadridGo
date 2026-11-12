@@ -259,6 +259,18 @@ def test_walk_only_option_is_dropped_when_transit_is_faster(
     assert body["from"]["name"] == "Your location" and body["from"]["stop_id"] is None
 
 
+def test_point_named_by_the_app(setup: Callable[..., TestClient]) -> None:
+    """An address chosen in the search keeps its name (not "Your location")."""
+    otp = FakeOtp(load("sol_bernabeu"))
+    body = plan(
+        setup(otp),
+        **{"from": None, "to": None, **SOL, "from_name": " Calle Mayor 5 ", "to_name": ""},
+    )
+    assert body["from"]["name"] == "Calle Mayor 5"
+    assert otp.variables["origin"]["label"] == "Calle Mayor 5"
+    assert body["to"]["name"] == "Your location"  # empty name: the default
+
+
 def test_routing_error_is_explained(setup: Callable[..., TestClient]) -> None:
     body = plan(setup(FakeOtp(load("outside_service"))), at="2027-09-01T08:00:00")
     assert body["routing_error"] == "OUTSIDE_SERVICE_PERIOD"

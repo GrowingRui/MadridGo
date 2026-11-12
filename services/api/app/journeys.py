@@ -928,6 +928,12 @@ async def journeys(
     from_lon: Lon = None,
     to_lat: Lat = None,
     to_lon: Lon = None,
+    from_name: Annotated[
+        str | None, Query(max_length=120, description="Name of the start point (an address)")
+    ] = None,
+    to_name: Annotated[
+        str | None, Query(max_length=120, description="Name of the destination point")
+    ] = None,
     at: Annotated[datetime | None, Query(description="Departure time; default now")] = None,
     arrive_by: Annotated[bool, Query(description="`at` is the latest arrival")] = False,
     sort: SortOption = "earliest_arrival",
@@ -938,8 +944,16 @@ async def journeys(
 ) -> JourneyPlan:
     """Journeys between two stops or points, with live times where MadridGo has an
     authorized source and a reliability label for each change."""
-    origin = await static.place(from_) if from_ else _coords(from_lat, from_lon, tr("place.here"))
-    destination = await static.place(to) if to else _coords(to_lat, to_lon, tr("place.here"))
+    origin = (
+        await static.place(from_)
+        if from_
+        else _coords(from_lat, from_lon, (from_name or "").strip() or tr("place.here"))
+    )
+    destination = (
+        await static.place(to)
+        if to
+        else _coords(to_lat, to_lon, (to_name or "").strip() or tr("place.here"))
+    )
     if origin is None or destination is None:
         raise HTTPException(
             status_code=422, detail="Give from/to stop ids, or from_lat/from_lon and to_lat/to_lon"

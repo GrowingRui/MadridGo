@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { BrandHeader, Screen } from '../components/layout';
+import { type PlaceResult, placeFromResult } from '../api/places';
 import { NearbyStops, StopSuggestions } from '../components/stopSearch';
 import { type MessageKey, useT } from '../i18n';
 import { HERE_ID, setPlanner } from '../state/planner';
@@ -23,7 +24,8 @@ const TITLES: Record<string, MessageKey> = {
 export default function PickScreen() {
   const { field = 'to' } = useLocalSearchParams<{ field?: 'from' | 'to' | 'board' }>();
   const [text, setText] = useState('');
-  const [near, setNear] = useState<Point | null>(null);
+  // Stops around a point: your location, or an address or place you chose.
+  const [near, setNear] = useState<(Point & { name?: string }) | null>(null);
   const { t } = useT();
 
   const choose = (s: SavedStop) => {
@@ -42,6 +44,16 @@ export default function PickScreen() {
       return;
     }
     setPlanner({ [field]: { id: HERE_ID, name: t('here.title'), ...p } });
+    router.back();
+  };
+  // Departures: the stops near the address. Planner fields: plan from or to it.
+  const place = (r: PlaceResult) => {
+    if (field === 'board') {
+      setText('');
+      setNear({ lat: r.lat, lon: r.lon, name: r.name });
+      return;
+    }
+    setPlanner({ [field]: placeFromResult(r) });
     router.back();
   };
 
@@ -78,9 +90,14 @@ export default function PickScreen() {
         </BrandHeader>
       }>
       {near && !text.trim() ? (
-        <NearbyStops point={near} onPick={choose} onHere={setNear} />
+        <NearbyStops
+          point={near}
+          title={near.name ? t('nearby.titleAt', { name: near.name }) : undefined}
+          onPick={choose}
+          onHere={setNear}
+        />
       ) : (
-        <StopSuggestions text={text} onPick={choose} onHere={here} />
+        <StopSuggestions text={text} onPick={choose} onHere={here} onPlace={place} />
       )}
     </Screen>
   );

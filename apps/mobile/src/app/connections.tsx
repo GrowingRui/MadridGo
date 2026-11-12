@@ -17,7 +17,7 @@ export default function ConnectionsScreen() {
   const { from, to, when, arriveBy, sort } = usePlanner();
   const { t } = useT();
   const form = usePlanForm();
-  const { editing, text, close, choose, chooseHere, other } = form;
+  const { editing, text, close, choose, chooseHere, choosePlace, other } = form;
 
   // While typing, the back arrow leaves the search box first.
   const back = () => {
@@ -35,7 +35,13 @@ export default function ConnectionsScreen() {
   return (
     <Screen header={header}>
       {editing ? (
-        <StopSuggestions text={text} onPick={choose} onHere={chooseHere} exclude={other} />
+        <StopSuggestions
+          text={text}
+          onPick={choose}
+          onHere={chooseHere}
+          onPlace={choosePlace}
+          exclude={other}
+        />
       ) : from && to ? (
         // Keyed so "Earlier/Later" reset when the search changes.
         <ConnectionList

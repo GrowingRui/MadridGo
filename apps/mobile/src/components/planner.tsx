@@ -206,6 +206,9 @@ function PlaceField({
       <View style={styles.fieldValueRow}>
         {here ? (
           <MaterialCommunityIcons name="crosshairs-gps" size={16} color={colors.brand} />
+        ) : place?.lat != null ? (
+          // An address or place from the search, not a stop.
+          <MaterialCommunityIcons name="map-marker-outline" size={16} color={colors.brand} />
         ) : null}
         <Text
           style={[styles.fieldValue, { flexShrink: 1 }, !place && { color: colors.textFaint }]}

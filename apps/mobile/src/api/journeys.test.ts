@@ -34,4 +34,15 @@ describe('planJourneys', () => {
       /\/journeys\?from_lat=40\.41680&from_lon=-3\.70380&to=renfe%3A18000$/,
     );
   });
+
+  it('sends an address as a point with its name', async () => {
+    const fetchImpl = jest.fn(() => ok({ journeys: [] }));
+    await planJourneys(
+      { from: 'renfe:18000', to: { lat: 40.41636, lon: -3.7055, name: 'Calle Mayor 5' } },
+      fetchImpl,
+    );
+    expect(url(fetchImpl)).toMatch(
+      /\/journeys\?from=renfe%3A18000&to_lat=40\.41636&to_lon=-3\.70550&to_name=Calle%20Mayor%205$/,
+    );
+  });
 });
