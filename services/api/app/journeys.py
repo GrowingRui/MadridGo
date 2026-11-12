@@ -23,6 +23,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.boarding import TripStop, board_nearer, decode, encode, walks_to_frequency_buses
 from app.dbpool import get_pool
 from app.feeds import ExpiryState, expiry_state
 from app.i18n import tr
@@ -34,10 +35,12 @@ from app.realtime.board import SourceStatus, add_seconds
 from app.realtime.emt import LiveFetch
 from app.realtime.models import AlertSnapshot, FeedSnapshot, Freshness, RealtimeInfo, ServiceAlert
 from app.realtime.service import Realtime, get_realtime
+from app.startpoint import NEAR_M, unstick
 from app.stops import Line, _stop_summary
 from app.timetable import MADRID, display_name, mode_for, seconds_into
 from app.transfers import TransferLabel, TransferSide, worst
 from app.transfers import assess as assess_transfer
+from app.trips import distance_m
 
 router = APIRouter(tags=["journeys"])
 
@@ -257,6 +260,52 @@ class StaticData:
             [t[1] for t in trips],
         )
         return {(r["source"], r["trip_id"]): r["name"] for r in rows}
+
+    async def nearest_stop(self, lat: float, lon: float) -> tuple[float, float] | None:
+        """(lat, lon) of the stop nearest to a point, within NEAR_M, or None."""
+        row = await self.pool.fetchrow(
+            """
+            WITH here AS (SELECT ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography AS g)
+            SELECT s.lat, s.lon FROM stop s
+            JOIN feed_version fv ON fv.id = s.feed_version_id AND fv.is_active, here
+            WHERE s.location_type = 0 AND s.lat IS NOT NULL
+              AND ST_DWithin(s.geom, here.g, $3)
+            ORDER BY s.geom <-> here.g
+            LIMIT 1
+            """,
+            lat,
+            lon,
+            NEAR_M,
+        )
+        return (row["lat"], row["lon"]) if row else None
+
+    async def trip_stops(
+        self, trips: list[tuple[str, str]]
+    ) -> dict[tuple[str, str], list[TripStop]]:
+        """(feed, native trip id) -> the trip's stops in order, with their departures."""
+        if not trips:
+            return {}
+        rows = await self.pool.fetch(
+            """
+            SELECT fv.source, st.trip_id, st.stop_id, s.name, s.lat, s.lon,
+                   coalesce(st.departure_s, st.arrival_s) AS dep
+            FROM unnest($1::text[], $2::text[]) AS q(source, trip_id)
+            JOIN feed_version fv ON fv.is_active AND fv.source = q.source
+            JOIN stop_time st ON st.feed_version_id = fv.id AND st.trip_id = q.trip_id
+            JOIN stop s ON s.feed_version_id = fv.id AND s.native_id = st.stop_id
+            ORDER BY fv.source, st.trip_id, st.stop_sequence
+            """,
+            [t[0] for t in trips],
+            [t[1] for t in trips],
+        )
+        out: dict[tuple[str, str], list[TripStop]] = defaultdict(list)
+        for r in rows:
+            if r["lat"] is None or r["lon"] is None or r["dep"] is None:
+                continue
+            out[(r["source"], r["trip_id"])].append(
+                TripStop(r["stop_id"], r["name"], r["lat"], r["lon"], r["dep"])
+            )
+        return dict(out)
 
 
 def get_clock() -> Callable[[], datetime]:
@@ -818,6 +867,33 @@ def build_journey(it: _Itinerary) -> Journey:
     )
 
 
+def from_address(
+    j: Journey, origin: Place, otp_origin: Place, destination: Place, otp_destination: Place
+) -> None:
+    """Draw the first and last walks from the real address when OTP planned from a point
+    next to it (app/startpoint.py)."""
+
+    def moved(a: Place, b: Place) -> int:
+        return round(distance_m((a.lat, a.lon), (b.lat, b.lon)))
+
+    first, last = j.legs[0], j.legs[-1]
+    if (origin.lat, origin.lon) != (otp_origin.lat, otp_origin.lon) and first.mode == "walk":
+        first.from_lat, first.from_lon = origin.lat, origin.lon
+        if first.geometry:
+            first.geometry = encode([(origin.lat, origin.lon), *decode(first.geometry)])
+        if first.distance_m is not None:
+            first.distance_m += moved(origin, otp_origin)
+    if (destination.lat, destination.lon) != (
+        otp_destination.lat,
+        otp_destination.lon,
+    ) and last.mode == "walk":
+        last.to_lat, last.to_lon = destination.lat, destination.lon
+        if last.geometry:
+            last.geometry = encode([*decode(last.geometry), (destination.lat, destination.lon)])
+        if last.distance_m is not None:
+            last.distance_m += moved(destination, otp_destination)
+
+
 def drop_slow_walks(journeys: list[Journey]) -> list[Journey]:
     """OTP always adds a walk-only option. Keep it only if it is no slower than public
     transport (or if there is nothing else)."""
@@ -959,6 +1035,16 @@ async def journeys(
             status_code=422, detail="Give from/to stop ids, or from_lat/from_lon and to_lat/to_lon"
         )
 
+    # An address OTP would link to a way that leads nowhere: plan from a point next to it.
+    async def planned(p: Place, end: bool) -> Place:
+        if p.stop_id is not None:
+            return p
+        near = await static.nearest_stop(p.lat, p.lon)
+        moved = await unstick((p.lat, p.lon), near, otp, end=end)
+        return p.model_copy(update={"lat": moved[0], "lon": moved[1]}) if moved else p
+
+    otp_origin, otp_destination = await planned(origin, False), await planned(destination, True)
+
     now = clock()
     when = (at.astimezone(MADRID) if at.tzinfo else at.replace(tzinfo=MADRID)) if at else now
     info = await static.feeds(now.date())
@@ -971,8 +1057,8 @@ async def journeys(
         }
 
     variables: dict[str, Any] = {
-        "origin": loc(origin),
-        "destination": loc(destination),
+        "origin": loc(otp_origin),
+        "destination": loc(otp_destination),
         "first": limit,
         "exclude": excluded,
         **_PREFERENCES.get(sort, {}),
@@ -1006,6 +1092,16 @@ async def journeys(
     )
     apply_frequencies(its, await static.frequencies(trips))
     apply_termini(its, await static.termini(needs_direction(its)))
+    # A frequency bus: board it at its stop nearest to the walk there (boarding.py).
+    buses = sorted(
+        {
+            (it.drafts[i].feed or "", it.drafts[i].trip_native or "")
+            for it in its
+            for i in walks_to_frequency_buses(it)
+        }
+    )
+    if buses:
+        await board_nearer(its, await static.trip_stops(buses), otp)
 
     used = set().union(*(it.feeds for it in its)) if its else set()
     statuses: list[SourceStatus] = []
@@ -1044,6 +1140,8 @@ async def journeys(
     for it in its:
         j = build_journey(it)
         built.setdefault(j.id, j)  # OTP can return the same itinerary twice
+    for j in built.values():
+        from_address(j, origin, otp_origin, destination, otp_destination)
     result = drop_frequency_copies(sort_journeys(drop_slow_walks(list(built.values())), sort))
     alert_snaps = await rt.alert_snapshots()
     if alert_snaps:

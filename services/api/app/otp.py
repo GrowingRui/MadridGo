@@ -16,6 +16,9 @@ from app.config import get_settings
 log = logging.getLogger(__name__)
 
 # Notes on the fields:
+# - Walk `safetyFactor: 0`: the shortest walk. OTP's default prefers streets it rates safer,
+#   and in Madrid (sidewalks almost everywhere, rarely tagged) that sent walks zigzagging
+#   through side streets instead of straight along the main one (found 2026-11-12, Parla).
 # - `intermediatePlaces` rather than `stopCalls`: OTP 2.10 cannot build stop calls for
 #   frequency-based trips (EMT) and fails with "Cannot find times for Trip".
 # - Agencies of expired feeds are excluded through `$exclude` (R6).
@@ -33,7 +36,7 @@ query Plan(
         filters: [{ exclude: [{ routes: $exclude }] }]
         transfer: { cost: $transferCost }
       }
-      street: { walk: { reluctance: $walkReluctance } }
+      street: { walk: { reluctance: $walkReluctance, safetyFactor: 0 } }
     }
   ) {
     searchDateTime
@@ -58,6 +61,26 @@ query Plan(
   }
 }
 """
+
+
+# A walk only, from a point to a point (used to compare walks to the stops of one bus).
+WALK_QUERY = """
+query Walk($origin: PlanLabeledLocationInput!, $destination: PlanLabeledLocationInput!) {
+  planConnection(
+    origin: $origin, destination: $destination, modes: { directOnly: true, direct: [WALK] }
+    preferences: { street: { walk: { safetyFactor: 0 } } }
+  ) {
+    edges { node { duration walkDistance legs { duration distance legGeometry { points } } } }
+  }
+}
+"""
+
+
+@dataclass(frozen=True)
+class Walk:
+    distance_m: float
+    duration_s: int
+    geometry: str | None
 
 
 class OtpUnavailable(Exception):  # noqa: N818 - reads better at the call site
@@ -91,6 +114,36 @@ class OtpClient:
         if data is None:
             raise OtpUnavailable("no data")
         return dict(data)
+
+    async def walk(
+        self, origin: tuple[float, float], destination: tuple[float, float]
+    ) -> Walk | None:
+        """OTP's walk between two points (lat, lon), or None when it has none or fails."""
+
+        def loc(p: tuple[float, float]) -> dict[str, Any]:
+            return {"location": {"coordinate": {"latitude": p[0], "longitude": p[1]}}}
+
+        url = f"{self.base_url.rstrip('/')}/otp/gtfs/v1"
+        try:
+            resp = await self.http.post(
+                url,
+                json={
+                    "query": WALK_QUERY,
+                    "variables": {"origin": loc(origin), "destination": loc(destination)},
+                },
+                timeout=self.timeout_s,
+            )
+            plan = (resp.json().get("data") or {}).get("planConnection") or {}
+            edges: list[dict[str, Any]] = plan.get("edges") or []
+            node = edges[0]["node"]
+            leg = node["legs"][0]
+            return Walk(
+                distance_m=float(leg["distance"]),
+                duration_s=round(leg["duration"]),
+                geometry=(leg.get("legGeometry") or {}).get("points"),
+            )
+        except (httpx.HTTPError, ValueError, LookupError, TypeError, AttributeError):
+            return None
 
 
 _client: OtpClient | None = None
