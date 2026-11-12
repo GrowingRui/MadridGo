@@ -66,6 +66,22 @@ def _int(value: Any) -> int | None:
         return None
 
 
+# Around the Community of Madrid: a fix outside this box is not a real position.
+_LAT = (39.8, 41.2)
+_LON = (-4.6, -3.0)
+
+
+def _point(geometry: Any) -> tuple[float, float] | None:
+    """(lat, lon) of a GeoJSON point, or None when missing or outside Madrid."""
+    try:
+        lon, lat = (float(v) for v in geometry["coordinates"][:2])
+    except (TypeError, KeyError, ValueError):
+        return None
+    if _LAT[0] <= lat <= _LAT[1] and _LON[0] <= lon <= _LON[1]:
+        return lat, lon
+    return None
+
+
 def parse_arrivals(stop_code: str, body: dict[str, Any], retrieved_at: datetime) -> EmtArrivals:
     code = str(body.get("code", ""))
     if code != "00":
@@ -74,6 +90,7 @@ def parse_arrivals(stop_code: str, body: dict[str, Any], retrieved_at: datetime)
     for block in body.get("data") or []:
         for a in block.get("Arrive") or []:
             seconds = _int(a.get("estimateArrive"))
+            point = _point(a.get("geometry"))
             arrivals.append(
                 EmtArrival(
                     line=str(a.get("line", "")).strip(),
@@ -83,6 +100,8 @@ def parse_arrivals(stop_code: str, body: dict[str, Any], retrieved_at: datetime)
                     seconds=None if seconds is None or seconds >= BEYOND_HORIZON else seconds,
                     vehicle_id=str(a["bus"]) if a.get("bus") not in (None, "", 0) else None,
                     distance_m=_int(a.get("DistanceBus")),
+                    lat=point[0] if point else None,
+                    lon=point[1] if point else None,
                 )
             )
     arrivals.sort(key=lambda x: (x.seconds is None, x.seconds or 0))
@@ -116,7 +135,8 @@ class EmtClient:
         data = (body.get("data") or [{}])[0]
         token = data.get("accessToken")
         if resp.status_code != 200 or str(body.get("code")) not in ("00", "01") or not token:
-            # 403 with code 84 was observed on 2026-11-09 with valid-looking credentials.
+            # Code 84 came with HTTP 403 before EMT approved the application (2026-11-09),
+            # and comes with HTTP 405 when the credentials are empty.
             error = f"EMT login refused (HTTP {resp.status_code}, code {body.get('code')})"
             self.upstream.report_failure(error)
             raise EmtError(error)

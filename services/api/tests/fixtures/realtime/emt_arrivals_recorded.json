@@ -1,0 +1,303 @@
+{
+  "_comment": "Recorded response of EMT MobilityLabs arrives v2 for stop 72 (Cibeles - Casa de America), 2026-11-12 09:18 Madrid, the first real call after EMT approved MadridGo. Unmodified except for this key.",
+  "code": "00",
+  "description": " Data recovered OK  (lapsed: 662 millsecs)",
+  "datetime": "2026-11-12T09:18:38.391811",
+  "data": [
+    {
+      "Arrive": [
+        {
+          "line": "53",
+          "stop": "72",
+          "isHead": "False",
+          "destination": "ARTURO SORIA",
+          "deviation": 0,
+          "bus": 2307,
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -3.6965764140435087,
+              40.41856909027376
+            ]
+          },
+          "estimateArrive": 23,
+          "DistanceBus": 72,
+          "positionTypeBus": "0"
+        },
+        {
+          "line": "27",
+          "stop": "72",
+          "isHead": "False",
+          "destination": "PLAZA CASTILLA",
+          "deviation": 0,
+          "bus": 525,
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -3.69310530465371,
+              40.414571950551014
+            ]
+          },
+          "estimateArrive": 85,
+          "DistanceBus": 157,
+          "positionTypeBus": "0"
+        },
+        {
+          "line": "45",
+          "stop": "72",
+          "isHead": "False",
+          "destination": "REINA VICTORIA",
+          "deviation": 0,
+          "bus": 4792,
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -3.6924380183656607,
+              40.411566946619665
+            ]
+          },
+          "estimateArrive": 304,
+          "DistanceBus": 753,
+          "positionTypeBus": "0"
+        },
+        {
+          "line": "14",
+          "stop": "72",
+          "isHead": "False",
+          "destination": "PIO XII",
+          "deviation": 0,
+          "bus": 5573,
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -3.6909940146350633,
+              40.40866568238443
+            ]
+          },
+          "estimateArrive": 357,
+          "DistanceBus": 1017,
+          "positionTypeBus": "0"
+        },
+        {
+          "line": "27",
+          "stop": "72",
+          "isHead": "False",
+          "destination": "PLAZA CASTILLA",
+          "deviation": 0,
+          "bus": 501,
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -3.6934374035987165,
+              40.404443844399395
+            ]
+          },
+          "estimateArrive": 360,
+          "DistanceBus": 1031,
+          "positionTypeBus": "0"
+        },
+        {
+          "line": "37",
+          "stop": "72",
+          "isHead": "False",
+          "destination": "CUATRO CAMINOS",
+          "deviation": 0,
+          "bus": 2292,
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -3.691635557537512,
+              40.40916634911846
+            ]
+          },
+          "estimateArrive": 389,
+          "DistanceBus": 1062,
+          "positionTypeBus": "0"
+        },
+        {
+          "line": "C03",
+          "stop": "72",
+          "isHead": "False",
+          "destination": "ARGÜELLES",
+          "deviation": 0,
+          "bus": 118,
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -3.6928432520173353,
+              40.40741136980179
+            ]
+          },
+          "estimateArrive": 458,
+          "DistanceBus": 1158,
+          "positionTypeBus": "0"
+        },
+        {
+          "line": "150",
+          "stop": "72",
+          "isHead": "False",
+          "destination": "VIRGEN CORTIJO",
+          "deviation": 0,
+          "bus": 2557,
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -3.68987366010462,
+              40.42820385587352
+            ]
+          },
+          "estimateArrive": 826,
+          "DistanceBus": 2568,
+          "positionTypeBus": "0"
+        },
+        {
+          "line": "14",
+          "stop": "72",
+          "isHead": "False",
+          "destination": "PIO XII",
+          "deviation": 0,
+          "bus": 5582,
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -3.6746974480009147,
+              40.40540160317925
+            ]
+          },
+          "estimateArrive": 844,
+          "DistanceBus": 2470,
+          "positionTypeBus": "0"
+        },
+        {
+          "line": "37",
+          "stop": "72",
+          "isHead": "False",
+          "destination": "CUATRO CAMINOS",
+          "deviation": 0,
+          "bus": 2293,
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -3.677972706232828,
+              40.40295901362984
+            ]
+          },
+          "estimateArrive": 999,
+          "DistanceBus": 2494,
+          "positionTypeBus": "0"
+        },
+        {
+          "line": "5",
+          "stop": "72",
+          "isHead": "False",
+          "destination": "CHAMARTIN",
+          "deviation": 0,
+          "bus": 4851,
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -3.689476167397955,
+              40.429683699019336
+            ]
+          },
+          "estimateArrive": 1005,
+          "DistanceBus": 2724,
+          "positionTypeBus": "0"
+        },
+        {
+          "line": "45",
+          "stop": "72",
+          "isHead": "False",
+          "destination": "REINA VICTORIA",
+          "deviation": 0,
+          "bus": 4753,
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -3.6942793396533498,
+              40.3969252744386
+            ]
+          },
+          "estimateArrive": 1057,
+          "DistanceBus": 2453,
+          "positionTypeBus": "0"
+        },
+        {
+          "line": "53",
+          "stop": "72",
+          "isHead": "False",
+          "destination": "ARTURO SORIA",
+          "deviation": 0,
+          "bus": 2149,
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -3.6789837535074628,
+              40.42498908244142
+            ]
+          },
+          "estimateArrive": 1141,
+          "DistanceBus": 3080,
+          "positionTypeBus": "0"
+        },
+        {
+          "line": "C03",
+          "stop": "72",
+          "isHead": "False",
+          "destination": "ARGÜELLES",
+          "deviation": 0,
+          "bus": 120,
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -3.7113717178811845,
+              40.40631233164031
+            ]
+          },
+          "estimateArrive": 1233,
+          "DistanceBus": 3137,
+          "positionTypeBus": "0"
+        },
+        {
+          "line": "5",
+          "stop": "72",
+          "isHead": "False",
+          "destination": "CHAMARTIN",
+          "deviation": 0,
+          "bus": 4852,
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -3.6899213659411467,
+              40.435176510168326
+            ]
+          },
+          "estimateArrive": 1281,
+          "DistanceBus": 3495,
+          "positionTypeBus": "0"
+        },
+        {
+          "line": "150",
+          "stop": "72",
+          "isHead": "False",
+          "destination": "VIRGEN CORTIJO",
+          "deviation": 0,
+          "bus": 2174,
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              -3.689142493914233,
+              40.44895584124532
+            ]
+          },
+          "estimateArrive": 1624,
+          "DistanceBus": 4877,
+          "positionTypeBus": "0"
+        }
+      ],
+      "StopInfo": [],
+      "ExtraInfo": [],
+      "Incident": {}
+    }
+  ]
+}

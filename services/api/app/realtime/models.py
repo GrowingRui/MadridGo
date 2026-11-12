@@ -111,7 +111,12 @@ class EmtArrival(BaseModel):
     destination: str | None
     seconds: int | None  # None: beyond the API's horizon (sent as 999999)
     vehicle_id: str | None
-    distance_m: int | None
+    distance_m: int | None  # metres along the route to the stop
+    # The bus's last GPS fix (`geometry`). EMT updates it mostly at stops (live check of
+    # 2026-11-12: 23 of 26 fixes within 60 m of a stop), so it says roughly where the bus
+    # last stopped. None when missing or implausible (EMT sometimes sends 0,0).
+    lat: float | None = None
+    lon: float | None = None
 
 
 class EmtArrivals(BaseModel):

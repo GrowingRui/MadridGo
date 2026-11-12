@@ -34,7 +34,7 @@ Legend: ✅ available and authorized · ⚠️ available with a serious defect �
 
 ### EMT Madrid
 - Authorized real-time arrival API after registration. [V]
-- Field-level semantics (prediction vs schedule flag, timestamps, vehicle positions, quota) **must be verified with a key** in Phase 3. [U] As of 2026-11-09 the application login is refused (403, code 84) because EMT has not yet approved the application, so this is still open; the adapter is ready.
+- Field-level semantics (prediction vs schedule flag, timestamps, vehicle positions, quota) **must be verified with a key** in Phase 3. [U] Verified 2026-11-12 after EMT approved the application: no prediction-vs-schedule flag and no observation timestamp (ages are measured from retrieval); each arrival has the bus's GPS point; quota 250,000 calls a day. See DATA_SOURCE_ANALYSIS.md §3.
 - The static GTFS is headway-based, so a delay ("+3 min") cannot be computed against an exact schedule. Show **predicted minutes** only, not delay. [I]
 
 ### Interurban and municipal urban buses (CRTM)

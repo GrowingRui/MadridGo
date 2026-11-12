@@ -159,6 +159,20 @@ def test_emt_arrivals_parse() -> None:
     assert data.server_time == datetime(2026, 11, 9, 19, 7, 44, 352933, tzinfo=MADRID)
 
 
+def test_emt_arrivals_parse_recorded_response() -> None:
+    """A real response (stop 72, 2026-11-12) has the shape of EMT's documented example."""
+    body = json.loads((FIXTURES / "emt_arrivals_recorded.json").read_text(encoding="utf-8"))
+    data = emt.parse_arrivals("72", body, NOW)
+    assert len(data.arrivals) == 16
+    first = data.arrivals[0]
+    assert (first.line, first.destination, first.seconds) == ("53", "ARTURO SORIA", 23)
+    assert (first.vehicle_id, first.distance_m) == ("2307", 72)
+    assert [a.seconds for a in data.arrivals] == sorted(a.seconds or 0 for a in data.arrivals)
+    assert {a.line for a in data.arrivals} == {"5", "14", "27", "37", "45", "53", "150", "C03"}
+    assert any(a.destination == "ARGÜELLES" for a in data.arrivals)
+    assert data.server_time == datetime(2026, 11, 12, 9, 18, 38, 391811, tzinfo=MADRID)
+
+
 def test_emt_error_code_is_not_data() -> None:
     with pytest.raises(emt.EmtError):
         emt.parse_arrivals("62", {"code": "90", "description": "bad stop", "data": []}, NOW)

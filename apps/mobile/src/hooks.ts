@@ -10,7 +10,9 @@ import {
 import { ApiError } from './api/client';
 import { t, useLanguage } from './i18n';
 import type { Leg } from './api/journeys';
+import { type BusPosition, getBusPosition } from './api/buses';
 import { type TripPosition, getTripPosition } from './api/trips';
+import { busKeepForward, busQuery } from './utils/busPosition';
 import { canTrack, keepForward } from './utils/trainPosition';
 
 export function useDebounced<T>(value: T, ms = 250): T {
@@ -162,4 +164,55 @@ export function useTripPosition(
     };
   }, [track, tripId, from]);
   return track && pos?.trip_id === tripId ? pos : null;
+}
+
+/**
+ * Live position of an EMT leg's bus, polled every ~20 s (the server's poll_after_s, the EMT
+ * cache's reuse time) while `track` and the app is in the foreground. The bus found by one
+ * answer is asked for by its id in the next, so it can be followed onto the leg once it has
+ * left your boarding stop. A failed poll keeps the last answer: it hides itself once too old.
+ */
+export function useBusPosition(leg: Leg | null, track: boolean): BusPosition | null {
+  // Answers are kept with the leg they belong to, so another leg never shows this bus.
+  const [answer, setAnswer] = useState<{ key: string; pos: BusPosition } | null>(null);
+  const vehicle = useRef<string | null>(null);
+  const key = leg ? `${leg.trip_id}|${leg.from_stop_id}|${leg.departure.scheduled}` : '';
+  useEffect(() => {
+    vehicle.current = null;
+    if (!track || !leg) return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = (s: number) => {
+      clearTimeout(timer);
+      timer = setTimeout(poll, s * 1000);
+    };
+    function poll() {
+      if (stopped || AppState.currentState !== 'active') return; // resumed when active
+      getBusPosition(busQuery(leg as Leg, vehicle.current))
+        .then((p) => {
+          if (stopped) return;
+          if (p.vehicle_id) vehicle.current = p.vehicle_id;
+          setAnswer((prev) => ({
+            key,
+            pos: busKeepForward(prev?.key === key ? prev.pos : null, p, Date.now()),
+          }));
+          schedule(p.poll_after_s || 20);
+        })
+        .catch(() => {
+          if (!stopped) schedule(20);
+        });
+    }
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') poll();
+    });
+    poll();
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      sub.remove();
+    };
+    // The leg object is replaced at every refresh of a saved trip; `key` is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track, key]);
+  return track && answer?.key === key ? answer.pos : null;
 }
