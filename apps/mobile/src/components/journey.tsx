@@ -91,7 +91,7 @@ export function JourneyTimeline({ journey }: { journey: Journey }) {
         return (
           <View key={i}>
             {leg.mode === 'walk' ? (
-              <WalkLeg leg={leg} />
+              <WalkLeg leg={leg} journeyId={journey.id} legIndex={i} />
             ) : (
               <TransitLeg leg={leg} journeyId={journey.id} legIndex={i} />
             )}
@@ -180,7 +180,17 @@ function ChangeBox({ journey, change }: { journey: Journey; change: Transfer }) 
             <Text style={styles.changeText}>{platforms}</Text>
           </View>
         ) : null}
-        {walk ? (
+        {walk && walkMappable(d.walkLegs.map((i) => journey.legs[i])) ? (
+          <Pressable
+            onPress={() => openWalk(journey.id, d.walkLegs)}
+            accessibilityRole="button"
+            accessibilityHint={t('walkMap.hint')}
+            style={({ pressed }) => [styles.changeLine, pressed && styles.pressed]}>
+            <ModeIcon mode="walk" size={16} />
+            <Text style={[styles.changeText, { flex: 1 }]}>{walk}</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.brand} />
+          </Pressable>
+        ) : walk ? (
           <View style={styles.changeLine}>
             <ModeIcon mode="walk" size={16} />
             <Text style={styles.changeText}>{walk}</Text>
@@ -202,24 +212,46 @@ function ChangeBox({ journey, change }: { journey: Journey; change: Transfer }) 
   );
 }
 
-function WalkLeg({ leg }: { leg: Leg }) {
+/** A walk's ends are known, so its map can be shown. */
+function walkMappable(legs: Leg[]): boolean {
+  return (
+    legs.length > 0 &&
+    legs.every((l) => l.from_lat != null && l.from_lon != null && l.to_lat != null && l.to_lon != null)
+  );
+}
+
+/** Opens the map of a walk (as SBB Mobile's walk row): the way to the stop, or onward. */
+function openWalk(journeyId: string, legs: number[]) {
+  router.push({ pathname: '/route-map', params: { id: journeyId, legs: legs.join(',') } });
+}
+
+function WalkLeg({ leg, journeyId, legIndex }: { leg: Leg; journeyId: string; legIndex: number }) {
   const { t } = useT();
+  const mappable = walkMappable([leg]);
   return (
     <View style={styles.walk}>
       <View style={styles.timeCol} />
       <View style={styles.track}>
         <View style={styles.walkLine} />
       </View>
-      <View style={styles.walkBody}>
+      <Pressable
+        onPress={mappable ? () => openWalk(journeyId, [legIndex]) : undefined}
+        disabled={!mappable}
+        accessibilityRole={mappable ? 'button' : undefined}
+        accessibilityHint={mappable ? t('walkMap.hint') : undefined}
+        style={({ pressed }) => [styles.walkBody, pressed && styles.pressed]}>
         <ModeIcon mode="walk" size={18} />
-        <Text style={styles.small}>
+        <Text style={[styles.small, { flex: 1 }]}>
           {t('journey.walk', {
             min: leg.duration_min,
             distance: leg.distance_m ? ` · ${Math.round(leg.distance_m / 10) * 10} m` : '',
             stop: leg.to,
           })}
         </Text>
-      </View>
+        {mappable ? (
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.brand} />
+        ) : null}
+      </Pressable>
     </View>
   );
 }

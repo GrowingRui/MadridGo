@@ -200,6 +200,9 @@ export const es: Record<MessageKey, string> = {
   'share.sentBy': 'Enviado desde MadridGo',
   'conn.notOffered':
     'El planificador ya no ofrece esta conexión. Estas horas son de las {time} y pueden haber cambiado.',
+  'walkMap.title': 'A pie: {distance} m',
+  'walkMap.titleShort': 'A pie',
+  'walkMap.hint': 'Muestra el camino en un mapa',
   'routeMap.title': 'Recorrido',
   'liveMap.title': 'Mapa en directo',
   'liveMap.open': 'Mapa en directo',
