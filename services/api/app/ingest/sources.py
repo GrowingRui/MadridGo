@@ -4,6 +4,10 @@ from dataclasses import dataclass
 
 ARCGIS_ITEM = "https://www.arcgis.com/sharing/rest/content/items/{item}/data"
 CRTM_LICENCE = "https://www.crtm.es/licencia-de-uso"
+# Renfe's own Cercanías GTFS (all of Spain's networks, CC BY 4.0). Renfe publishes it
+# before CRTM republishes the Madrid part, so it is the source for Madrid Cercanías.
+RENFE_CERCANIAS_URL = "https://ssl.renfe.com/ftransit/Fichero_CER_FOMENTO/fomento_transit.zip"
+RENFE_CERCANIAS_LICENCE = "https://data.renfe.com/dataset/horarios-cercanias"
 
 
 @dataclass(frozen=True)
@@ -20,6 +24,9 @@ class GtfsSource:
     id_namespace: str
     # Warn this many days before the calendar ends.
     expiry_warning_days: int = 14
+    # Keep only routes whose route_id starts with this (and the trips, stops, calendars and
+    # shapes they use). For feeds covering more than Madrid.
+    route_prefix: str | None = None
 
 
 def _crtm(
@@ -42,14 +49,19 @@ def _crtm(
 GTFS_SOURCES: tuple[GtfsSource, ...] = (
     _crtm("metro", "Metro de Madrid", "metro", "5c7f2951962540d69ffe8f640d94c246"),
     _crtm("ml", "Metro Ligero", "light_rail", "aaed26cc0ff64b0c947ac0bc3e033196"),
-    # Cercanías is published by Renfe (Renfe stop IDs) with about one month of validity.
-    _crtm(
-        "cercanias",
-        "Renfe Cercanías",
-        "rail",
-        "1a25440bf66f499bae2657ec7fb40144",
-        namespace="renfe",
-        warn=7,
+    # Cercanías: Renfe's national feed cut down to the Madrid network (route IDs "10…"),
+    # about one month of validity. CRTM's copy (item 1a25440bf66f499bae2657ec7fb40144) is
+    # the same data with the same IDs, but republished later.
+    GtfsSource(
+        key="cercanias",
+        operator_name="Renfe Cercanías",
+        mode="rail",
+        url=RENFE_CERCANIAS_URL,
+        licence_url=RENFE_CERCANIAS_LICENCE,
+        attribution="Renfe open data (CC BY 4.0)",
+        id_namespace="renfe",
+        expiry_warning_days=7,
+        route_prefix="10",
     ),
     _crtm("interurban", "CRTM Autobuses interurbanos", "bus", "885399f83408473c8d815e40c5e702b7"),
     _crtm("urban", "CRTM Autobuses urbanos", "bus", "357e63c2904f43aeb5d8a267a64346d8"),
