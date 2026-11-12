@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     otp_url: str = "http://127.0.0.1:8080"
     otp_timeout_s: float = 9.0
 
+    # --- Address and place search (Phase 5) ---
+    # CartoCiudad geocoder (Instituto Geografico Nacional) base URL. Empty: address search
+    # answers 503 (stops can still be searched).
+    places_url: str = "https://www.cartociudad.es/geocoder/api/geocoder"
+    places_timeout_s: float = 3.0
+
     # --- Real-time (Phase 3) ---
     # EMT MobilityLabs application credentials. Read from EMT_CLIENT_ID / EMT_PASS_KEY as
     # written in .env.example. Empty: EMT live data is reported as not configured.

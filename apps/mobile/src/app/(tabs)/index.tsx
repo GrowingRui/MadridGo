@@ -31,7 +31,7 @@ export default function PlanScreen() {
   const isWide = useIsWide();
   const { t } = useT();
   const form = usePlanForm();
-  const { editing, text, edit, close, choose, chooseHere, other } = form;
+  const { editing, text, edit, close, choose, chooseHere, choosePlace, other } = form;
   const ready = !!from && !!to;
 
   // App: once both ends are chosen (typed, tiles, saved stops…), open the Connections screen.
@@ -93,6 +93,7 @@ export default function PlanScreen() {
                 text={text}
                 onPick={choose}
                 onHere={chooseHere}
+                onPlace={choosePlace}
                 exclude={other}
                 dropdown
               />
@@ -121,7 +122,13 @@ export default function PlanScreen() {
         </View>
       ) : editing && !isWide ? (
         // App: suggestions replace the content under the header while typing.
-        <StopSuggestions text={text} onPick={choose} onHere={chooseHere} exclude={other} />
+        <StopSuggestions
+          text={text}
+          onPick={choose}
+          onHere={chooseHere}
+          onPlace={choosePlace}
+          exclude={other}
+        />
       ) : ready && isWide ? (
         // Keyed so "Earlier/Later" and the selection reset when the search changes.
         <ConnectionList

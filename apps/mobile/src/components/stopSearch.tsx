@@ -1,12 +1,15 @@
 // Stop suggestions for a search text, laid out like a timetable app's search list: "Current
 // location" first, then starred stops, then recent ones (clock, empty star to save), and once
 // two letters are typed, matches from /stops/search. Every stop row has a star to save or remove
-// it. Used under the planner (in place), in the website's dropdown and in the departures picker.
+// it. With `onPlace`, from three letters it also lists addresses and places (/places/search) under
+// the stops. Used under the planner (in place), in the website's dropdown and in the departures
+// picker.
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Fragment, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { PLACE_MIN_CHARS, type PlaceResult, placeIcon, searchPlaces } from '../api/places';
 import { type StopSummary, nearbyStops, searchStops } from '../api/stops';
 import { useAsync, useDebounced } from '../hooks';
 import { t, useT } from '../i18n';
@@ -34,9 +37,12 @@ export function StopSuggestions({
   onHere,
   exclude,
   dropdown,
+  onPlace,
 }: {
   text: string;
   onPick: (s: SavedStop) => void;
+  /** Also searches addresses and places (from 3 letters), listed after the stops. */
+  onPlace?: (p: PlaceResult) => void;
   /** Shows "Current location" first; called with the traveller's position once found. */
   onHere?: (p: Point) => void;
   /** A stop not to suggest (the other end of the journey). */
@@ -48,6 +54,10 @@ export function StopSuggestions({
   const q = useDebounced(text.trim(), 250);
   const saved = useSaved();
   const results = useAsync(q.length >= 2 ? () => searchStops(q) : null, q);
+  const places = useAsync(
+    onPlace && q.length >= PLACE_MIN_CHARS ? () => searchPlaces(q) : null,
+    onPlace ? q : '',
+  );
   const Group = dropdown ? DropdownGroup : SpacedCard;
 
   const rows = (
@@ -107,30 +117,95 @@ export function StopSuggestions({
       </>
     );
   }
-  if (results.loading && !results.data) return <Loading label={t('search.searching')} />;
-  if (results.error) return <ErrorState message={results.error} onRetry={results.reload} />;
+  const askPlaces = !!onPlace && q.length >= PLACE_MIN_CHARS;
+  const placesDone = !askPlaces || !!places.data || !!places.error;
+  if (results.loading && !results.data && (!askPlaces || !places.data)) {
+    return <Loading label={t('search.searching')} />;
+  }
   const found = (results.data ?? []).filter((s) => s.id !== exclude);
-  if (!found.length) {
+  const foundPlaces = askPlaces ? (places.data ?? []) : [];
+  if (results.error && !foundPlaces.length && placesDone) {
+    return <ErrorState message={results.error} onRetry={results.reload} />;
+  }
+  if (!found.length && !foundPlaces.length && placesDone && !results.loading) {
+    // Only the stops answered when the address search is down: say so with the "no match".
+    const noun = onPlace ? 'search.noMatchAny' : 'search.noMatch';
     return dropdown ? (
-      <Text style={styles.hint}>{t('search.noMatch', { q })}.</Text>
+      <>
+        <Text style={styles.hint}>{t(noun, { q })}.</Text>
+        {places.error ? <Text style={styles.hint}>{t('search.placesUnavailable')}</Text> : null}
+      </>
     ) : (
       <EmptyState
         icon="map-marker-question-outline"
-        title={t('search.noMatch', { q })}
-        body={t('search.noMatchBody')}
+        title={t(noun, { q })}
+        body={
+          places.error
+            ? t('search.placesUnavailable')
+            : t(onPlace ? 'search.noMatchAnyBody' : 'search.noMatchBody')
+        }
       />
     );
   }
   const byId = new Map(found.map((s) => [s.id, s]));
+  const titled = askPlaces; // two groups: name them
   return (
-    <Group first>
-      {rows(found.map(toSaved), {
-        detail: (s) => {
-          const full = byId.get(s.id);
-          return full ? detail(full) : null;
-        },
-      })}
-    </Group>
+    <>
+      {found.length ? (
+        <>
+          {titled ? <GroupTitle dropdown={dropdown} text={t('search.stops')} /> : null}
+          <Group first={!titled}>
+            {rows(found.map(toSaved), {
+              detail: (s) => {
+                const full = byId.get(s.id);
+                return full ? detail(full) : null;
+              },
+            })}
+          </Group>
+        </>
+      ) : null}
+      {askPlaces && onPlace ? (
+        <>
+          <GroupTitle dropdown={dropdown} text={t('search.places')} />
+          {foundPlaces.length ? (
+            <Group first>
+              {foundPlaces.map((p, i) => (
+                <View key={p.id}>
+                  {i > 0 ? <Divider inset={56} /> : null}
+                  <StopRow
+                    name={p.name}
+                    modes={[]}
+                    lines={[]}
+                    icon={placeIcon(p.kind)}
+                    detail={p.detail}
+                    onPress={() => onPlace(p)}
+                  />
+                </View>
+              ))}
+            </Group>
+          ) : null}
+          {!placesDone ? (
+            <Text style={styles.hint}>{t('search.placesSearching')}</Text>
+          ) : places.error ? (
+            <Text style={styles.hint}>{t('search.placesUnavailable')}</Text>
+          ) : !foundPlaces.length ? (
+            <Text style={styles.hint}>{t('search.noPlaces', { q })}</Text>
+          ) : (
+            <Text style={styles.credit}>{t('search.placesCredit')}</Text>
+          )}
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function GroupTitle({ text, dropdown }: { text: string; dropdown?: boolean }) {
+  return dropdown ? (
+    <Text style={styles.dropdownTitle} accessibilityRole="header">
+      {text}
+    </Text>
+  ) : (
+    <SectionTitle>{text}</SectionTitle>
   );
 }
 
@@ -187,13 +262,17 @@ export function CurrentLocationRow({ onFound }: { onFound: (p: Point) => void })
   );
 }
 
-/** Stops within 600 m of a point, nearest first, each with its distance and a star. */
+/** Stops within 600 m of a point (you, or an address), nearest first, each with its distance
+ * and a star. */
 export function NearbyStops({
   point,
+  title,
   onPick,
   onHere,
 }: {
   point: Point;
+  /** "Stops near Calle Mayor 5"; default "Stops near you". */
+  title?: string;
   onPick: (s: SavedStop) => void;
   /** "Current location" again, to look from a new position. */
   onHere: (p: Point) => void;
@@ -207,7 +286,7 @@ export function NearbyStops({
       <SpacedCard first>
         <CurrentLocationRow onFound={onHere} />
       </SpacedCard>
-      <SectionTitle>{t('nearby.title')}</SectionTitle>
+      <SectionTitle>{title ?? t('nearby.title')}</SectionTitle>
       {near.error ? (
         <ErrorState message={near.error} onRetry={near.reload} />
       ) : !near.data ? (
@@ -256,6 +335,22 @@ function DropdownGroup({ children, first }: { children: React.ReactNode; first?:
 
 const styles = themed(() => StyleSheet.create({
   hint: { ...type.small, color: colors.textMuted, padding: space.lg },
+  credit: {
+    ...type.small,
+    color: colors.textFaint,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+    textAlign: 'right',
+  },
+  dropdownTitle: {
+    ...type.small,
+    fontWeight: '600',
+    color: colors.textMuted,
+    paddingHorizontal: space.lg,
+    paddingTop: space.md,
+    paddingBottom: space.xs,
+    backgroundColor: colors.bg,
+  },
   dropdownGap: { height: space.sm, backgroundColor: colors.bg },
   here: {
     flexDirection: 'row',

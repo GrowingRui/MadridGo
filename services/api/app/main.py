@@ -9,7 +9,7 @@ import asyncpg
 from fastapi import Depends, FastAPI, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import __version__, buses, disruptions, journeys, stops, trips
+from app import __version__, buses, disruptions, journeys, places, stops, trips
 from app.config import Settings, get_settings
 from app.dbpool import close_pool, get_pool
 from app.feeds import FeedStatus, feed_statuses
@@ -36,6 +36,7 @@ def create_app() -> FastAPI:
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
         await close_otp()
+        await places.close_geocoder()
         await close_realtime()
         await close_kv()
         await close_pool()
@@ -77,6 +78,7 @@ def create_app() -> FastAPI:
     app.include_router(trips.router)
     app.include_router(buses.router)
     app.include_router(disruptions.router)
+    app.include_router(places.router)
     return app
 
 

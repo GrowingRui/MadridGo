@@ -11,7 +11,7 @@ import { type Journey, planJourneys, type SortOption } from '../api/journeys';
 import { useAsync, useIsWide, useNow, type PressState } from '../hooks';
 import { useT } from '../i18n';
 import { journeyCache } from '../state/journeys';
-import { type Place, placeKey } from '../state/planner';
+import { type Place, placeKey, planPlace } from '../state/planner';
 import { colors, space, themed, type } from '../theme';
 import { formatDay, formatTime } from '../utils/time';
 import { ConnectionActions, ConnectionHeader } from './connection';
@@ -172,9 +172,6 @@ export function ConnectionList({
   );
 }
 
-/** A stop id, or the point for "Current location". */
-const planPlace = (p: Place) =>
-  p.lat != null && p.lon != null ? { lat: p.lat, lon: p.lon } : p.id;
 
 function PageLink({
   label,

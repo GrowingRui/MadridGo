@@ -9,7 +9,7 @@ import { useEffect, useSyncExternalStore } from 'react';
 
 import { type Journey, type LegTime, planJourneys, shownTime } from '../api/journeys';
 import { useNow } from '../hooks';
-import type { Place } from './planner';
+import { type Place, planPlace } from './planner';
 
 export interface SavedConnection {
   journey: Journey;
@@ -119,9 +119,6 @@ export function removeConnection(id: string) {
   persist(list.filter((c) => c.journey.id !== id));
 }
 
-/** A stop id, or the point for "Current location". */
-const planPlace = (p: Place) =>
-  p.lat != null && p.lon != null ? { lat: p.lat, lon: p.lon } : p.id;
 
 /**
  * Asks the planner for the same connection again (same trains, same stops: the same id) to get

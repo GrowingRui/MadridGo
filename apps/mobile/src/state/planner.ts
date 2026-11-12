@@ -7,13 +7,25 @@ import type { SortOption } from '../api/journeys';
 export interface Place {
   id: string;
   name: string;
-  /** Set for "Current location": the journey starts or ends at this point, not at a stop. */
+  /**
+   * Set for "Current location" and for addresses and places from the address search: the
+   * journey starts or ends at this point, not at a stop.
+   */
   lat?: number;
   lon?: number;
 }
 
 /** Id of the "Current location" place (never a real stop id). */
 export const HERE_ID = 'here';
+
+/**
+ * What the planner API gets for a place: its stop id, or its point, with the name for an
+ * address (the API names "Current location" itself, in the app's language).
+ */
+export function planPlace(p: Place): string | { lat: number; lon: number; name?: string } {
+  if (p.lat == null || p.lon == null) return p.id;
+  return p.id === HERE_ID ? { lat: p.lat, lon: p.lon } : { lat: p.lat, lon: p.lon, name: p.name };
+}
 
 /** What the planner sends for a place: its stop id, or its point for "Current location". */
 export function placeKey(p: Place): string {

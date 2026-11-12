@@ -45,6 +45,12 @@ const SOURCES: { credit: string | MessageKey; what: MessageKey; url: string; lic
     url: 'https://www.openstreetmap.org',
     licence: 'https://www.openstreetmap.org/copyright',
   },
+  {
+    credit: 'CartoCiudad © Instituto Geográfico Nacional',
+    what: 'about.src.cartociudad',
+    url: 'https://www.cartociudad.es',
+    licence: 'https://creativecommons.org/licenses/by/4.0/',
+  },
   { credit: 'OpenFreeMap', what: 'about.src.openfreemap', url: 'https://openfreemap.org' },
   { credit: 'MapLibre', what: 'about.src.maplibre', url: 'https://maplibre.org' },
   { credit: 'OpenTripPlanner', what: 'about.src.otp', url: 'https://www.opentripplanner.org' },

@@ -1,9 +1,10 @@
 // The From/To form's behaviour, shared by the Plan home and the Connections screen: which field
-// is being typed into, choosing a stop or "Current location", and the date/time and options
+// is being typed into, choosing a stop, an address or "Current location", and the date/time and options
 // sheets opened from the row under the fields.
 
 import { useState } from 'react';
 
+import { type PlaceResult, placeFromResult } from '../api/places';
 import { useT } from '../i18n';
 import {
   DEFAULT_SORT,
@@ -49,6 +50,8 @@ export function usePlanForm() {
     setPlace({ id: s.id, name: s.name });
   };
   const chooseHere = (p: Point) => setPlace({ id: HERE_ID, name: t('here.title'), ...p });
+  // An address or place: the journey starts or ends at its point, under its name.
+  const choosePlace = (r: PlaceResult) => setPlace(placeFromResult(r));
 
   const whenBar = (
     <WhenBar
@@ -90,6 +93,7 @@ export function usePlanForm() {
     close,
     choose,
     chooseHere,
+    choosePlace,
     /** The stop at the other end, not to be suggested for the field being edited. */
     other: editing === 'from' ? to?.id : from?.id,
     /** Props for PlannerCard, except the footer. */

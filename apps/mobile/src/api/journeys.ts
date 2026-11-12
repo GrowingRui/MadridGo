@@ -109,8 +109,8 @@ export interface JourneyPlan {
   message: string | null;
 }
 
-/** A stop id, or a point (the traveller's current location). */
-export type PlanPlace = string | { lat: number; lon: number };
+/** A stop id, or a point (the traveller's current location, or an address with its name). */
+export type PlanPlace = string | { lat: number; lon: number; name?: string };
 
 export interface PlanParams {
   from: PlanPlace;
@@ -126,7 +126,11 @@ const PLAN_TIMEOUT_MS = 15_000;
 
 function placeParams(end: 'from' | 'to', p: PlanPlace) {
   if (typeof p === 'string') return { [end]: p };
-  return { [`${end}_lat`]: p.lat.toFixed(5), [`${end}_lon`]: p.lon.toFixed(5) };
+  return {
+    [`${end}_lat`]: p.lat.toFixed(5),
+    [`${end}_lon`]: p.lon.toFixed(5),
+    [`${end}_name`]: p.name ? p.name.slice(0, 120) : undefined,
+  };
 }
 
 export function planJourneys(p: PlanParams, fetchImpl: typeof fetch = fetch): Promise<JourneyPlan> {

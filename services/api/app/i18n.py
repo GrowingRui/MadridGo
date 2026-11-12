@@ -165,6 +165,10 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "Your location",
         "es": "Tu ubicación",
     },
+    "places.unavailable": {
+        "en": "Address search is unavailable right now. Stops can still be searched.",
+        "es": "La búsqueda de direcciones no funciona ahora. Las paradas sí se pueden buscar.",
+    },
     "issue.change": {
         "en": "Change at {stop}: {message}",
         "es": "Transbordo en {stop}: {message}",
