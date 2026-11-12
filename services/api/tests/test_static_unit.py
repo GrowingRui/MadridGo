@@ -7,6 +7,7 @@ import pytest
 from app.feeds import expiry_state
 from app.ingest.__main__ import flatten
 from app.ingest.gtfs import GtfsZip, color, fold, parse_time
+from app.ingest.subset import subset
 from app.ingest.validate import summarise_report
 from app.timetable import (
     MADRID,
@@ -132,3 +133,25 @@ def test_summarise_validator_report(tmp_path: Path) -> None:
     assert (s.status, s.errors, s.warnings) == ("errors", 13, 5)
     assert s.top_errors == ["b_error x10", "a_error x3"]
     assert summarise_report({"notices": []}, tmp_path).status == "valid"
+
+
+def test_subset_keeps_one_network(tmp_path: Path) -> None:
+    # Renfe-style padding in headers and values must be trimmed.
+    padded_routes = (
+        "route_id  ,agency_id,route_short_name,route_long_name   ,route_type,route_color\n"
+        "T1   ,A,T1,Testville - Norte        ,2,ff0000\n"
+        "F2,A,F2,Prueba - Norte,3,00AA00\n"
+    )
+    src = gtfs_fixture.build(tmp_path / "all.zip", overrides={"routes.txt": padded_routes})
+    counts = subset(src, tmp_path / "t.zip", "T")
+    assert counts["routes"] == 1
+    assert counts["trips"] == 2
+    assert counts["stop_times"] == 4
+    assert "frequencies" not in counts or counts["frequencies"] == 0
+    with GtfsZip(tmp_path / "t.zip") as feed:
+        assert feed.prefix == ""
+        assert [r["route_long_name"] for r in feed.rows("routes")] == ["Testville - Norte"]
+        assert {r["stop_id"] for r in feed.rows("stops")} == {"par_99_1", "par_99_3"}
+        assert [r["service_id"] for r in feed.rows("calendar")] == ["ALL"]
+        assert len(list(feed.rows("feed_info"))) == 2
+        assert [r["agency_id"] for r in feed.rows("agency")] == ["A"]  # routes name no agency

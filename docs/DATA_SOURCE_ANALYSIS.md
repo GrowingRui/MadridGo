@@ -14,7 +14,7 @@ Legend: **[V]** verified (official source or our own inspection), **[I]** infere
 | 3 | EMT GTFS (datos.emtmadrid.es) | Static GTFS | EMT | None | EMT terms | No | Yes |
 | 4 | EMT incidents RSS | RSS | EMT | None | EMT terms | Near-real-time alerts | Yes |
 | 5 | Renfe GTFS-RT (gtfsrt.renfe.com) | GTFS-RT protobuf and JSON | Cercanías (all networks, including Madrid) | None | CC BY 4.0 (verified for alerts) | **Yes**: TripUpdates, VehiclePositions, Alerts | **Yes** |
-| 6 | Renfe static GTFS (data.renfe.com) | Static GTFS | Cercanías | None | data.renfe.com licence page | No | Yes |
+| 6 | Renfe static GTFS (data.renfe.com, [horarios-cercanias](https://data.renfe.com/dataset/horarios-cercanias)) | Static GTFS | Cercanías (all of Spain's networks) | None | CC BY 4.0 [V] | No | **Yes, used for Madrid Cercanías since 2026-11-12** |
 | 7 | CRTM widget API (crtm.es/widgets/api) | Undocumented JSON | All modes | None | **None covers it** | Partial, unlabelled | **No**, pending CRTM permission |
 | 8 | CRTM feed to Google Maps | Unknown (probably GTFS-RT) | Urban and interurban buses | Unknown | Unknown | Yes | **Unknown**: must request |
 | 9 | Metro de Madrid real-time | None public | Metro | – | – | Not public | **No** public source found |
@@ -42,10 +42,12 @@ Licence for every item inspected: **https://www.crtm.es/licencia-de-uso** [V]. K
 |---|---|---|---|---|---|---|---|---|
 | Metro | `5c7f2951962540d69ffe8f640d94c246` | 1.5 MB | 20250527 | **2025-05-27 → 2026-05-27 (EXPIRED)** | 13 | 1 050 | 120 | Frequency-based (790 `frequencies.txt` rows, `exact_times` empty) |
 | Metro Ligero | `aaed26cc0ff64b0c947ac0bc3e033196` | 0.4 MB | 20261028 | 2026-10-28 → 2027-10-28 | 4 | 96 | 2 720 | Explicit stop_times |
-| Cercanías | `1a25440bf66f499bae2657ec7fb40144` | 3.8 MB | – | 2026-10-30 → **2026-11-28** | 38 | 95 | 35 969 | Renfe-published (agency `1071VC`); IDs match Renfe GTFS-RT. Only one month of validity |
+| Cercanías | `1a25440bf66f499bae2657ec7fb40144` | 3.8 MB | – | 2026-10-30 → **2026-11-28** | 38 | 95 | 35 969 | Renfe-published (agency `1071VC`); IDs match Renfe GTFS-RT. Only one month of validity. **No longer used since 2026-11-12:** MadridGo reads Renfe's own feed (source 6), see below |
 | Interurban | `885399f83408473c8d815e40c5e702b7` | 76 MB | 20261027 | 2026-10-27 → 2027-11-28 | 354 | 8 408 | 58 470 | Description says **"(Datos parciales)"** |
 | Urban (municipal) | `357e63c2904f43aeb5d8a267a64346d8` | 9.8 MB | 20261027 | 2026-10-27 → 2027-11-28 | 117 | 8 408 | 18 345 | Shares stops file with interurban |
 | EMT | `868df0e58fca47e79b942902dffd7da0` | 21 MB | – | 2026-10-30 → 2026-12-31 | 238 | 4 935 | 86 843 | **Fully frequency-based** (86 843 frequency rows, no `exact_times`) |
+
+**Cercanías source change (2026-11-12).** CRTM's Cercanías copy was still the 2026-10-30 → 2026-11-28 file on 2026-11-12, while Renfe had published a new national file that day (`https://ssl.renfe.com/ftransit/Fichero_CER_FOMENTO/fomento_transit.zip`, 15.8 MB, 276 routes, CC BY 4.0). CRTM's file is that file cut down to Madrid: same agency `1071VC`, stop IDs, names, positions and route IDs; 20 086 trip IDs in common with the old file. MadridGo now downloads Renfe's file and keeps routes whose `route_id` starts with `10` (Madrid network) and the trips, stops, calendars and shapes they use (`app/ingest/subset.py`; `route_prefix` in `sources.py`); Renfe pads headers and values with spaces, which the subset step trims. Result: 41 routes (3 new variants: `10T0035C5`, `10T0037C2`, `10T0097C8b`), 95 stops (new: `70005` Vallecas), 36 600 trips, calendar 2026-11-12 → **2026-12-11**; validator 0 errors. All 104–109 live Madrid trip updates matched its trip IDs. Renfe's `routes.txt` has no `agency_id`, so the subset keeps every agency row. OTP logs "trip times within block are not increasing" for some C2/C8 `block_id`s, as with the old file (no effect on routing).
 
 ### 2.2 Quality findings that matter for reliability
 1. **The Metro GTFS has expired.** Its calendar ended 2026-05-27. A routing engine fed this file will find **no Metro service today**. Metro is the backbone of Madrid's network, so this is a **blocking issue for journey planning**. [V] Options: (a) check whether a newer Metro feed exists elsewhere, such as the NAP or Mobility Database mirrors [U]; (b) contact CRTM; (c) as a labelled last resort, extend the calendar locally and mark Metro times as "frequency estimate, source calendar expired". This would need explicit product approval.

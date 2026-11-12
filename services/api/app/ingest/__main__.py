@@ -27,6 +27,7 @@ from app.ingest.download import download
 from app.ingest.gtfs import GtfsZip
 from app.ingest.importer import delete_version, import_feed
 from app.ingest.sources import GTFS_SOURCES, OSM_MADRID_URL, SOURCES_BY_KEY, GtfsSource
+from app.ingest.subset import subset
 from app.ingest.validate import validate
 
 log = logging.getLogger("ingest")
@@ -87,7 +88,13 @@ async def update_source(
         return True
     flat_dir = root / "gtfs" / "flat"
     flat_dir.mkdir(parents=True, exist_ok=True)
-    flat = flatten(dl.path, flat_dir / f"{source.key}-{dl.sha256[:12]}.zip")
+    flat_path = flat_dir / f"{source.key}-{dl.sha256[:12]}.zip"
+    if source.route_prefix:
+        kept = subset(dl.path, flat_path, source.route_prefix)
+        print(f"[{source.key}] kept routes {source.route_prefix}*: {kept}")
+        flat = flat_path
+    else:
+        flat = flatten(dl.path, flat_path)
 
     summary = None
     if not skip_validate:

@@ -11,10 +11,10 @@
 | R5 | No Metro / Metro Ligero real-time | H | M | No public source found | Frequency-based display; revisit when CRTM responds |
 | R6 | EMT and Metro GTFS are headway-based, so "scheduled time" is only an estimate and delays cannot be computed | H | M | `frequencies.txt` without `exact_times` | UI shows "every N min"; EMT shows predictions only |
 | R7 | EMT API semantics and quotas unknown | M | M | Terms list no numeric limits | Verify with a key in Phase 3; shared cache; request coalescing |
-| R8 | Renfe RT trip_id ↔ CRTM Cercanías static trip_id mismatch | M | H | Not yet tested | Phase 2 test; fall back to Renfe's own static GTFS (`mdb-2653`) if needed |
+| R8 | Renfe RT trip_id ↔ Cercanías static trip_id mismatch | M | H | Verified: 100 % match (Phase 2 with CRTM's copy; 2026-11-12 with Renfe's own feed) | Static Cercanías now comes from Renfe's own GTFS, the same source as the RT feed |
 | R9 | Renfe TripUpdates mostly carry a single stop update, so downstream times are propagated estimates | H | M | Observed 73 of 81 Madrid TUs with one STU | Label "estimated from current delay"; measure accuracy |
 | R10 | Interurban GTFS marked "Datos parciales" | M | M | Dataset description | Track missing lines; show "timetable may be incomplete" where known |
-| R11 | Short Cercanías GTFS validity (about 1 month) | H | M | Calendar 2026-10-30 → 2026-11-28 | Weekly automated refresh plus expiry alarm |
+| R11 | Short Cercanías GTFS validity (about 1 month) | H | M | CRTM's copy lagged (still ended 2026-11-28 on 2026-11-12); Renfe's own feed ran to 2026-12-11 | Read Renfe's feed directly (since 2026-11-12); weekly automated refresh plus expiry alarm (warns 7 days ahead) |
 | R12 | OTP memory and CPU higher than budgeted | M | M | OTP docs: < 1 GB to > 100 GB | Measure in Phase 2; restrict OSM extract to the Community of Madrid |
 | R13 | OpenFreeMap has no SLA | M | L | Free community service | Self-host PMTiles before public launch |
 | R14 | Upstream licence or terms change (CRTM, EMT may modify at any time) | M | M | Both terms allow unilateral modification | Quarterly licence review; attribution centralised; source flag allows quick disable |
