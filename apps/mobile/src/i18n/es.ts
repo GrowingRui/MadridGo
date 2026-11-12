@@ -146,6 +146,8 @@ export const es: Record<MessageKey, string> = {
 
   // Journey
   'conn.title': 'Conexión',
+  'conns.title': 'Conexiones',
+  'conns.choose': 'Elige desde dónde sales y adónde vas.',
   'conn.summary': '{day}, {duration}',
   'conn.save': 'Guardar esta conexión',
   'conn.unsave': 'Quitar esta conexión de guardadas',

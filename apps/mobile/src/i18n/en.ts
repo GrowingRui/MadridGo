@@ -146,6 +146,8 @@ export const en = {
   // Journey
   'journey.title': 'Journey',
   'conn.title': 'Connection',
+  'conns.title': 'Connections',
+  'conns.choose': 'Choose where you start and where you are going.',
   'conn.summary': '{day}, {duration}',
   'conn.save': 'Save this connection',
   'conn.unsave': 'Remove this saved connection',
