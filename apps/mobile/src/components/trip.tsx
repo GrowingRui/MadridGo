@@ -1,13 +1,17 @@
 // The whole route of a journey leg's vehicle, from its origin to its terminus (like SBB's trip
-// view): your section is drawn in the line colour, the rest faded, and for Cercanías the
-// train's point moves along the line (same rules as on the journey: utils/trainPosition.ts).
+// view): your section is drawn in the line colour, the rest faded, and the point of a
+// Cercanías train (utils/trainPosition.ts) or an EMT bus (utils/busPosition.ts) moves along
+// the line, with the same rules as on the journey.
 
 import { useState } from 'react';
 import { type LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 
+import type { BusPosition } from '../api/buses';
+import type { Leg } from '../api/journeys';
 import type { TripDetails, TripPosition, TripStopTime } from '../api/trips';
 import { t, useT } from '../i18n';
 import { colors, space, themed, type } from '../theme';
+import { busSourceText, busText, isBusShown, placeBusOnTrip } from '../utils/busPosition';
 import { formatTime } from '../utils/time';
 import { placeOnTrip, positionAgeS, ridingText, sourceText, trackY } from '../utils/trainPosition';
 import { TrainDot } from './journey';
@@ -21,11 +25,16 @@ const NODE_TOP = 10;
 export function TripStatus({
   trip,
   pos,
+  bus,
+  leg,
   now,
   tracked,
 }: {
   trip: TripDetails;
   pos: TripPosition | null;
+  /** The EMT bus of `leg`, when the trip is a bus's. */
+  bus?: BusPosition | null;
+  leg?: Leg | null;
   now: number;
   tracked: boolean;
 }) {
@@ -39,6 +48,11 @@ export function TripStatus({
     detail = sourceText(pos, positionAgeS(pos, now));
   } else if (pos?.status === 'unavailable' && pos.message) {
     detail = pos.message;
+  } else if (bus && leg && isBusShown(bus, now)) {
+    main = busText(bus, leg, now);
+    detail = busSourceText(bus, now, false);
+  } else if (bus?.status === 'unavailable' && bus.message) {
+    detail = bus.message;
   } else if (!tracked) {
     detail = t('trip.notTracked');
   }
@@ -60,11 +74,15 @@ export function TripRoute({
   trip,
   color,
   pos,
+  bus,
+  leg,
   now,
 }: {
   trip: TripDetails;
   color: string;
   pos: TripPosition | null;
+  bus?: BusPosition | null;
+  leg?: Leg | null;
   now: number;
 }) {
   const { t } = useT();
@@ -80,7 +98,11 @@ export function TripRoute({
   const alight = trip.alight_index ?? last;
   const inSection = (a: number, b: number) => a >= board && b <= alight;
 
-  const placed = pos ? placeOnTrip(pos, now) : null;
+  const placed = pos
+    ? placeOnTrip(pos, now)
+    : bus && leg
+      ? placeBusOnTrip(bus, leg, trip, now)
+      : null;
   const dotY = placed
     ? trackY(
         stops.map((_, i) => ys[i]),

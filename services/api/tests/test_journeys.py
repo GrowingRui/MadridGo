@@ -716,6 +716,119 @@ def test_emt_leg_boards_the_first_live_bus_you_can_reach(setup: Callable[..., Te
     assert emt_status["status"] == "live"
 
 
+def _bus_only_candidates(
+    minutes: list[int], search: str, walk_first: bool = False
+) -> dict[str, Any]:
+    """OTP's answer for a frequency line: the same S10 ride offered once a minute. With
+    `walk_first`, a 2-min walk to the stop at the search time, then OTP's wait."""
+    body = load("sol_bernabeu")
+    pc = body["data"]["planConnection"]
+    template = pc["edges"][1]["node"]
+    bus = template["legs"][3]
+    start = datetime.fromisoformat(search)
+    walk = {
+        **template["legs"][0],
+        "to": bus["from"],
+        "start": {"scheduledTime": start.isoformat(), "estimated": None},
+        "end": {"scheduledTime": (start + timedelta(minutes=2)).isoformat(), "estimated": None},
+    }
+
+    def shift(value: Any, m: int) -> Any:
+        if isinstance(value, dict):
+            return {k: shift(v, m) for k, v in value.items()}
+        if isinstance(value, list):
+            return [shift(v, m) for v in value]
+        if isinstance(value, str) and value.startswith("2026-11-09T"):
+            return (datetime.fromisoformat(value) + timedelta(minutes=m)).isoformat()
+        return value
+
+    edges = []
+    for m in minutes:
+        leg = shift(bus, m)
+        legs = [walk, leg] if walk_first else [leg]
+        node = {**template, "legs": legs, "start": legs[0]["start"]["scheduledTime"]}
+        node["end"] = leg["end"]["scheduledTime"]
+        edges.append({"node": node})
+    pc["edges"], pc["searchDateTime"] = edges, search
+    pc["pageInfo"] = {**(pc.get("pageInfo") or {}), "hasNextPage": True, "endCursor": "x"}
+    return body
+
+
+def test_emt_frequency_candidates_are_not_shown_on_one_bus(
+    setup: Callable[..., TestClient],
+) -> None:
+    """Found 2026-11-12 (line E): OTP's once-a-minute candidates all took the same live
+    bus, so one connection was listed five times. Each now takes its own bus; the rest are
+    dropped as copies of a connection already listed."""
+    emt = EmtFake(
+        [
+            EmtArrival(line="S10", destination="B", seconds=300, vehicle_id="7", distance_m=900),
+            EmtArrival(line="S10", destination="B", seconds=1080, vehicle_id="8", distance_m=4000),
+        ],
+        RECORDED,
+    )
+    body = plan(
+        setup(
+            FakeOtp(_bus_only_candidates([0, 1, 2, 3, 4], "2026-11-09T20:36:20+01:00")),
+            rt=realtime(emt=emt),
+        ),
+        **{"from": None, "to": None, **SOL},
+    )
+    buses = [j["legs"][0]["departure"] for j in body["journeys"]]
+    # The two live buses, one each (20:41:20 and 20:54:20); then OTP's 21:00:18 as "every
+    # ~4 min" (more than a headway after the last live bus); 21:01 and 21:02 are its copies.
+    assert [b["status"] for b in buses] == ["live", "live", "frequency"]
+    assert [b["realtime"]["vehicle_id"] for b in buses[:2]] == ["7", "8"]
+    assert [b["estimated"] for b in buses[:2]] == [
+        "2026-11-09T20:41:20+01:00",
+        "2026-11-09T20:54:20+01:00",
+    ]
+    assert buses[2]["scheduled"] == "2026-11-09T21:00:18+01:00"
+
+
+def test_emt_later_page_does_not_go_back_to_the_first_bus(
+    setup: Callable[..., TestClient],
+) -> None:
+    emt = EmtFake(
+        [EmtArrival(line="S10", destination="B", seconds=300, vehicle_id="7", distance_m=900)],
+        RECORDED,
+    )
+    # A later page: OTP searched from 21:10, beyond the live bus at 20:41.
+    body = plan(
+        setup(
+            FakeOtp(_bus_only_candidates([20, 21, 22], "2026-11-09T21:10:00+01:00")),
+            rt=realtime(emt=emt),
+        ),
+        **{"from": None, "to": None, "cursor": "a:x", **SOL},
+    )
+    buses = [j["legs"][0]["departure"] for j in body["journeys"]]
+    assert len(buses) == 1  # 21:18, 21:19 and 21:20 are one "every ~4 min" bus
+    assert buses[0]["status"] == "frequency"
+
+
+def test_walk_to_an_earlier_live_bus_does_not_start_before_the_search(
+    setup: Callable[..., TestClient],
+) -> None:
+    """Found 2026-11-12: OTP walked you to the stop at the search time (20:36:20) and had
+    you wait for its bus at 20:58:18. The live bus comes at 20:41:20; the walk used to move
+    back with it, to 20:19, before the search. The wait covers it: the walk stays."""
+    emt = EmtFake(
+        [EmtArrival(line="S10", destination="B", seconds=300, vehicle_id="7", distance_m=900)],
+        RECORDED,
+    )
+    body = plan(
+        setup(
+            FakeOtp(_bus_only_candidates([0], "2026-11-09T20:36:20+01:00", walk_first=True)),
+            rt=realtime(emt=emt),
+        ),
+        **{"from": None, "to": None, **SOL},
+    )
+    j = body["journeys"][0]
+    assert j["legs"][1]["departure"]["estimated"] == "2026-11-09T20:41:20+01:00"
+    assert j["departure"]["estimated"] == "2026-11-09T20:36:20+01:00"
+    assert j["legs"][0]["arrival"]["estimated"] == "2026-11-09T20:38:20+01:00"
+
+
 def test_emt_not_configured(setup: Callable[..., TestClient]) -> None:
     body = plan(setup(FakeOtp(load("sol_bernabeu"))), **{"from": None, "to": None, **SOL})
     status = next(s for s in body["realtime"] if s["feed"] == "emt")

@@ -14,7 +14,8 @@ import type { Leg, LegTime } from '../api/journeys';
 import { locale, t } from '../i18n';
 import type { TrainPoint } from './liveMap';
 import { decodePolyline } from './polyline';
-import { MAX_AGE_S, MAX_AHEAD_S } from './trainPosition';
+import type { TripDetails } from '../api/trips';
+import { MAX_AGE_S, MAX_AHEAD_S, type Placement } from './trainPosition';
 
 // EMT lists the next buses up to about 45 min ahead.
 const TRACK_BEFORE_MS = 45 * 60_000;
@@ -108,6 +109,148 @@ export function busPoint(pos: BusPosition | null, leg: Leg, nowMs: number): Trai
   return at ? { lon: at[0], lat: at[1], estimated: false } : null;
 }
 
+// ---------------------------------------------------------------------------
+// The bus on the journey timeline and the trip screen (added 2026-11-12). Same picture as for
+// trains (utils/trainPosition.ts): above your stop while it comes, between the stops on your
+// leg once you are on it. Always solid (live): without an EMT answer there is no point.
+
+/** Seconds still to go to the stop now: EMT's figure, counted down for at most MAX_AHEAD_S. */
+export function secondsToGo(pos: BusPosition, nowMs: number): number | null {
+  if (pos.seconds == null) return null;
+  const age = busAgeS(pos, nowMs) ?? 0;
+  return Math.max(0, pos.seconds - Math.min(age, MAX_AHEAD_S));
+}
+
+/**
+ * Row and share of the way (0..1) to the next row for `value` on increasing `marks` (one per
+ * row: metres or times). Before the first mark: at row 0; after the last: at the last row.
+ */
+export function rowAt(marks: number[], value: number): { row: number; progress: number } | null {
+  const n = marks.length;
+  if (n < 2 || marks.some((m) => !Number.isFinite(m))) return null;
+  if (value <= marks[0]) return { row: 0, progress: 0 };
+  if (value >= marks[n - 1]) return { row: n - 1, progress: 0 };
+  for (let i = 0; i < n - 1; i++) {
+    if (value < marks[i + 1]) {
+      const span = marks[i + 1] - marks[i];
+      return { row: i, progress: span > 0 ? (value - marks[i]) / span : 0 };
+    }
+  }
+  return { row: n - 1, progress: 0 };
+}
+
+/** The stop's share of the way along the line (0..1), searching on from segment `from`. */
+function projectOnto(
+  coords: [number, number][],
+  cum: number[],
+  stop: [number, number],
+  from: number,
+): { share: number; seg: number } {
+  let best = { d: Infinity, share: 0, seg: from };
+  for (let i = from; i < coords.length - 1; i++) {
+    const [a, b] = [coords[i], coords[i + 1]];
+    const k = Math.cos(stop[1] * (Math.PI / 180));
+    const [ax, ay, bx, by, px, py] = [a[0] * k, a[1], b[0] * k, b[1], stop[0] * k, stop[1]];
+    const len2 = (bx - ax) ** 2 + (by - ay) ** 2;
+    const f = len2 > 0 ? Math.max(0, Math.min(1, ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / len2)) : 0;
+    const d = Math.hypot(ax + (bx - ax) * f - px, ay + (by - ay) * f - py);
+    if (d < best.d) best = { d, share: cum[i] + (cum[i + 1] - cum[i]) * f, seg: i };
+  }
+  const total = cum[cum.length - 1];
+  return { share: total > 0 ? best.share / total : 0, seg: best.seg };
+}
+
+/**
+ * Each row's share of the way along the leg (boarding stop 0 .. alighting stop 1), from the
+ * stops' coordinates on the leg's own path (straight between the stops without one); null
+ * when a stop has no coordinates.
+ */
+export function stopShares(leg: Leg): number[] | null {
+  const stops = [
+    [leg.from_lon, leg.from_lat],
+    ...leg.intermediate.map((s) => [s.lon, s.lat]),
+    [leg.to_lon, leg.to_lat],
+  ];
+  if (stops.some(([lon, lat]) => lon == null || lat == null)) return null;
+  const pts = stops as [number, number][];
+  let coords = leg.geometry ? decodePolyline(leg.geometry) : [];
+  if (coords.length < 2) coords = pts;
+  const cum = [0];
+  for (let i = 1; i < coords.length; i++) cum.push(cum[i - 1] + metres(coords[i - 1], coords[i]));
+  if (!(cum[cum.length - 1] > 0)) return null;
+  let seg = 0;
+  const shares = pts.map((p, i) => {
+    if (i === 0) return 0;
+    if (i === pts.length - 1) return 1;
+    const r = projectOnto(coords, cum, p, seg);
+    seg = r.seg;
+    return r.share;
+  });
+  // Never backwards (a stop projected slightly behind the previous one).
+  for (let i = 1; i < shares.length; i++) shares[i] = Math.max(shares[i], shares[i - 1]);
+  return shares;
+}
+
+/**
+ * Where to draw the bus on the journey timeline (the same placements as a train's).
+ * Approaching: at the top of the line above your stop (EMT gives minutes and metres, not
+ * the stops in between). Riding: between the leg's stops by the metres still to go on the
+ * leg's path, as on the live map; without stop coordinates, by EMT's seconds to go on the
+ * timetable's times.
+ */
+export function placeBus(pos: BusPosition | null, leg: Leg, nowMs: number): Placement {
+  if (!pos || !isBusShown(pos, nowMs)) return { kind: 'none' };
+  if (pos.status === 'approaching') {
+    return { kind: 'approaching', stopsAway: 0, at: false, near: '', progress: 0 };
+  }
+  let at: { row: number; progress: number } | null = null;
+  const shares = stopShares(leg);
+  const toGo = metresToGo(pos, nowMs);
+  if (shares && toGo != null && leg.distance_m) {
+    at = rowAt(shares, 1 - toGo / leg.distance_m);
+  }
+  if (!at) {
+    const secs = secondsToGo(pos, nowMs);
+    const times = [
+      leg.departure.scheduled,
+      ...leg.intermediate.map((s) => s.time),
+      leg.arrival.scheduled,
+    ].map(Date.parse);
+    if (secs != null) at = rowAt(times, times[times.length - 1] - secs * 1000);
+  }
+  if (!at) return { kind: 'none' };
+  return { kind: 'riding', row: at.row, progress: at.progress, at: at.progress === 0 };
+}
+
+/**
+ * Where to draw the bus on the trip screen's full list of stops. On your leg: as on the
+ * journey timeline, moved to the trip's rows. Before your stop: by EMT's seconds to your
+ * stop on the timetable's times between the stops (the trip screen lists them).
+ */
+export function placeBusOnTrip(
+  pos: BusPosition | null,
+  leg: Leg,
+  trip: TripDetails,
+  nowMs: number,
+): { row: number; progress: number | null; at: boolean } | null {
+  if (!pos || !isBusShown(pos, nowMs)) return null;
+  const board = trip.board_index;
+  if (board == null) return null;
+  const alight = trip.alight_index ?? trip.stops.length - 1;
+  if (pos.status === 'riding' && alight - board === leg.intermediate.length + 1) {
+    const p = placeBus(pos, leg, nowMs);
+    return p.kind === 'riding' ? { row: board + p.row, progress: p.progress, at: p.at } : null;
+  }
+  const anchor = pos.status === 'riding' ? alight : board;
+  const secs = secondsToGo(pos, nowMs);
+  const times = trip.stops
+    .slice(0, anchor + 1)
+    .map((s) => Date.parse((s.departure ?? s.arrival) as string));
+  if (secs == null || times.length < 2) return null;
+  const at = rowAt(times, times[times.length - 1] - secs * 1000);
+  return at ? { row: at.row, progress: at.progress, at: at.progress === 0 } : null;
+}
+
 /** "600 m", "1.2 km" (Spanish: "1,2 km"). */
 export function distanceText(m: number): string {
   if (m < 950) return `${Math.max(10, Math.round(m / 10) * 10)} m`;
@@ -127,12 +270,15 @@ export function busText(pos: BusPosition, leg: Leg, nowMs: number): string {
   return t('bus.approach', { min: Math.round(left), dist: distanceText(toGo) });
 }
 
-/** Where it comes from, always shown: "Live · EMT, 15 s ago" + what the map point means. */
-export function busSourceText(pos: BusPosition, nowMs: number): string {
+/**
+ * Where it comes from, always shown: "Live · EMT, 15 s ago", and on the map what the map
+ * point means (`mapNote`; the timelines draw no GPS fix).
+ */
+export function busSourceText(pos: BusPosition, nowMs: number, mapNote = true): string {
   const age = busAgeS(pos, nowMs);
   const ago = age == null ? null : age < 120 ? `${age} s` : `${Math.floor(age / 60)} min`;
   const live = ago != null ? t('bus.liveAge', { age: ago }) : t('pos.live');
-  if (pos.status === 'approaching') {
+  if (mapNote && pos.status === 'approaching') {
     return `${live} · ${pos.lat != null ? t('bus.gpsNote') : t('bus.noGps')}`;
   }
   return live;
