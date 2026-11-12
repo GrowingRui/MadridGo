@@ -128,17 +128,67 @@ const planPlace = (p: Place) =>
  * current times and labels. Returns it, or null when the planner no longer offers it.
  */
 export async function refreshConnection(c: SavedConnection): Promise<Journey | null> {
-  const at = Date.parse(c.journey.departure.scheduled) - 60_000;
+  const saved = c.journey;
+  // From just before the expected departure: a live bus may come before the planner's time.
+  const at = Math.min(Date.parse(saved.departure.scheduled), expectedMs(saved.departure)) - 60_000;
   const plan = await planJourneys({ from: planPlace(c.from), to: planPlace(c.to), at });
-  const fresh = plan.journeys.find((j) => j.id === c.journey.id) ?? null;
-  if (fresh && isConnectionSaved(fresh.id)) {
+  const match = plan.journeys.find((j) => j.id === saved.id) ?? sameRide(saved, plan.journeys);
+  if (!match) return null;
+  // On the bus already: the boarding stop no longer lists it, so the answer has lost its
+  // live times. The saved ones are still the best there is.
+  if (
+    saved.departure.status === 'live' &&
+    match.departure.status !== 'live' &&
+    tripPhase(saved) === 'ongoing'
+  ) {
+    return saved;
+  }
+  // Kept under the saved id: screens and the list refer to it.
+  const fresh = { ...match, id: saved.id };
+  if (isConnectionSaved(saved.id)) {
     persist(
       list.map((x) =>
-        x.journey.id === fresh.id ? { ...x, journey: fresh, updatedAt: Date.now() } : x,
+        x.journey.id === saved.id ? { ...x, journey: fresh, updatedAt: Date.now() } : x,
       ),
     );
   }
   return fresh;
+}
+
+/** What a journey rides: each vehicle's line (or trip, when timetabled) and its stops. */
+function ridePattern(j: Journey): string {
+  return j.legs
+    .filter((l) => l.mode !== 'walk')
+    .map((l) =>
+      [
+        l.mode,
+        l.headway_min != null ? (l.line?.route_id ?? l.trip_id) : l.trip_id,
+        l.from_stop_id,
+        l.to_stop_id,
+      ].join(':'),
+    )
+    .join('|');
+}
+
+/**
+ * The same connection in a new answer when its id changed. A journey's id holds the planner's
+ * own time on a frequency line (EMT), which moves with every search (found 2026-11-12: saved
+ * bus trips never refreshed). Same lines and stops, timetabled trips the same, leaving within
+ * one headway of the saved one: the closest.
+ */
+export function sameRide(saved: Journey, journeys: Journey[]): Journey | null {
+  const headway = Math.max(0, ...saved.legs.map((l) => l.headway_min ?? 0));
+  if (!headway) return null; // a timetabled connection keeps its id
+  const pattern = ridePattern(saved);
+  const at = expectedMs(saved.departure);
+  let best: Journey | null = null;
+  let bestGap = headway * 60_000;
+  for (const j of journeys) {
+    if (ridePattern(j) !== pattern) continue;
+    const gap = Math.abs(expectedMs(j.departure) - at);
+    if (gap < bestGap) [best, bestGap] = [j, gap];
+  }
+  return best;
 }
 
 /** Trips leaving within this time (or on the way) get their live times refreshed. */

@@ -5,6 +5,7 @@ import { routeFeatures } from '../utils/route';
 import {
   isConnectionSaved,
   resetConnectionsForTests,
+  sameRide,
   savedConnection,
   toggleConnection,
   tripEndMs,
@@ -174,5 +175,49 @@ describe('trip phase and end', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+});
+
+describe('the same bus connection after its id changed', () => {
+  // Found 2026-11-12: a journey's id holds the planner's own time on a frequency line,
+  // which moves with every search, so a saved EMT trip was never found again.
+  const E = { ...C4, source: 'emt', route_id: '090', short_name: 'E', mode: 'bus' as const };
+  const bus = (id: string, at: string, p: Partial<Leg> = {}): Journey => ({
+    ...journey,
+    id,
+    departure: time(at),
+    legs: [
+      leg({
+        mode: 'bus',
+        line: E,
+        trip_id: 'emt:LJ09000421',
+        from_stop_id: 'emt:4281',
+        to_stop_id: 'emt:2125',
+        departure: time(at),
+        headway_min: 13,
+        ...p,
+      }),
+    ],
+  });
+  const saved = bus('old', '2030-01-01T10:00:00+01:00');
+
+  it('takes the same line and stops leaving closest, within one headway', () => {
+    const near = bus('a', '2030-01-01T10:04:00+01:00');
+    const far = bus('b', '2030-01-01T10:12:00+01:00');
+    expect(sameRide(saved, [far, near])).toBe(near);
+    expect(sameRide(saved, [bus('c', '2030-01-01T10:14:00+01:00')])).toBeNull();
+  });
+
+  it('another template trip of the same line is the same ride; another stop is not', () => {
+    expect(
+      sameRide(saved, [bus('a', '2030-01-01T10:02:00+01:00', { trip_id: 'emt:X' })]),
+    ).not.toBeNull();
+    expect(
+      sameRide(saved, [bus('a', '2030-01-01T10:02:00+01:00', { to_stop_id: 'emt:9' })]),
+    ).toBeNull();
+  });
+
+  it('never for timetabled connections: their id does not move', () => {
+    expect(sameRide(journey, [{ ...journey, id: 'other' }])).toBeNull();
   });
 });

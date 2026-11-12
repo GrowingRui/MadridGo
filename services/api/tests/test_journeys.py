@@ -829,6 +829,57 @@ def test_walk_to_an_earlier_live_bus_does_not_start_before_the_search(
     assert j["legs"][0]["arrival"]["estimated"] == "2026-11-09T20:38:20+01:00"
 
 
+def test_emt_earlier_page_is_not_put_on_the_first_pages_buses(
+    setup: Callable[..., TestClient],
+) -> None:
+    """Found 2026-11-12: an "Earlier connections" page put OTP's past candidates on the live
+    buses of the first page. A candidate already gone takes no live bus, nor does one whose
+    bus would come long after OTP's time (that bus belongs to a later candidate)."""
+    emt = EmtFake(
+        [EmtArrival(line="S10", destination="B", seconds=1800, vehicle_id="7", distance_m=9000)],
+        RECORDED,
+    )
+    # OTP's candidates at 20:28 and 20:29 (gone) and 20:58 (its bus is due by then; EMT's
+    # only bus comes at 21:06, beyond 20:58 + 5 min).
+    body = plan(
+        setup(
+            FakeOtp(_bus_only_candidates([-30, -29, 0], "2026-11-09T20:00:00+01:00")),
+            rt=realtime(emt=emt),
+        ),
+        **{"from": None, "to": None, "cursor": "b:x", **SOL},
+    )
+    buses = [j["legs"][0]["departure"] for j in body["journeys"]]
+    assert all(b["status"] == "frequency" for b in buses)
+    # 20:28 and 20:29 are one bus; 20:58 is another.
+    assert [b["scheduled"][11:16] for b in buses] == ["20:28", "20:58"]
+
+
+def test_walk_between_vehicles_follows_a_late_train_and_duration_matches_the_times(
+    setup: Callable[..., TestClient],
+) -> None:
+    """Found 2026-11-12: a train 15 min late, then a walk to a bus. The walk kept the
+    timetable's time (it started before the train arrived), and the duration was taken from
+    the timetable at both ends (16:08 -> 16:36 shown as 44 min)."""
+    node = _node(at(21, 3), at(21, 31), 300, at(21, 45))
+    now = at(21, 0)
+    d = 7 * 60
+    snap = snapshot(
+        now - timedelta(seconds=10),
+        now,
+        # One update at Parla; Renfe's trip delay carries to Atocha (21:38).
+        [{"trip_id": C4A_TRIP, "stop_id": "37012", "time": at(21, 10), "delay": d}],
+    )
+    body = plan(setup(FakeOtp(_plan_body(node)), rt=realtime(snap), now=now))
+    j = body["journeys"][0]
+    walk = j["legs"][1]
+    assert walk["departure"]["estimated"] == at(21, 38).isoformat()
+    assert walk["arrival"]["estimated"] == at(21, 43).isoformat()
+    # Leaves 21:10 (live), the bus arrives 22:05 (its own timetable): 55 min, not 62.
+    assert j["departure"]["estimated"] == at(21, 10).isoformat()
+    assert j["arrival"]["scheduled"] == at(22, 5).isoformat()
+    assert j["duration_min"] == 55
+
+
 def test_emt_not_configured(setup: Callable[..., TestClient]) -> None:
     body = plan(setup(FakeOtp(load("sol_bernabeu"))), **{"from": None, "to": None, **SOL})
     status = next(s for s in body["realtime"] if s["feed"] == "emt")
