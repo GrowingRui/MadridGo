@@ -110,10 +110,12 @@ export function mapHtml(
       };
       trainAnim = requestAnimationFrame(step);
     }
-    // First time: a train still on its way to you may be outside the route; show both.
+    // First time: a train or bus still on its way to you may be outside the route; show both.
+    // "Outside" includes the map's edges, where the attribution bar would hide it.
     if (!trainFitted && routeBounds) {
       trainFitted = true;
-      if (!map.getBounds().contains(to)) {
+      var px = map.project(to), box = map.getContainer(), pad = 56;
+      if (px.x < pad || px.y < pad || px.x > box.clientWidth - pad || px.y > box.clientHeight - pad) {
         map.fitBounds(new maplibregl.LngLatBounds(routeBounds.getSouthWest(), routeBounds.getNorthEast()).extend(to),
           { padding: 56, maxZoom: 16, duration: 600 });
       }

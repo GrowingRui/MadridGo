@@ -1,18 +1,20 @@
-// The live trip map (as in SBB Mobile's "Live" map of a single trip): which train of a
-// connection to follow, and where its point goes on the map. Kept free of React so it is
-// easy to test; the movement rules are those of the journey timeline (trainPosition.ts).
+// The live trip map (as in SBB Mobile's "Live" map of a single trip): which train or EMT bus
+// of a connection to follow, and where a train's point goes on the map. Kept free of React so
+// it is easy to test; the train's movement rules are those of the journey timeline
+// (trainPosition.ts), the bus's are in busPosition.ts.
 
 import type { Journey } from '../api/journeys';
 import type { TripPosition } from '../api/trips';
+import { canTrackBus } from './busPosition';
 import { canTrack, isShown, shownProgress } from './trainPosition';
 
 /**
- * The leg whose train the map follows: the first Cercanías leg that is on now or comes
- * next (from 90 min before it leaves until just after it arrives). Null when there is none,
- * e.g. a connection for another day or without Cercanías.
+ * The leg whose vehicle the map follows: the first Cercanías leg (from 90 min before it
+ * leaves) or EMT bus leg (from 45 min before) that is on now or comes next, until just after
+ * it arrives. Null when there is none, e.g. a connection for another day, or only Metro.
  */
 export function followedLeg(journey: Journey, nowMs: number): number | null {
-  const i = journey.legs.findIndex((leg) => canTrack(leg, nowMs));
+  const i = journey.legs.findIndex((leg) => canTrack(leg, nowMs) || canTrackBus(leg, nowMs));
   return i >= 0 ? i : null;
 }
 

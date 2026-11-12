@@ -252,6 +252,19 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "No real-time data. Times come from the timetable.",
         "es": "Sin datos en tiempo real. Las horas son las del horario.",
     },
+    # --- Bus positions (EMT) --------------------------------------------------------------
+    "bus.not_configured": {
+        "en": "EMT live data is not set up on this server.",
+        "es": "Los datos en tiempo real de la EMT no están configurados en este servidor.",
+    },
+    "bus.not_found": {
+        "en": "EMT does not list your bus at {stop} right now.",
+        "es": "La EMT no muestra tu autobús en {stop} en este momento.",
+    },
+    "bus.outdated": {
+        "en": "EMT live data is unavailable right now.",
+        "es": "Los datos en tiempo real de la EMT no están disponibles en este momento.",
+    },
     # --- Train positions -----------------------------------------------------------------
     "pos.none.metro": {
         "en": "Metro de Madrid does not publish train positions.",

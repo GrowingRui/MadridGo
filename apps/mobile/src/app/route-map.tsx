@@ -4,23 +4,26 @@
 // Live trip map (as in SBB Mobile's "Live" map of a single trip): while a Cercanías ride of the
 // connection is on or coming (from 90 min before), its train moves on the map with the same
 // rules and labels as the journey timeline (solid = live, hollow = estimated), and a card under
-// the map says where it is, the next stop and when you board and get off. Opened from the
-// connection's map button and from "Live map" on a trip in the Trips tab.
+// the map says where it is, the next stop and when you board and get off. The same for an EMT
+// bus ride (from 45 min before): its point comes from EMT's arrivals (utils/busPosition.ts).
+// Opened from the connection's map button and from "Live map" on a trip in the Trips tab.
 
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { BrandHeader, EmptyState, Screen } from '../components/layout';
+import { LiveBusCard } from '../components/liveBus';
 import { LiveTrainCard } from '../components/liveTrain';
 import { type MapHandle, MapFrame } from '../components/mapFrame';
 import { mapHtml } from '../components/mapHtml';
 import { lineColors } from '../components/transit';
-import { useNow, useReduceMotion, useTripPosition } from '../hooks';
+import { useBusPosition, useNow, useReduceMotion, useTripPosition } from '../hooks';
 import { useT } from '../i18n';
 import { savedConnection, useSavedConnections, useTripRefresh } from '../state/connections';
 import { journeyCache } from '../state/journeys';
 import { currentScheme, modeColors } from '../theme';
+import { busPoint } from '../utils/busPosition';
 import { followedLeg, trainPoint } from '../utils/liveMap';
 import { routeFeatures } from '../utils/route';
 
@@ -45,9 +48,11 @@ export default function RouteMapScreen() {
   const slowNow = useNow(30_000);
   const legIndex = journey ? followedLeg(journey, slowNow) : null;
   const leg = legIndex != null ? journey!.legs[legIndex] : null;
-  const pos = useTripPosition(leg?.trip_id, leg?.from_stop_id, !!leg);
-  const now = useNow(pos ? 1000 : 30_000);
-  const point = trainPoint(pos, now);
+  const bus = !!leg?.trip_id?.startsWith('emt:');
+  const pos = useTripPosition(leg?.trip_id, leg?.from_stop_id, !!leg && !bus);
+  const busPos = useBusPosition(leg, !!leg && bus);
+  const now = useNow(pos || busPos ? 1000 : 30_000);
+  const point = leg && bus ? busPoint(busPos, leg, now) : trainPoint(pos, now);
   const color = leg?.line ? lineColors(leg.line).bg : modeColors.rail.bg;
 
   // Send the train's place every second (it moves with the clock between updates).
@@ -96,7 +101,8 @@ export default function RouteMapScreen() {
       <View style={styles.wrap}>
         <MapFrame ref={map} html={html} onMessage={onMessage} />
       </View>
-      {leg ? <LiveTrainCard leg={leg} pos={pos} now={now} /> : null}
+      {leg && bus ? <LiveBusCard leg={leg} pos={busPos} now={now} /> : null}
+      {leg && !bus ? <LiveTrainCard leg={leg} pos={pos} now={now} /> : null}
     </Screen>
   );
 }
