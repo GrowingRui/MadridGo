@@ -39,9 +39,16 @@ def tidy_name(name: str) -> str:
 _ORDER = ("routes", "trips", "stop_times", "frequencies", "calendar", "calendar_dates", "shapes")
 
 
-def subset(src: Path, dest: Path, route_prefix: str) -> dict[str, int]:
+def subset(
+    src: Path,
+    dest: Path,
+    route_prefix: str,
+    positions: tuple[tuple[str, float, float], ...] = (),
+) -> dict[str, int]:
     """Write to dest the routes whose route_id starts with route_prefix and everything they
-    use. Returns the number of rows written per table."""
+    use, with the stops in `positions` moved to the given (lat, lon). Returns the number of
+    rows written per table."""
+    moved = {stop_id: (lat, lon) for stop_id, lat, lon in positions}
     keep: dict[str, set[str]] = {"route": set(), "trip": set(), "service": set(), "shape": set()}
     stops: set[str] = set()
     counts: dict[str, int] = {}
@@ -105,7 +112,16 @@ def subset(src: Path, dest: Path, route_prefix: str) -> dict[str, int]:
             if r["stop_id"] in stops and r.get("parent_station")
         }
         stops |= parents
-        write("stops", lambda r: r["stop_id"] in stops)
+
+        def kept_stop(row: dict[str, str]) -> bool:
+            if row["stop_id"] not in stops:
+                return False
+            if row["stop_id"] in moved:
+                lat, lon = moved[row["stop_id"]]
+                row["stop_lat"], row["stop_lon"] = f"{lat:.7f}", f"{lon:.7f}"
+            return True
+
+        write("stops", kept_stop)
         write("transfers", lambda r: r["from_stop_id"] in stops and r["to_stop_id"] in stops)
         # Routes may omit agency_id (Renfe does: one agency), so keep every agency.
         write("agency", lambda r: True)

@@ -30,6 +30,9 @@ class GtfsSource:
     # Give each trip a shape that fits its stops, or none (app/ingest/shapes.py). For feeds
     # whose trips use the shape of the other direction, so OTP would draw them straight.
     repair_shapes: bool = False
+    # Stops the feed puts in the wrong place: (stop_id, lat, lon) to use instead. Applied
+    # when the feed is cut down (route_prefix), so only for such feeds.
+    stop_positions: tuple[tuple[str, float, float], ...] = ()
 
 
 def _crtm(
@@ -66,6 +69,10 @@ GTFS_SOURCES: tuple[GtfsSource, ...] = (
         expiry_warning_days=7,
         route_prefix="10",
         repair_shapes=True,
+        # Vallecas: Renfe's feed has it 140 m east of the station (found 2026-11-12, user
+        # report); CRTM's copy (stop 70001) and OpenStreetMap (node 5320204129) agree on
+        # this place. The other 94 Madrid stations match CRTM's copy exactly.
+        stop_positions=(("70005", 40.3819607, -3.6245835),),
     ),
     _crtm("interurban", "CRTM Autobuses interurbanos", "bus", "885399f83408473c8d815e40c5e702b7"),
     _crtm("urban", "CRTM Autobuses urbanos", "bus", "357e63c2904f43aeb5d8a267a64346d8"),

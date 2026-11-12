@@ -162,3 +162,15 @@ def test_tidy_name_removes_renfe_padding() -> None:
     assert tidy_name("Aeropuerto-T4" + " " * 27 + "-Principe Pio") == "Aeropuerto-T4 - Principe Pio"
     assert tidy_name("Chamartín - Clara Campoamor") == "Chamartín - Clara Campoamor"
     assert tidy_name(" C4b ") == "C4b"
+
+
+def test_subset_moves_stops_the_feed_puts_in_the_wrong_place(tmp_path: Path) -> None:
+    src = gtfs_fixture.build(tmp_path / "all.zip")
+    subset(src, tmp_path / "t.zip", "T", (("par_99_3", 40.3819607, -3.6245835),))
+    with GtfsZip(tmp_path / "t.zip") as feed:
+        stops = {r["stop_id"]: r for r in feed.rows("stops")}
+    assert (stops["par_99_3"]["stop_lat"], stops["par_99_3"]["stop_lon"]) == (
+        "40.3819607",
+        "-3.6245835",
+    )
+    assert stops["par_99_1"]["stop_lat"] != "40.3819607"  # others untouched
