@@ -1,5 +1,6 @@
 // The Trips tab, as in SBB Mobile ("Single trips"): the connections saved with ☆, grouped by
 // day, each with its state ("in 12 min", "On the way · arrives 14:51"), lines and progress.
+// A trip on the way or leaving within two hours also has its steps (components/tripGuide.tsx).
 // A trip disappears once it has arrived. Without trips: "No journeys saved" and a button to
 // plan one.
 
@@ -24,6 +25,10 @@ import { dayLabel, formatTime, madridDayStart, minutesUntil } from '../utils/tim
 import { ConnectionHeader } from './connection';
 import { Button, SectionTitle } from './layout';
 import { LinePills, StatusBadge } from './transit';
+import { TripGuide } from './tripGuide';
+
+/** The step-by-step guide is shown from this long before the trip leaves (live times by then). */
+const GUIDE_AHEAD_MS = 2 * 3600_000;
 
 /** Each line once, in riding order. */
 function tripLines(journey: Journey): Line[] {
@@ -106,6 +111,7 @@ function TripCard({ trip, now }: { trip: SavedConnection; now: number }) {
   const ongoing = tripPhase(j, now) === 'ongoing';
   // As in SBB Mobile: a "Live" map while a Cercanías ride is on or coming up (90 min before).
   const liveMap = followedLeg(j, now) != null;
+  const guide = ongoing || expectedMs(j.departure) - now <= GUIDE_AHEAD_MS;
   const openMap = () => {
     journeyCache.set(j.id, j);
     router.push({ pathname: '/route-map', params: { id: j.id } });
@@ -126,6 +132,7 @@ function TripCard({ trip, now }: { trip: SavedConnection; now: number }) {
         </View>
         <ConnectionHeader journey={j} />
       </Pressable>
+      {guide ? <TripGuide journey={j} now={now} /> : null}
       {liveMap ? (
         <Pressable
           onPress={openMap}
