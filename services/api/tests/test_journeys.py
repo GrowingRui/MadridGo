@@ -17,6 +17,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from app.boarding import TripStop
 from app.journeys import FeedInfo, Place, get_clock, get_static, headway_for
 from app.main import app
 from app.otp import PLAN_QUERY, OtpClient, get_otp
@@ -57,8 +58,10 @@ class FakeStatic:
         expired_routes: dict[str, list[str]] | None = None,
         frequencies: dict[tuple[str, str], list[tuple[int, int, int]]] | None = None,
         termini: dict[tuple[str, str], str] | None = None,
+        trip_stops: dict[tuple[str, str], list[TripStop]] | None = None,
     ) -> None:
         self.expired_routes = expired_routes or {}
+        self.stops_of_trips = trip_stops or {}
         self.termini_names = termini or {}
         self.termini_asked: list[tuple[str, str]] = []
         self.windows = frequencies if frequencies is not None else {S10: [(64800, 86400, 240)]}
@@ -95,6 +98,14 @@ class FakeStatic:
     async def termini(self, trips: list[tuple[str, str]]) -> dict[tuple[str, str], str]:
         self.termini_asked += trips
         return {t: self.termini_names[t] for t in trips if t in self.termini_names}
+
+    async def nearest_stop(self, lat: float, lon: float) -> tuple[float, float] | None:
+        return None
+
+    async def trip_stops(
+        self, trips: list[tuple[str, str]]
+    ) -> dict[tuple[str, str], list[TripStop]]:
+        return {t: self.stops_of_trips[t] for t in trips if t in self.stops_of_trips}
 
 
 class FakeOtp:

@@ -72,3 +72,23 @@ export function routeFeatures(journey: Journey): { lines: RouteLine[]; stops: Ro
   });
   return { lines, stops };
 }
+
+/**
+ * Only some walks of a connection (a walk row's map, as in SBB Mobile): their path, and big
+ * dots where the walk starts (your address or the stop you get off at) and where it ends.
+ */
+export function walkFeatures(
+  journey: Journey,
+  legs: number[],
+): { lines: RouteLine[]; stops: RouteStop[] } {
+  const picked = legs.map((i) => journey.legs[i]).filter((l) => l != null);
+  return routeFeatures({ ...journey, legs: picked });
+}
+
+/** "2" or "3,4" (the route map's `legs` parameter) as leg indexes; [] when absent or bad. */
+export function parseLegs(value: string | string[] | undefined): number[] {
+  const s = Array.isArray(value) ? value[0] : value;
+  if (!s) return [];
+  const legs = s.split(',').map(Number);
+  return legs.every((n) => Number.isInteger(n) && n >= 0) ? legs : [];
+}

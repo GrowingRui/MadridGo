@@ -91,7 +91,7 @@ async def update_source(
     flat_dir.mkdir(parents=True, exist_ok=True)
     flat_path = flat_dir / f"{source.key}-{dl.sha256[:12]}.zip"
     if source.route_prefix:
-        kept = subset(dl.path, flat_path, source.route_prefix)
+        kept = subset(dl.path, flat_path, source.route_prefix, source.stop_positions)
         print(f"[{source.key}] kept routes {source.route_prefix}*: {kept}")
         flat = flat_path
     else:

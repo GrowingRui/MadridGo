@@ -200,6 +200,9 @@ export const en = {
   'share.sentBy': 'Sent from MadridGo',
   'conn.notOffered':
     'The planner no longer offers this connection. These times are from {time} and may have changed.',
+  'walkMap.title': 'Walk: {distance} m',
+  'walkMap.titleShort': 'Walk',
+  'walkMap.hint': 'Shows the walk on a map',
   'routeMap.title': 'Route',
   'liveMap.title': 'Live map',
   'liveMap.open': 'Live map',

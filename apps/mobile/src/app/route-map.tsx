@@ -7,6 +7,10 @@
 // the map says where it is, the next stop and when you board and get off. The same for an EMT
 // bus ride (from 45 min before): its point comes from EMT's arrivals (utils/busPosition.ts).
 // Opened from the connection's map button and from "Live map" on a trip in the Trips tab.
+//
+// Walk map (SBB Mobile's walk row): with `legs` (e.g. "0" or "3,4") only those walks are drawn,
+// from where you start (your address, or the stop you get off at) to the stop, with no live
+// vehicle, so someone who does not know the area sees where to go.
 
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -26,10 +30,12 @@ import { currentScheme, modeColors } from '../theme';
 import { busPoint } from '../utils/busPosition';
 import { followedLeg, trainPoint } from '../utils/liveMap';
 import { decodePolyline } from '../utils/polyline';
-import { routeFeatures } from '../utils/route';
+import { parseLegs, routeFeatures, walkFeatures } from '../utils/route';
 
 export default function RouteMapScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string; legs?: string }>();
+  const id = params.id;
+  const walkLegs = parseLegs(params.legs);
   const { t, lang } = useT();
   useSavedConnections(); // re-renders when a saved trip gets fresh times
   const saved = savedConnection(id);
@@ -47,7 +53,9 @@ export default function RouteMapScreen() {
   );
 
   const slowNow = useNow(30_000);
-  const legIndex = journey ? followedLeg(journey, slowNow) : null;
+  const walkOnly =
+    !!journey && walkLegs.length > 0 && walkLegs.every((i) => journey.legs[i]?.mode === 'walk');
+  const legIndex = journey && !walkOnly ? followedLeg(journey, slowNow) : null;
   const leg = legIndex != null ? journey!.legs[legIndex] : null;
   const bus = !!leg?.trip_id?.startsWith('emt:');
   const pos = useTripPosition(leg?.trip_id, leg?.from_stop_id, !!leg && !bus);
@@ -82,11 +90,22 @@ export default function RouteMapScreen() {
       </Screen>
     );
   }
-  const first = journey.legs[0];
-  const last = journey.legs[journey.legs.length - 1];
+  const first = journey.legs[walkOnly ? walkLegs[0] : 0];
+  const last = journey.legs[walkOnly ? walkLegs[walkLegs.length - 1] : journey.legs.length - 1];
+  const walkM = walkOnly ? walkLegs.reduce((m, i) => m + (journey.legs[i].distance_m ?? 0), 0) : 0;
+  const title = walkOnly
+    ? walkM > 0
+      ? t('walkMap.title', { distance: Math.round(walkM / 10) * 10 })
+      : t('walkMap.titleShort')
+    : leg
+      ? t('liveMap.title')
+      : t('routeMap.title');
   const onMessage = (msg: { type: string; [k: string]: unknown }) => {
     if (msg.type === 'ready') {
-      map.current?.post({ type: 'route', ...routeFeatures(journey) });
+      map.current?.post({
+        type: 'route',
+        ...(walkOnly ? walkFeatures(journey, walkLegs) : routeFeatures(journey)),
+      });
       setReady(true);
     } else if (msg.type === 'stop') {
       router.push({ pathname: '/stop/[id]', params: { id: String(msg.id) } });
@@ -95,13 +114,7 @@ export default function RouteMapScreen() {
   return (
     <Screen
       fill
-      header={
-        <BrandHeader
-          title={leg ? t('liveMap.title') : t('routeMap.title')}
-          subtitle={`${first.from} → ${last.to}`}
-          onBack={back}
-        />
-      }>
+      header={<BrandHeader title={title} subtitle={`${first.from} → ${last.to}`} onBack={back} />}>
       <View style={styles.wrap}>
         <MapFrame ref={map} html={html} onMessage={onMessage} />
       </View>
