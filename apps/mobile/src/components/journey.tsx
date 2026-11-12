@@ -17,9 +17,10 @@ import {
 
 import { type Journey, type Leg, type Transfer, delayMin } from '../api/journeys';
 import { byAlertSeverity, isSevereAlert } from '../api/stops';
-import { useNow, useReduceMotion, useTrainPosition } from '../hooks';
+import { useLegBus, useNow, useReduceMotion, useTrainPosition } from '../hooks';
 import { useT } from '../i18n';
 import { colors, modeColors, space, themed, type } from '../theme';
+import { busSourceText, busText, placeBus } from '../utils/busPosition';
 import { formatDuration, formatTime } from '../utils/time';
 import {
   type Placement,
@@ -174,11 +175,25 @@ function TransitLeg({
   const color = leg.line ? lineColors(leg.line).bg : (modeColors[leg.mode]?.bg ?? colors.brand);
   const late = delayMin(leg.departure);
 
-  // Live train position (Cercanías only; see utils/trainPosition.ts for the rules).
+  // Live train position (Cercanías; see utils/trainPosition.ts for the rules), or the EMT
+  // bus's (utils/busPosition.ts). A leg is one or the other, so at most one is asked for.
   const pos = useTrainPosition(leg);
-  const now = useNow(pos ? 1000 : 60_000);
-  const placement: Placement = pos ? place(pos, leg, now) : { kind: 'none' };
+  const bus = useLegBus(leg);
+  const now = useNow(pos || bus ? 1000 : 60_000);
+  const placement: Placement = pos
+    ? place(pos, leg, now)
+    : bus
+      ? placeBus(bus, leg, now)
+      : { kind: 'none' };
   const age = pos ? positionAgeS(pos, now) : null;
+  // What to say next to the point: the train's texts, or the bus's.
+  const approachLine = pos
+    ? placement.kind === 'approaching' && approachText(placement)
+    : bus && busText(bus, leg, now);
+  const sourceLine = pos ? sourceText(pos, age) : bus ? busSourceText(bus, now, false) : null;
+  const ridingLine = pos
+    ? placement.kind === 'riding' && ridingText(pos, placement.at)
+    : bus && busText(bus, leg, now);
   const riding = placement.kind === 'riding';
   // Riding: open the stops once, so the point has stations to move between.
   const autoOpened = useRef(false);
@@ -223,8 +238,8 @@ function TransitLeg({
             <View style={[styles.lineSeg, styles.lineAhead, { backgroundColor: color, top: 0 }]} />
           </View>
           <View style={styles.approachBody}>
-            <Text style={styles.liveStrong}>{approachText(placement)}</Text>
-            {pos ? <Text style={styles.small}>{sourceText(pos, age)}</Text> : null}
+            <Text style={styles.liveStrong}>{approachLine}</Text>
+            {sourceLine ? <Text style={styles.small}>{sourceLine}</Text> : null}
           </View>
         </View>
       ) : null}
@@ -291,10 +306,10 @@ function TransitLeg({
               </Text>
             ) : null}
           </View>
-          {riding && pos ? (
+          {riding && ridingLine ? (
             <Text style={styles.small}>
-              <Text style={styles.liveStrong}>{ridingText(pos, placement.at)}</Text>
-              {` · ${sourceText(pos, age)}`}
+              <Text style={styles.liveStrong}>{ridingLine}</Text>
+              {sourceLine ? ` · ${sourceLine}` : ''}
             </Text>
           ) : null}
           {leg.intermediate.length ? (

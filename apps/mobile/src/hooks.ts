@@ -12,7 +12,7 @@ import { t, useLanguage } from './i18n';
 import type { Leg } from './api/journeys';
 import { type BusPosition, getBusPosition } from './api/buses';
 import { type TripPosition, getTripPosition } from './api/trips';
-import { busKeepForward, busQuery } from './utils/busPosition';
+import { busKeepForward, busQuery, canTrackBus } from './utils/busPosition';
 import { canTrack, keepForward } from './utils/trainPosition';
 
 export function useDebounced<T>(value: T, ms = 250): T {
@@ -124,6 +124,12 @@ export function useReduceMotion(): boolean {
 export function useTrainPosition(leg: Leg): TripPosition | null {
   const now = useNow(60_000);
   return useTripPosition(leg.trip_id, leg.from_stop_id, canTrack(leg, now));
+}
+
+/** Live position of a leg's EMT bus (journey timeline, trip screen), from 45 min before it leaves. */
+export function useLegBus(leg: Leg | null | undefined): BusPosition | null {
+  const now = useNow(60_000);
+  return useBusPosition(leg ?? null, !!leg && canTrackBus(leg, now));
 }
 
 /** The same polling for any trip (the trip screen); `track` false stops it. */

@@ -12,8 +12,13 @@ import {
   distanceText,
   isBusShown,
   metresToGo,
+  placeBus,
+  placeBusOnTrip,
   pointAlong,
+  rowAt,
+  stopShares,
 } from './busPosition';
+import type { TripDetails } from '../api/trips';
 import { followedLeg } from './liveMap';
 
 const T0 = Date.parse('2026-11-12T08:00:00Z');
@@ -140,6 +145,82 @@ describe('where to draw the bus', () => {
   });
 });
 
+describe('the bus on the journey timeline and the trip screen', () => {
+  // The same leg with its stops: two in between, at a quarter and three quarters of the way.
+  const withStops: Leg = {
+    ...leg,
+    from_lat: 40.42,
+    from_lon: -3.69,
+    to_lat: 40.428,
+    to_lon: -3.69,
+    intermediate: [
+      { name: 'A', stop_id: 'emt:1', time: iso(T0 + 15 * min), lat: 40.422, lon: -3.69 },
+      { name: 'B', stop_id: 'emt:2', time: iso(T0 + 25 * min), lat: 40.426, lon: -3.69 },
+    ],
+  };
+
+  it('rowAt finds the row and the share of the way to the next', () => {
+    expect(rowAt([0, 10, 30], 20)).toEqual({ row: 1, progress: 0.5 });
+    expect(rowAt([0, 10, 30], -5)).toEqual({ row: 0, progress: 0 });
+    expect(rowAt([0, 10, 30], 99)).toEqual({ row: 2, progress: 0 });
+    expect(rowAt([0], 0)).toBeNull();
+  });
+
+  it('stops along the leg path', () => {
+    const s = stopShares(withStops)!;
+    expect(s[0]).toBe(0);
+    expect(s[1]).toBeCloseTo(0.25, 2);
+    expect(s[2]).toBeCloseTo(0.75, 2);
+    expect(s[3]).toBe(1);
+    expect(stopShares({ ...withStops, to_lat: null })).toBeNull();
+  });
+
+  it('on the bus: between the stops by the metres to go', () => {
+    // 445 of 890 m to go: halfway, so between A (0.25) and B (0.75), in the middle.
+    const p = placeBus(pos({}), withStops, T0);
+    expect(p.kind).toBe('riding');
+    if (p.kind !== 'riding') return;
+    expect(p.row).toBe(1);
+    expect(p.progress).toBeCloseTo(0.5, 2);
+    expect(p.at).toBe(false);
+  });
+
+  it('without stop coordinates: by the seconds to go on the timetable', () => {
+    const noCoords = { ...withStops, from_lat: null };
+    // 2.5 min to go: 27.5 min after T0, between B (25) and the stop (30).
+    const p = placeBus(pos({ seconds: 150 }), noCoords, T0);
+    expect(p).toEqual({ kind: 'riding', row: 2, progress: 0.5, at: false });
+  });
+
+  it('coming: above your stop; nothing when too old', () => {
+    expect(placeBus(pos({ status: 'approaching' }), withStops, T0).kind).toBe('approaching');
+    expect(placeBus(pos({}), withStops, T0 + 181_000).kind).toBe('none');
+    expect(placeBus(null, withStops, T0).kind).toBe('none');
+  });
+
+  it('trip screen: the stops before yours by the seconds to your stop', () => {
+    const trip: TripDetails = {
+      trip_id: 'emt:LA0270126',
+      board_index: 2,
+      alight_index: 5,
+      stops: [0, 2, 4, 6, 8, 10].map((m, i) => ({
+        index: i,
+        stop_id: `emt:${i}`,
+        name: `S${i}`,
+        departure: iso(T0 + m * min),
+      })),
+    };
+    // Your stop (row 2) at T0+4 min; 3 min to go: T0+1 min, halfway from row 0 to row 1.
+    expect(placeBusOnTrip(pos({ status: 'approaching', seconds: 180 }), withStops, trip, T0)).toEqual(
+      { row: 0, progress: 0.5, at: false },
+    );
+    // On the bus, the leg's stops are the trip's rows 2..5: the leg's row 1 is the trip's 3.
+    const riding = placeBusOnTrip(pos({}), withStops, trip, T0)!;
+    expect(riding.row).toBe(3);
+    expect(riding.progress).toBeCloseTo(0.5, 2);
+  });
+});
+
 describe('what the card says', () => {
   it('distances', () => {
     expect(distanceText(72)).toBe('70 m');
@@ -160,6 +241,10 @@ describe('what the card says', () => {
     expect(busSourceText(pos({}), T0 + 15_000)).toBe('Live · EMT, updated 15 s ago');
     expect(busSourceText(pos({ status: 'approaching', lat: 40, lon: -3.7 }), T0)).toBe(
       'Live · EMT, updated 0 s ago · map point: where the bus last reported its position',
+    );
+    // The timelines draw no GPS fix, so they leave the map note out.
+    expect(busSourceText(pos({ status: 'approaching', lat: 40, lon: -3.7 }), T0, false)).toBe(
+      'Live · EMT, updated 0 s ago',
     );
   });
 });

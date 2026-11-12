@@ -16,10 +16,11 @@ import {
 } from '../components/layout';
 import { LinePill, lineColors, modeLabel } from '../components/transit';
 import { TripRoute, TripStatus } from '../components/trip';
-import { useAsync, useNow, useTripPosition } from '../hooks';
+import { useAsync, useLegBus, useNow, useTripPosition } from '../hooks';
 import { useT } from '../i18n';
 import { journeyCache } from '../state/journeys';
 import { colors, modeColors, space, themed } from '../theme';
+import { canTrackBus } from '../utils/busPosition';
 import { canTrack } from '../utils/trainPosition';
 
 export default function TripScreen() {
@@ -39,9 +40,10 @@ export default function TripScreen() {
     `${tripId}:${leg?.departure.scheduled}`,
   );
   const slowNow = useNow(60_000);
-  const tracked = !!leg && canTrack(leg, slowNow);
-  const pos = useTripPosition(tripId, leg?.from_stop_id, tracked);
-  const now = useNow(pos ? 1000 : 60_000);
+  const pos = useTripPosition(tripId, leg?.from_stop_id, !!leg && canTrack(leg, slowNow));
+  const bus = useLegBus(leg);
+  const tracked = !!leg && (canTrack(leg, slowNow) || canTrackBus(leg, slowNow));
+  const now = useNow(pos || bus ? 1000 : 60_000);
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
   if (!leg || !tripId) {
@@ -87,8 +89,8 @@ export default function TripScreen() {
             </View>
           ) : null}
           <Card style={{ marginTop: space.lg }}>
-            <TripStatus trip={data} pos={pos} now={now} tracked={tracked} />
-            <TripRoute trip={data} color={color} pos={pos} now={now} />
+            <TripStatus trip={data} pos={pos} bus={bus} leg={leg} now={now} tracked={tracked} />
+            <TripRoute trip={data} color={color} pos={pos} bus={bus} leg={leg} now={now} />
           </Card>
         </>
       ) : null}

@@ -519,14 +519,88 @@ def emt_stops_to_fetch(its: list[_Itinerary], now: datetime) -> list[str]:
     return codes[:MAX_EMT_STOPS]
 
 
+def _legs_pattern(legs: list[Leg]) -> tuple[tuple[str, ...], ...]:
+    """What you ride: each vehicle and its stops. A timetabled trip is itself; a frequency
+    leg (headway_min set) is only its line, as one line has several template trip ids (EMT)
+    and OTP's time on it is not a real departure."""
+    return tuple(
+        (
+            lg.mode,
+            lg.line.route_id if lg.line and lg.headway_min is not None else (lg.trip_id or ""),
+            lg.from_stop_id or "",
+            lg.to_stop_id or "",
+        )
+        for lg in legs
+        if lg.mode != "walk"
+    )
+
+
+def _pattern(it: _Itinerary) -> tuple[tuple[str, ...], ...]:
+    return _legs_pattern([d.leg for d in it.drafts])
+
+
+def _same_ride(a: Leg, b: Leg) -> bool:
+    """The same vehicle, for two legs of the same pattern."""
+    if a.headway_min is None or b.headway_min is None:
+        return a.departure.best == b.departure.best
+    va = a.departure.realtime.vehicle_id if a.departure.realtime else None
+    vb = b.departure.realtime.vehicle_id if b.departure.realtime else None
+    if a.departure.status == "live" and b.departure.status == "live":
+        return va == vb and a.departure.best == b.departure.best
+    # At least one is only "every ~N min": within one headway it is the same bus.
+    gap = abs((a.departure.best - b.departure.best).total_seconds())
+    return gap < max(a.headway_min, b.headway_min) * 60
+
+
+def drop_frequency_copies(journeys: list[Journey]) -> list[Journey]:
+    """Drop journeys that ride the same frequency line(s) as another one on the same bus:
+    OTP's once-a-minute candidates (see overlay_emt). A journey with live buses is kept over
+    a timetable-only copy; otherwise the earlier one in the list. The list order is kept."""
+
+    def live_legs(j: Journey) -> int:
+        return sum(lg.departure.status == "live" for lg in j.legs)
+
+    kept: list[Journey] = []
+    for j in sorted(journeys, key=live_legs, reverse=True):  # stable: list order within
+        if any(lg.headway_min is not None for lg in j.legs) and any(
+            _legs_pattern(k.legs) == _legs_pattern(j.legs)
+            and all(
+                _same_ride(a, b)
+                for a, b in zip(
+                    [lg for lg in k.legs if lg.mode != "walk"],
+                    [lg for lg in j.legs if lg.mode != "walk"],
+                    strict=True,
+                )
+            )
+            for k in kept
+        ):
+            continue
+        kept.append(j)
+    keep = {id(j) for j in kept}
+    return [j for j in journeys if id(j) in keep]
+
+
 def overlay_emt(
     its: list[_Itinerary], fetched: dict[str, LiveFetch], now: datetime, start: datetime
 ) -> None:
     """Board each EMT leg on the first live bus of its line that you can still reach.
 
     EMT runs by headway, so there is no scheduled trip to compare with: delay_s stays null
-    and the arrival is the boarding estimate carried forward (marked as such)."""
-    for it in its:
+    and the arrival is the boarding estimate carried forward (marked as such).
+
+    For a frequency line OTP offers the same ride once a minute (15:41, 15:42, ...). Found
+    2026-11-12: all of them were put on the same bus, so the list showed one connection five
+    times. Itineraries that ride the same way now each take a different bus, in the order of
+    OTP's times; one with no bus left keeps OTP's "every ~N min" time (and is then usually
+    dropped as a copy, see drop_frequency_copies)."""
+    taken: dict[tuple[Any, ...], set[tuple[datetime, str | None]]] = defaultdict(set)
+    order = sorted(
+        range(len(its)),
+        key=lambda k: min((d.leg.departure.scheduled for d in its[k].drafts), default=now),
+    )
+    for k in order:
+        it = its[k]
+        pattern = _pattern(it)
         for i, d in enumerate(it.drafts):
             if d.feed != "emt" or d.from_native not in fetched or d.leg.line is None:
                 continue
@@ -540,16 +614,19 @@ def overlay_emt(
             else:
                 ready = add_seconds(it.drafts[prev].leg.arrival.best, walk)
             line = d.leg.line.short_name.upper()
+            used = taken[(pattern, i)]
             options = [
                 (when, info)
                 for a, when, info in live.emt_live(data, fresh, now)
                 if a.line.upper() == line
                 and when is not None
                 and when >= ready - timedelta(seconds=30)
+                and (when, info.vehicle_id) not in used
             ]
             if not options:
                 continue
             when, info = min(options, key=lambda o: o[0])
+            used.add((when, info.vehicle_id))
             leg = d.leg
             shift = round((when - leg.departure.scheduled).total_seconds())
             leg.departure = leg.departure.model_copy(
@@ -571,20 +648,32 @@ def overlay_emt(
 # Journeys
 
 
-def _boundary(walk_time: datetime, ref: LegTime, otp_ref: datetime | None) -> LegTime:
+def _boundary(
+    walk_time: datetime, ref: LegTime, otp_ref: datetime | None, slack_s: int = 0
+) -> LegTime:
     """A time on the walk at the start or end of a journey.
 
     OTP places that walk against the time it planned the vehicle with (`otp_ref`, which may
     include OTP's own real-time delay). Move it to the timetable, and to MadridGo's live
-    estimate when there is one, so it matches what the vehicle leg shows."""
+    estimate when there is one, so it matches what the vehicle leg shows.
+
+    `slack_s` (start walk only): how long OTP had you wait after the walk. A vehicle earlier
+    than OTP's time moves the walk back only by what the wait does not cover. Found
+    2026-11-12: on a frequency line OTP put the walk at the search time and the bus 13 min
+    later; the live bus came 13 min earlier, and the walk was moved to before the search."""
     otp_ref = otp_ref or ref.scheduled
-    scheduled = add_seconds(walk_time, round((ref.scheduled - otp_ref).total_seconds()))
+
+    def shift(to: datetime) -> int:
+        d = round((to - otp_ref).total_seconds())
+        return d if d >= 0 else min(0, d + slack_s)
+
+    scheduled = add_seconds(walk_time, shift(ref.scheduled))
     if ref.status == "cancelled":
         return LegTime(scheduled=scheduled, status="cancelled", realtime=ref.realtime)
     if ref.status != "live" or ref.estimated is None:
         status: TimeStatus = "frequency" if ref.status == "frequency" else "scheduled"
         return LegTime(scheduled=scheduled, status=status)
-    est = add_seconds(walk_time, round((ref.estimated - otp_ref).total_seconds()))
+    est = add_seconds(walk_time, shift(ref.estimated))
     info = (
         ref.realtime.model_copy(update={"predicted_time": est, "estimated_from_trip_delay": True})
         if ref.realtime
@@ -664,8 +753,12 @@ def build_journey(it: _Itinerary) -> Journey:
     first, last = legs[0], legs[-1]
     if first.mode == "walk" and transit:
         ref, otp_ref = legs[transit[0]].departure, drafts[transit[0]].otp_start
-        first.departure = _boundary(first.departure.scheduled, ref, otp_ref)
-        first.arrival = _boundary(first.arrival.scheduled, ref, otp_ref)
+        # The wait OTP left between the end of the walk and the vehicle.
+        slack = max(
+            0, round(((otp_ref or ref.scheduled) - first.arrival.scheduled).total_seconds())
+        )
+        first.departure = _boundary(first.departure.scheduled, ref, otp_ref, slack)
+        first.arrival = _boundary(first.arrival.scheduled, ref, otp_ref, slack)
     if last.mode == "walk" and transit:
         ref, otp_ref = legs[transit[-1]].arrival, drafts[transit[-1]].otp_end
         last.departure = _boundary(last.departure.scheduled, ref, otp_ref)
@@ -894,7 +987,14 @@ async def journeys(
         codes = emt_stops_to_fetch(its, now)
         results = await asyncio.gather(*(rt.emt_arrivals(c) for c in codes))
         fetched = dict(zip(codes, results, strict=True))
-        overlay_emt(its, fetched, now, when)
+        # An Earlier/Later page starts at its own search time, not now: otherwise a later
+        # page's buses were moved back onto the first page's (found 2026-11-12).
+        start = (
+            _dt(data["searchDateTime"])
+            if cursor and not arrive_by and data.get("searchDateTime")
+            else when
+        )
+        overlay_emt(its, fetched, now, start)
         statuses.append(_emt_status(list(results), now))
     for feed in sorted(used - {"cercanias", "emt"}):
         statuses.append(live.no_realtime_status(feed, _operator(feed)))
@@ -903,7 +1003,7 @@ async def journeys(
     for it in its:
         j = build_journey(it)
         built.setdefault(j.id, j)  # OTP can return the same itinerary twice
-    result = sort_journeys(drop_slow_walks(list(built.values())), sort)
+    result = drop_frequency_copies(sort_journeys(drop_slow_walks(list(built.values())), sort))
     alert_snaps = await rt.alert_snapshots()
     if alert_snaps:
         result = [
