@@ -19,8 +19,9 @@ import { type Journey, type Leg, type Transfer, delayMin } from '../api/journeys
 import { byAlertSeverity, isSevereAlert } from '../api/stops';
 import { useLegBus, useNow, useReduceMotion, useTrainPosition } from '../hooks';
 import { useT } from '../i18n';
-import { colors, modeColors, space, themed, type } from '../theme';
+import { colors, modeColors, radius, space, themed, type } from '../theme';
 import { busSourceText, busText, placeBus } from '../utils/busPosition';
+import { changeDetails, walkLegsInChanges } from '../utils/changeDetails';
 import { formatDuration, formatTime } from '../utils/time';
 import {
   type Placement,
@@ -72,6 +73,7 @@ export function JourneyNotices({ journey }: { journey: Journey }) {
 
 export function JourneyTimeline({ journey }: { journey: Journey }) {
   const { t } = useT();
+  const inChanges = walkLegsInChanges(journey);
   return (
     <View style={{ paddingVertical: space.sm }}>
       <View style={styles.colHeads}>
@@ -82,8 +84,10 @@ export function JourneyTimeline({ journey }: { journey: Journey }) {
         <Text style={[styles.colHead, styles.colHeadRight]}>{t('journey.colPlatform')}</Text>
       </View>
       {journey.legs.map((leg, i) => {
-        // The change is noted right after the vehicle you get off, before any walk.
+        // The change box comes right after the vehicle you get off; the walks of a change are
+        // shown inside it, not as rows of their own.
         const change = journey.changes.find((c) => c.from_leg === i);
+        if (leg.mode === 'walk' && inChanges.has(i)) return null;
         return (
           <View key={i}>
             {leg.mode === 'walk' ? (
@@ -91,7 +95,7 @@ export function JourneyTimeline({ journey }: { journey: Journey }) {
             ) : (
               <TransitLeg leg={leg} journeyId={journey.id} legIndex={i} />
             )}
-            {change ? <ChangeNote change={change} /> : null}
+            {change ? <ChangeBox journey={journey} change={change} /> : null}
           </View>
         );
       })}
@@ -99,23 +103,100 @@ export function JourneyTimeline({ journey }: { journey: Journey }) {
   );
 }
 
-function ChangeNote({ change }: { change: Transfer }) {
+/**
+ * At a change (SBB's "change time"): the minutes between getting off and the next departure,
+ * the platforms, the walk, the spare minutes, and a warning when the change is tight.
+ */
+function ChangeBox({ journey, change }: { journey: Journey; change: Transfer }) {
   const { t } = useT();
+  const d = changeDetails(journey, change);
+  const palette = {
+    ok: { bg: colors.scheduledBg, fg: colors.text },
+    warning: { bg: colors.warningBg, fg: colors.warning },
+    danger: { bg: colors.delayBg, fg: colors.delay },
+  }[d.tone];
+
+  const title =
+    d.changeMin != null && d.changeMin >= 0
+      ? t('change.time', { n: d.changeMin })
+      : t('change.at', { stop: change.at });
+  const platforms =
+    d.fromPlatform && d.toPlatform
+      ? d.fromPlatform === d.toPlatform && !d.walkLegs.length
+        ? t('change.samePlatform', { p: d.toPlatform })
+        : t('change.platforms', { from: d.fromPlatform, to: d.toPlatform })
+      : d.toPlatform
+        ? t('change.toPlatform', { p: d.toPlatform })
+        : null;
+  const walk =
+    d.walkLegs.length || d.walkMin > 0
+      ? d.walkTo
+        ? t('journey.walk', {
+            min: d.walkMin,
+            distance: d.walkM ? ` · ${d.walkM} m` : '',
+            stop: d.walkTo,
+          })
+        : t('change.walkWithin', { min: d.walkMin, distance: d.walkM ? ` · ${d.walkM} m` : '' })
+      : null;
+  const advice =
+    change.label === 'tight' || change.label === 'at_risk' || change.label === 'not_feasible'
+      ? t(`change.advice.${change.label}`)
+      : null;
+  const badge = change.label
+    ? t(`transfer.${change.label}`)
+    : t('journey.waitUpTo', { n: change.wait_up_to_min ?? '?' });
+
   return (
-    <View
-      style={styles.change}
-      accessibilityLabel={t('journey.changeAt', { stop: change.at, message: change.message })}>
-      <MaterialCommunityIcons name="swap-horizontal" size={16} color={colors.textMuted} />
-      <View style={styles.changeBody}>
-        {change.label ? (
-          <TransferBadge label={change.label} />
-        ) : (
-          <StatusBadge
-            status="frequency"
-            text={t('journey.waitUpTo', { n: change.wait_up_to_min ?? '?' })}
-          />
-        )}
-        <Text style={styles.small}>{change.message}</Text>
+    <View style={styles.changeRow}>
+      <View style={styles.timeCol} />
+      <View style={styles.track}>{d.walkLegs.length ? <View style={styles.walkLine} /> : null}</View>
+      <View
+        style={[styles.changeBox, { backgroundColor: palette.bg }]}
+        accessible
+        accessibilityRole={d.tone === 'ok' ? undefined : 'alert'}
+        accessibilityLabel={[
+          t('change.at', { stop: change.at }),
+          title === t('change.at', { stop: change.at }) ? null : title,
+          badge,
+          platforms,
+          walk,
+          change.message,
+          advice,
+        ]
+          .filter(Boolean)
+          .join('. ')}>
+        <View style={styles.changeHead}>
+          <MaterialCommunityIcons name="swap-horizontal" size={18} color={palette.fg} />
+          <Text style={[styles.changeTitle, { color: palette.fg }]}>{title}</Text>
+          {change.label ? (
+            <TransferBadge label={change.label} />
+          ) : (
+            <StatusBadge status="frequency" text={badge} />
+          )}
+        </View>
+        {platforms ? (
+          <View style={styles.changeLine}>
+            <MaterialCommunityIcons name="sign-direction" size={16} color={colors.textMuted} />
+            <Text style={styles.changeText}>{platforms}</Text>
+          </View>
+        ) : null}
+        {walk ? (
+          <View style={styles.changeLine}>
+            <ModeIcon mode="walk" size={16} />
+            <Text style={styles.changeText}>{walk}</Text>
+          </View>
+        ) : null}
+        <Text style={styles.changeText}>{change.message}</Text>
+        {advice ? (
+          <View style={styles.changeLine}>
+            <MaterialCommunityIcons
+              name={d.tone === 'danger' ? 'alert-octagon-outline' : 'alert-outline'}
+              size={16}
+              color={palette.fg}
+            />
+            <Text style={[styles.changeAdvice, { color: palette.fg }]}>{advice}</Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -510,13 +591,18 @@ const styles = themed(() => StyleSheet.create({
     gap: space.sm,
     paddingLeft: space.sm,
   },
-  changeBody: { flex: 1, gap: 4 },
-  change: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingRight: space.lg,
-    gap: space.sm,
-    marginLeft: space.lg + TIME_W + TRACK + space.sm,
-    paddingVertical: space.sm,
+  changeRow: { flexDirection: 'row', paddingHorizontal: space.lg },
+  changeBox: {
+    flex: 1,
+    marginLeft: space.sm,
+    marginVertical: space.sm,
+    padding: space.md,
+    borderRadius: radius.md,
+    gap: 6,
   },
+  changeHead: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: space.sm },
+  changeTitle: { ...type.bodyStrong, flexShrink: 1 },
+  changeLine: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm },
+  changeText: { ...type.small, color: colors.text, flexShrink: 1 },
+  changeAdvice: { ...type.smallStrong, flexShrink: 1 },
 }));
