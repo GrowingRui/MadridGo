@@ -26,6 +26,7 @@ from app.feeds import expiry_state
 from app.ingest.download import download
 from app.ingest.gtfs import GtfsZip
 from app.ingest.importer import delete_version, import_feed
+from app.ingest.shapes import repair_shapes
 from app.ingest.sources import GTFS_SOURCES, OSM_MADRID_URL, SOURCES_BY_KEY, GtfsSource
 from app.ingest.subset import subset
 from app.ingest.validate import validate
@@ -95,6 +96,13 @@ async def update_source(
         flat = flat_path
     else:
         flat = flatten(dl.path, flat_path)
+    if source.repair_shapes:
+        fixed = repair_shapes(flat)
+        print(
+            f"[{source.key}] shapes: {fixed.patterns} trip patterns, {fixed.kept} fitted, "
+            f"{fixed.reversed} reversed, {fixed.stitched} stitched ({fixed.straight_hops} hops "
+            f"on no shape), {fixed.dropped} dropped (drawn straight)"
+        )
 
     summary = None
     if not skip_validate:
