@@ -615,12 +615,25 @@ def overlay_emt(
                 ready = add_seconds(it.drafts[prev].leg.arrival.best, walk)
             line = d.leg.line.short_name.upper()
             used = taken[(pattern, i)]
+            # On a frequency line OTP boards you a whole headway after you reach the stop
+            # (the longest wait), so the bus it means is due by its time. A later bus belongs
+            # to a later candidate, and a candidate already gone takes none: otherwise an
+            # "Earlier connections" page was put on the buses of the first page (found
+            # 2026-11-12).
+            latest = None
+            if d.leg.headway_min is not None:
+                if d.leg.departure.scheduled < now - timedelta(seconds=60):
+                    continue
+                latest = d.leg.departure.scheduled + timedelta(
+                    minutes=max(5, d.leg.headway_min / 2)
+                )
             options = [
                 (when, info)
                 for a, when, info in live.emt_live(data, fresh, now)
                 if a.line.upper() == line
                 and when is not None
                 and when >= ready - timedelta(seconds=30)
+                and (latest is None or when <= latest)
                 and (when, info.vehicle_id) not in used
             ]
             if not options:
@@ -763,14 +776,28 @@ def build_journey(it: _Itinerary) -> Journey:
         ref, otp_ref = legs[transit[-1]].arrival, drafts[transit[-1]].otp_end
         last.departure = _boundary(last.departure.scheduled, ref, otp_ref)
         last.arrival = _boundary(last.arrival.scheduled, ref, otp_ref)
+    # Walks between two vehicles start when the vehicle before arrives (found 2026-11-12: a
+    # C2 train 15 min late still showed the walk to the next bus at the timetable's time).
+    for k in range(1, len(legs) - 1):
+        if legs[k].mode == "walk" and legs[k - 1].mode != "walk":
+            ref, otp_ref = legs[k - 1].arrival, drafts[k - 1].otp_end
+            walk_leg = legs[k]
+            walk_leg.departure = _boundary(walk_leg.departure.scheduled, ref, otp_ref)
+            walk_leg.arrival = _boundary(walk_leg.arrival.scheduled, ref, otp_ref)
     departure, arrival = first.departure, last.arrival
 
     times = [t for lg in legs for t in (lg.departure, lg.arrival)]
-    # Live times at both ends give the expected duration; otherwise a live departure next to
-    # a timetable arrival would make the trip look shorter than it is.
+    # Live times at both ends give the expected duration. With one vehicle, a live departure
+    # next to a timetable arrival would make the trip look shorter than it is (its delay is
+    # not in the arrival), so both ends are the timetable's. With several vehicles, the last
+    # one's time is its own: the times shown give the duration (found 2026-11-12: 16:08 ->
+    # 16:36 was "44 min", after a late first train).
     both_live = departure.status == "live" and arrival.status == "live"
+    one_vehicle = len(transit) == 1
     start, end = (
-        (departure.best, arrival.best) if both_live else (departure.scheduled, arrival.scheduled)
+        (departure.scheduled, arrival.scheduled)
+        if one_vehicle and not both_live
+        else (departure.best, arrival.best)
     )
     walk_s = sum(d.duration_s for d in drafts if d.leg.mode == "walk")
     return Journey(
