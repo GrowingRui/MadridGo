@@ -7,7 +7,7 @@ import pytest
 from app.feeds import expiry_state
 from app.ingest.__main__ import flatten
 from app.ingest.gtfs import GtfsZip, color, fold, parse_time
-from app.ingest.subset import subset
+from app.ingest.subset import subset, tidy_name
 from app.ingest.validate import summarise_report
 from app.timetable import (
     MADRID,
@@ -155,3 +155,10 @@ def test_subset_keeps_one_network(tmp_path: Path) -> None:
         assert [r["service_id"] for r in feed.rows("calendar")] == ["ALL"]
         assert len(list(feed.rows("feed_info"))) == 2
         assert [r["agency_id"] for r in feed.rows("agency")] == ["A"]  # routes name no agency
+
+
+def test_tidy_name_removes_renfe_padding() -> None:
+    assert tidy_name("Colmenar Viejo" + " " * 26 + "-Parla") == "Colmenar Viejo - Parla"
+    assert tidy_name("Aeropuerto-T4" + " " * 27 + "-Principe Pio") == "Aeropuerto-T4 - Principe Pio"
+    assert tidy_name("Chamartín - Clara Campoamor") == "Chamartín - Clara Campoamor"
+    assert tidy_name(" C4b ") == "C4b"

@@ -25,6 +25,7 @@ import { journeyCache } from '../state/journeys';
 import { currentScheme, modeColors } from '../theme';
 import { busPoint } from '../utils/busPosition';
 import { followedLeg, trainPoint } from '../utils/liveMap';
+import { decodePolyline } from '../utils/polyline';
 import { routeFeatures } from '../utils/route';
 
 export default function RouteMapScreen() {
@@ -52,7 +53,10 @@ export default function RouteMapScreen() {
   const pos = useTripPosition(leg?.trip_id, leg?.from_stop_id, !!leg && !bus);
   const busPos = useBusPosition(leg, !!leg && bus);
   const now = useNow(pos || busPos ? 1000 : 30_000);
-  const point = leg && bus ? busPoint(busPos, leg, now) : trainPoint(pos, now);
+  // The leg's track, so the train follows it (decoded once, not every second).
+  const geometry = leg?.geometry;
+  const track = useMemo(() => (geometry ? decodePolyline(geometry) : undefined), [geometry]);
+  const point = leg && bus ? busPoint(busPos, leg, now) : trainPoint(pos, now, track);
   const color = leg?.line ? lineColors(leg.line).bg : modeColors.rail.bg;
 
   // Send the train's place every second (it moves with the clock between updates).

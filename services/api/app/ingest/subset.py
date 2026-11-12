@@ -4,6 +4,7 @@ spaces Renfe adds."""
 
 import csv
 import io
+import re
 import zipfile
 from collections.abc import Callable
 from itertools import chain
@@ -23,6 +24,17 @@ _BY = {
 }
 
 Rule = Callable[[dict[str, str]], bool]
+
+_SPACES = re.compile(r"\s+")
+_LOOSE_DASH = re.compile(r" -(?=\S)|(?<=\S)- ")
+
+
+def tidy_name(name: str) -> str:
+    """Renfe's route_long_name pads the first terminus to 40 characters ("Colmenar Viejo
+    <26 spaces>-Parla"): one space between words and " - " between the termini."""
+    return _LOOSE_DASH.sub(" - ", _SPACES.sub(" ", name).strip())
+
+
 # Written in this order: each table's kept IDs are known once the tables before it are read.
 _ORDER = ("routes", "trips", "stop_times", "frequencies", "calendar", "calendar_dates", "shapes")
 
@@ -58,6 +70,9 @@ def subset(src: Path, dest: Path, route_prefix: str) -> dict[str, int]:
         def routes(row: dict[str, str]) -> bool:
             if not row["route_id"].startswith(route_prefix):
                 return False
+            for column in ("route_short_name", "route_long_name"):
+                if row.get(column):
+                    row[column] = tidy_name(row[column])
             keep["route"].add(row["route_id"])
             return True
 

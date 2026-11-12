@@ -27,6 +27,9 @@ class GtfsSource:
     # Keep only routes whose route_id starts with this (and the trips, stops, calendars and
     # shapes they use). For feeds covering more than Madrid.
     route_prefix: str | None = None
+    # Give each trip a shape that fits its stops, or none (app/ingest/shapes.py). For feeds
+    # whose trips use the shape of the other direction, so OTP would draw them straight.
+    repair_shapes: bool = False
 
 
 def _crtm(
@@ -62,6 +65,7 @@ GTFS_SOURCES: tuple[GtfsSource, ...] = (
         id_namespace="renfe",
         expiry_warning_days=7,
         route_prefix="10",
+        repair_shapes=True,
     ),
     _crtm("interurban", "CRTM Autobuses interurbanos", "bus", "885399f83408473c8d815e40c5e702b7"),
     _crtm("urban", "CRTM Autobuses urbanos", "bus", "357e63c2904f43aeb5d8a267a64346d8"),
