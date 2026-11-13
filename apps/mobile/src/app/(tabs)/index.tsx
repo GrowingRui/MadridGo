@@ -19,7 +19,14 @@ import { StopRow } from '../../components/stops';
 import { Rich } from '../../components/Rich';
 import { useIsWide, type PressState } from '../../hooks';
 import { type MessageKey, useT } from '../../i18n';
-import { type Place, type PlanView, placeKey, setPlanner, usePlanner } from '../../state/planner';
+import {
+  type Place,
+  type PlanView,
+  placeKey,
+  setPlanner,
+  takeNewSearch,
+  usePlanner,
+} from '../../state/planner';
 import { type SavedStop, useSaved } from '../../state/saved';
 import { colors, radius, space, themed, type } from '../../theme';
 
@@ -27,7 +34,7 @@ import { colors, radius, space, themed, type } from '../../theme';
 let connectionsOpen = false;
 
 export default function PlanScreen() {
-  const { from, to, when, arriveBy, sort, view } = usePlanner();
+  const { from, to, when, arriveBy, sort, view, avoid } = usePlanner();
   const isWide = useIsWide();
   const { t } = useT();
   const form = usePlanForm();
@@ -40,7 +47,9 @@ export default function PlanScreen() {
   // for a new search instead of opening it again.
   useFocusEffect(
     useCallback(() => {
-      if (connectionsOpen) {
+      // A re-plan from a connection (startSearch) brings new From/To: show them, don't clear.
+      const fresh = takeNewSearch();
+      if (connectionsOpen && !fresh) {
         connectionsOpen = false;
         setPlanner({ from: null, to: null, when: null, arriveBy: false });
       } else if (!isWide && ready && !editing) {
@@ -132,12 +141,13 @@ export default function PlanScreen() {
       ) : ready && isWide ? (
         // Keyed so "Earlier/Later" and the selection reset when the search changes.
         <ConnectionList
-          key={`${placeKey(from)}|${placeKey(to)}|${when}|${arriveBy}|${sort}`}
+          key={`${placeKey(from)}|${placeKey(to)}|${when}|${arriveBy}|${sort}|${avoid.join(',')}`}
           from={from}
           to={to}
           when={when}
           arriveBy={arriveBy}
           sort={sort}
+          avoid={avoid}
         />
       ) : (
         <Start />

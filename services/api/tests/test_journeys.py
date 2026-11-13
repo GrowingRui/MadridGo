@@ -543,6 +543,27 @@ def test_r2_cancelled_train_makes_the_journey_not_feasible(
     assert all(x["feasible"] for x in body["journeys"][:-1])
 
 
+def test_r12_replan_leaves_out_the_cancelled_train(setup: Callable[..., TestClient]) -> None:
+    snap = snapshot(RECORDED, RECORDED, [{"trip_id": C4A_TRIP, "cancelled": True}])
+    client = setup(FakeOtp(load("parla_atocha")), rt=realtime(snap))
+    everything = plan(client)
+    body = plan(client, avoid=[f"cercanias:{C4A_TRIP}"])
+    assert body["journeys"], "the other connections are still offered"
+    assert len(body["journeys"]) == len(everything["journeys"]) - 1
+    assert not any(
+        lg["trip_id"] == f"cercanias:{C4A_TRIP}" for j in body["journeys"] for lg in j["legs"]
+    )
+    assert all(j["feasible"] for j in body["journeys"])
+    # An unknown trip id changes nothing; too many ids are refused.
+    same = plan(client, avoid=["cercanias:nope"])
+    assert [j["id"] for j in same["journeys"]] == [j["id"] for j in everything["journeys"]]
+    many = client.get(
+        "/journeys",
+        params={"from": PARLA_STOP, "to": ATOCHA, "avoid": [f"x:{i}" for i in range(6)]},
+    )
+    assert many.status_code == 422
+
+
 def test_train_that_already_passed_the_boarding_stop(setup: Callable[..., TestClient]) -> None:
     # The feed's next stop for this train is Atocha: it is already past Parla.
     snap = snapshot(

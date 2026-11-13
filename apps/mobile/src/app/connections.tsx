@@ -14,7 +14,7 @@ import { useT } from '../i18n';
 import { placeKey, usePlanner } from '../state/planner';
 
 export default function ConnectionsScreen() {
-  const { from, to, when, arriveBy, sort } = usePlanner();
+  const { from, to, when, arriveBy, sort, avoid } = usePlanner();
   const { t } = useT();
   const form = usePlanForm();
   const { editing, text, close, choose, chooseHere, choosePlace, other } = form;
@@ -45,12 +45,13 @@ export default function ConnectionsScreen() {
       ) : from && to ? (
         // Keyed so "Earlier/Later" reset when the search changes.
         <ConnectionList
-          key={`${placeKey(from)}|${placeKey(to)}|${when}|${arriveBy}|${sort}`}
+          key={`${placeKey(from)}|${placeKey(to)}|${when}|${arriveBy}|${sort}|${avoid.join(',')}`}
           from={from}
           to={to}
           when={when}
           arriveBy={arriveBy}
           sort={sort}
+          avoid={avoid}
         />
       ) : (
         <EmptyState icon="map-marker-path" title={t('conns.choose')} />

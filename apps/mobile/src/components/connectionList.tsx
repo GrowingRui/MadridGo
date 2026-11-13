@@ -16,6 +16,7 @@ import { colors, space, themed, type } from '../theme';
 import { formatDay, formatTime } from '../utils/time';
 import { ConnectionActions, ConnectionHeader } from './connection';
 import { JourneyNotices, JourneyTimeline } from './journey';
+import { ReplanButton } from './replan';
 import { Card, Divider, EmptyState, ErrorState, Loading, Notice } from './layout';
 import { ConnectionCard } from './planner';
 import { Rich } from './Rich';
@@ -26,12 +27,15 @@ export function ConnectionList({
   when,
   arriveBy,
   sort,
+  avoid = [],
 }: {
   from: Place;
   to: Place;
   when: number | null;
   arriveBy: boolean;
   sort: SortOption;
+  /** Cancelled trains left out when re-planning (components/replan.tsx). */
+  avoid?: string[];
 }) {
   const isWide = useIsWide();
   const { t } = useT();
@@ -41,8 +45,16 @@ export function ConnectionList({
   const [selected, setSelected] = useState(0);
   const plan = useAsync(
     () =>
-      planJourneys({ from: planPlace(from), to: planPlace(to), at: when, arriveBy, sort, cursor }),
-    `${placeKey(from)}|${placeKey(to)}|${when}|${cursor ?? ''}`,
+      planJourneys({
+        from: planPlace(from),
+        to: planPlace(to),
+        at: when,
+        arriveBy,
+        sort,
+        cursor,
+        avoid,
+      }),
+    `${placeKey(from)}|${placeKey(to)}|${when}|${cursor ?? ''}|${avoid.join(',')}`,
   );
   const data = plan.data;
 
@@ -116,6 +128,11 @@ export function ConnectionList({
   // Timetable problems (expired feeds), then operators whose live data is down or outdated.
   const notices = (
     <>
+      {avoid.length ? (
+        <Notice tone="info" icon="swap-horizontal">
+          {t('replan.avoiding')}
+        </Notice>
+      ) : null}
       {data.notices.map((n) => (
         <Notice
           key={n.source}
@@ -162,6 +179,7 @@ export function ConnectionList({
                 <ConnectionActions journey={current} from={from} to={to} />
               </View>
               <JourneyNotices journey={current} />
+              <ReplanButton journey={current} from={from} to={to} />
               <Divider />
               <JourneyTimeline journey={current} />
             </Card>
@@ -171,7 +189,6 @@ export function ConnectionList({
     </>
   );
 }
-
 
 function PageLink({
   label,
