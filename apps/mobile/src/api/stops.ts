@@ -60,6 +60,8 @@ export interface Departure {
   stop_id: string;
   trip_id: string;
   wheelchair_accessible: boolean | null;
+  /** Arrival boards: where the trip comes from (its first stop). */
+  origin?: string | null;
   status: 'scheduled' | 'live' | 'cancelled';
   realtime: RealtimeInfo | null;
 }
@@ -131,6 +133,8 @@ export interface FrequencyService {
   kind: 'frequency';
   line: Line;
   headsign: string | null;
+  /** Arrival boards: where the trips come from. */
+  origin?: string | null;
   stop_id: string;
   headway_min: number;
   from_time: string;
@@ -145,13 +149,19 @@ export interface DataNotice {
   message: string;
 }
 
+export type BoardKind = 'departures' | 'arrivals';
+
 export interface StopBoard {
+  kind?: BoardKind;
   stop: StopSummary;
   generated_at: string;
   window_start: string;
   window_end: string;
   data_quality: 'scheduled' | 'partly_live';
+  /** Empty on an arrival board. */
   departures: Departure[];
+  /** Arrival boards only; `time` is the scheduled arrival. */
+  arrivals?: Departure[];
   frequencies: FrequencyService[];
   live_arrivals: LiveArrival[];
   notices: DataNotice[];
@@ -182,7 +192,28 @@ export const searchStops = (q: string, limit = 15) =>
 export const nearbyStops = (lat: number, lon: number, radius_m = 600, limit?: number) =>
   getJson<StopSummary[]>('/stops/nearby', { lat, lon, radius_m, limit });
 
-export const stopBoard = (stopId: string, minutes = 90) =>
-  getJson<StopBoard>(`/stops/${encodeURIComponent(stopId)}/departures`, { minutes, limit: 60 });
+export const stopBoard = (stopId: string, minutes = 90, kind: BoardKind = 'departures') =>
+  getJson<StopBoard>(`/stops/${encodeURIComponent(stopId)}/${kind}`, { minutes, limit: 60 });
+
+/**
+ * A timetable that has run out (Metro de Madrid since 2026-05-27): an empty board then means
+ * "no data", not "no service", and says so.
+ */
+export function expiredNotice(b: StopBoard): DataNotice | null {
+  return b.notices.find((n) => n.expiry === 'expired') ?? null;
+}
+
+/** The rows of a board: departures, or arrivals on an arrival board. */
+export function boardRows(b: StopBoard): Departure[] {
+  return b.kind === 'arrivals' ? (b.arrivals ?? []) : b.departures;
+}
+
+/**
+ * Arrivals are offered at stations, as in SBB Mobile: wherever a train, Metro or Metro Ligero
+ * calls. At a bus stop the next bus to arrive is the next to leave, which Departures shows.
+ */
+export function hasArrivals(stop: StopSummary): boolean {
+  return stop.modes.some((m) => m !== 'bus');
+}
 
 export const feedStatuses = () => getJson<FeedStatus[]>('/feeds');

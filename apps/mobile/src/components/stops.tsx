@@ -104,17 +104,27 @@ function delayMinutes(dep: Departure): number {
 /**
  * One departure: scheduled time (+ delay) | line | destination and label | countdown.
  * The scheduled time is always shown; a live estimate is shown next to it, never instead.
+ * On an arrival board (`arrival`) the time is the arrival and the text says where from.
  */
-export function DepartureRow({ dep, now }: { dep: Departure; now: number }) {
+export function DepartureRow({
+  dep,
+  now,
+  arrival = false,
+}: {
+  dep: Departure;
+  now: number;
+  arrival?: boolean;
+}) {
   const { t } = useT();
+  const place = arrival ? dep.origin : dep.headsign;
   const cancelled = dep.status === 'cancelled';
   const live = dep.status === 'live' && dep.realtime;
   const delay = live ? delayMinutes(dep) : 0;
   const soon = cancelled ? null : countdownShort(bestTime(dep), now);
   const platform = dep.realtime?.platform;
-  const base = t('dep.a11yBase', {
+  const base = t(arrival ? 'arr.a11yBase' : 'dep.a11yBase', {
     line: dep.line.short_name,
-    headsign: dep.headsign ?? t('dep.a11yUnknown'),
+    headsign: place ?? t('dep.a11yUnknown'),
     time: formatTime(dep.time),
   });
   const label = cancelled
@@ -149,7 +159,7 @@ export function DepartureRow({ dep, now }: { dep: Departure; now: number }) {
       </View>
       <View style={{ flex: 1 }}>
         <Text style={[styles.depHeadsign, cancelled && styles.struck]} numberOfLines={2}>
-          {dep.headsign ?? '—'}
+          {arrival && place ? t('arr.from', { place }) : (place ?? '—')}
         </Text>
         <View style={styles.depBadges}>
           {cancelled ? (
@@ -217,15 +227,16 @@ export function LiveArrivalRow({ a, now }: { a: LiveArrival; now: number }) {
 }
 
 /** A frequency-based line (Metro, EMT): no exact times exist, so none are shown. */
-export function FrequencyRow({ f }: { f: FrequencyService }) {
+export function FrequencyRow({ f, arrival = false }: { f: FrequencyService; arrival?: boolean }) {
   const { t } = useT();
+  const place = arrival ? f.origin : f.headsign;
   return (
     <View
       style={styles.dep}
       accessible
-      accessibilityLabel={t('dep.a11yFrequency', {
+      accessibilityLabel={t(arrival ? 'arr.a11yFrequency' : 'dep.a11yFrequency', {
         line: f.line.short_name,
-        headsign: f.headsign ?? t('dep.a11yUnknown'),
+        headsign: place ?? t('dep.a11yUnknown'),
         n: f.headway_min,
       })}>
       <View style={styles.depTime}>
@@ -236,7 +247,7 @@ export function FrequencyRow({ f }: { f: FrequencyService }) {
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.depHeadsign} numberOfLines={2}>
-          {f.headsign ?? '—'}
+          {arrival && place ? t('arr.from', { place }) : (place ?? '—')}
         </Text>
         <View style={styles.depBadges}>
           <StatusBadge status="frequency" text={t('status.everyN', { n: f.headway_min })} />

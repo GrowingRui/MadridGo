@@ -354,6 +354,11 @@ export const es: Record<MessageKey, string> = {
   'board.noneTitle': 'No hay salidas en los próximos 90 minutos',
   'board.noneBody':
     'Puede que el servicio haya terminado por hoy o que esta parada no tenga servicio a esta hora.',
+  'board.expiredTitle': 'Sin horarios de {operator}',
+  'board.expiredBody':
+    'El horario oficial caducó el {date} y todavía no se ha publicado uno nuevo. Las horas volverán a aparecer en cuanto lo haya.',
+  'board.expiredBodyNoDate':
+    'El horario oficial ha caducado y todavía no se ha publicado uno nuevo. Las horas volverán a aparecer en cuanto lo haya.',
   'board.updated': 'Actualizado a las {time}',
   'board.liveUpdated': 'Datos en tiempo real de {operator} · actualizados hace {age}',
   'board.liveFetched': 'Datos en tiempo real de {operator} · obtenidos hace {age}',
@@ -392,6 +397,14 @@ export const es: Record<MessageKey, string> = {
   'dep.a11yArrivingNow': 'llegando',
   'dep.a11yInMinutes': 'en {n} minutos',
   'dep.a11yFrequency': '{line} a {headsign}, cada {n} minutos aproximadamente',
+  'arr.tabDepartures': 'Salidas',
+  'arr.tabArrivals': 'Llegadas',
+  'arr.loading': 'Cargando llegadas…',
+  'arr.next': 'Próximas llegadas',
+  'arr.noneTitle': 'No hay llegadas en los próximos 90 minutos',
+  'arr.from': 'Desde {place}',
+  'arr.a11yBase': '{line} desde {headsign}, llega a las {time}',
+  'arr.a11yFrequency': '{line} desde {headsign}, cada {n} minutos aproximadamente',
 
   // Saved
   'saved.title': 'Guardados',
@@ -525,4 +538,53 @@ export const es: Record<MessageKey, string> = {
     'Las paradas guardadas y recientes, las conexiones guardadas y los ajustes se quedan en este dispositivo. Tu ubicación solo se usa cuando eliges Ubicación actual, y solo se envía al servidor de MadridGo para planificar ese viaje. MadridGo no tiene cuentas ni publicidad.',
   'about.contact': 'Contacto y sugerencias',
   'about.contactBody': '¿Una hora incorrecta, una parada que falta o un error? Escríbenos.',
+
+  // Ayuda y preguntas frecuentes (app/help.tsx)
+  'help.title': 'Ayuda y preguntas frecuentes',
+  'help.subtitle': 'Respuestas a las preguntas más comunes',
+  'help.link': 'Ayuda y preguntas frecuentes',
+  'help.more': '¿Necesitas más ayuda?',
+  'help.contact': 'Escríbenos',
+  'help.sec.using': 'Usar MadridGo',
+  'help.sec.times': 'Horarios y datos en tiempo real',
+  'help.sec.data': 'Tus datos y los billetes',
+  'help.q.plan': '¿Cómo planifico un viaje?',
+  'help.a.plan':
+    'En Planificar, indica dónde empiezas y adónde vas: una parada, una dirección o un lugar (escribe al menos tres letras), o Ubicación actual. Elige cuándo salir o llegar y abre una conexión para ver cada trayecto, transbordo y tramo a pie.',
+  'help.q.save': '¿Cómo guardo un viaje y lo sigo?',
+  'help.a.save':
+    'Abre una conexión y toca ☆. Aparece en Viajes con sus horas más recientes hasta que llega. Durante el viaje, «Paso a paso» te dice dónde subir, cuándo bajar y cuánto tiempo tienes para el transbordo.',
+  'help.q.board': '¿Cómo veo las salidas y llegadas de una estación?',
+  'help.a.board':
+    'En Salidas, busca una parada o toca una cercana. Las estaciones de tren, Metro o Metro Ligero tienen Salidas y Llegadas arriba; las llegadas indican de dónde viene cada tren.',
+  'help.q.disruptions': '¿Dónde veo las incidencias?',
+  'help.a.disruptions':
+    'Toca ⚠ arriba en Planificar, Salidas o Viajes para ver todos los avisos actuales de Renfe y EMT, agrupados por línea. El número indica cuántas líneas tienen incidencias ahora. Los avisos también aparecen en los paneles de las estaciones y paradas afectadas.',
+  'help.q.stepFree': '¿Puede MadridGo mostrar viajes sin barreras?',
+  'help.a.stepFree':
+    'Activa Más → Accesibilidad → «Mostrar viajes sin barreras». Aparecen iconos de silla de ruedas en las conexiones, los viajes y los paneles de las estaciones. Proceden de los datos de Renfe, así que solo cubren Cercanías.',
+  'help.q.labels': '¿Qué significan Tiempo real, Programado y «Cada ~N min»?',
+  'help.a.labels':
+    'Tiempo real: del sistema en tiempo real del operador; una hora en rojo es el retraso. Programado: del horario oficial, así que el vehículo puede adelantarse o retrasarse. Cada ~N min: el operador solo publica cada cuánto pasa la línea, no horas exactas. MadridGo nunca muestra una hora del horario como si fuera en tiempo real.',
+  'help.q.metro': '¿Por qué las horas del Metro y de los autobuses interurbanos no son en tiempo real?',
+  'help.a.metro':
+    'Metro de Madrid no publica datos abiertos en tiempo real, y los datos en tiempo real de los autobuses interurbanos y urbanos necesitan la autorización del CRTM, que MadridGo ha solicitado. Hasta entonces se muestran las horas del horario. Cercanías y los autobuses de la EMT tienen datos en tiempo real.',
+  'help.q.bus45': '¿Por qué un autobús muestra «>45′»?',
+  'help.a.bus45':
+    'La EMT solo da horas en tiempo real de los autobuses que llegan en los próximos 45 minutos. Un autobús más lejano se muestra como más de 45 minutos.',
+  'help.q.hollow': '¿Por qué el punto del tren en el mapa a veces está hueco?',
+  'help.a.hollow':
+    'Un punto hueco se sitúa según el horario (más el retraso en tiempo real cuando se conoce), no según la posición que comunica el tren. Un punto relleno es donde Renfe indica que está el tren.',
+  'help.q.wrong': 'Una hora estaba mal. ¿Qué puedo hacer?',
+  'help.a.wrong':
+    'Las horas proceden de los operadores, tal como las publican. Cuando sea importante, compruébalo en la estación o parada. Después escríbenos con la parada, la línea y la hora que viste, y lo revisaremos.',
+  'help.q.stored': '¿Qué guarda MadridGo sobre mí?',
+  'help.a.stored':
+    'No hay cuentas ni publicidad. Las paradas guardadas y recientes, las conexiones guardadas y los ajustes se quedan en este dispositivo; puedes borrarlos en Más → Tus datos en este dispositivo.',
+  'help.q.location': '¿Cuándo usa MadridGo mi ubicación?',
+  'help.a.location':
+    'Solo cuando tocas Ubicación actual: nunca en segundo plano y nunca se guarda. Solo se envía al servidor de MadridGo para planificar ese viaje.',
+  'help.q.tickets': '¿Puedo comprar billetes o recargar mi tarjeta?',
+  'help.a.tickets':
+    'No. No existe una interfaz pública para la Tarjeta Transporte Público, así que MadridGo no puede vender billetes. Usa las máquinas de las estaciones o las apps de los operadores.',
 };
