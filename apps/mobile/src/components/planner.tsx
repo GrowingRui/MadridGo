@@ -400,7 +400,12 @@ export function ConnectionCard({
         <Text style={styles.delayNote}>{t('conn.arrivesLate', { n: delay })}</Text>
       ) : null}
       {!journey.feasible ? (
-        <Text style={styles.delayNote}>{journey.issues[0] ?? t('conn.notPossible')}</Text>
+        <Text style={styles.delayNote}>
+          {journey.issues[0] ?? t('conn.notPossible')}
+          {journey.issues.length > 1
+            ? ` ${tn('conn.moreProblems', journey.issues.length - 1)}`
+            : ''}
+        </Text>
       ) : journey.reliability && journey.reliability !== 'comfortable' ? (
         <TransferBadge label={journey.reliability} />
       ) : null}

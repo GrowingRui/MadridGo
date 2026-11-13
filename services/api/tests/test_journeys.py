@@ -5,6 +5,7 @@ OTP answers are real `planConnection` responses recorded from the local stack on
 and live sources are replaced by fakes, so these tests need no docker.
 """
 
+import asyncio
 import copy
 import json
 from collections.abc import Callable, Iterator
@@ -21,9 +22,16 @@ from app.boarding import TripStop
 from app.journeys import FeedInfo, Place, get_clock, get_static, headway_for
 from app.main import app
 from app.otp import PLAN_QUERY, OtpClient, get_otp
-from app.realtime.cache import MemoryKV
+from app.realtime.cache import EMT_ALERTS, RENFE_ALERTS, MemoryKV, put_model
 from app.realtime.emt import EmtArrivalsService
-from app.realtime.models import EmtArrival, EmtArrivals, FeedSnapshot, VehicleRealtime
+from app.realtime.models import (
+    AlertSnapshot,
+    EmtArrival,
+    EmtArrivals,
+    FeedSnapshot,
+    ServiceAlert,
+    VehicleRealtime,
+)
 from app.realtime.service import Realtime, get_realtime
 from app.timetable import MADRID
 from app.transfers import TransferSide, assess, label_for_margin, worst
@@ -527,16 +535,15 @@ def test_r2_cancelled_train_makes_the_journey_not_feasible(
     assert len(affected) == 1
     j = affected[0]
     assert j["feasible"] is False
-    assert j["issues"] == [
-        "C4a 21:03 from Parla is cancelled.",
-        "Change at Real - Olivo: The connecting trip is cancelled.",
-    ]
+    # The change it breaks is not listed again (R11): its box still says why.
+    assert j["issues"] == ["C4a 21:03 from Parla is cancelled."]
     rail = j["legs"][3]
     assert (
         rail["departure"]["status"] == "cancelled"
         and rail["departure"]["realtime"]["classification"] == "CANCELLED"
     )
     assert j["changes"][0]["label"] == "not_feasible"
+    assert j["changes"][0]["message"] == "The connecting trip is cancelled."
     assert j["reliability"] == "not_feasible"
     # Alternatives are offered first; the cancelled one stays visible, last.
     assert body["journeys"][-1]["id"] == j["id"]
@@ -562,6 +569,202 @@ def test_r12_replan_leaves_out_the_cancelled_train(setup: Callable[..., TestClie
         params={"from": PARLA_STOP, "to": ATOCHA, "avoid": [f"x:{i}" for i in range(6)]},
     )
     assert many.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# R11: several disruptions at once (docs/RELIABILITY_TEST_PLAN.md §4)
+
+C4B_TRIP = "1012L27497C4b"  # Sol 20:44 -> Nuevos Ministerios 20:49 in sol_bernabeu.json
+
+
+class EmtDown:
+    """EMT's API failing on every call."""
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    async def __call__(self, stop_code: str) -> EmtArrivals:
+        self.calls.append(stop_code)
+        raise httpx.ConnectError("EMT down")
+
+
+def _alert(source: str, alert_id: str, header: str, **kw: list[str]) -> ServiceAlert:
+    return ServiceAlert(
+        source=source,
+        source_alert_id=alert_id,
+        operator="RENFE" if source == "renfe_alerts" else "EMT_MADRID",
+        header=header,
+        description=None,
+        url=None,
+        cause=None,
+        effect=None,
+        active_from=None,
+        active_to=None,
+        route_ids=kw.get("routes", []),
+        stop_ids=kw.get("stops", []),
+        source_timestamp=None,
+        retrieved_at=RECORDED,
+    )
+
+
+def _r11_realtime() -> tuple[Realtime, EmtDown]:
+    """C3 20:38 cancelled, C4b 20:44 12 min late, EMT down, alerts on Sol, C4 and S10."""
+    snap = snapshot(
+        RECORDED,
+        RECORDED,
+        [
+            {"trip_id": C3_TRIP, "cancelled": True},
+            {"trip_id": C4B_TRIP, "stop_id": "18101", "time": at(20, 56), "delay": 720},
+        ],
+    )
+    rt = realtime(snap)
+    down = EmtDown()
+    rt.emt_service = EmtArrivalsService(kv=rt.kv, fetch=down, wallclock=lambda: RECORDED)
+    renfe_alerts = [
+        _alert("renfe_alerts", "sol", "Sol: lift out of order", stops=["18101"]),
+        _alert("renfe_alerts", "c4", "C4: strike timetable", routes=["10T0013C4b"]),
+    ]
+    emt_alerts = [_alert("emt_rss", "s10", "S10 diverted", routes=["S10"])]
+    for key, src, alerts in (
+        (RENFE_ALERTS, "renfe_alerts", renfe_alerts),
+        (EMT_ALERTS, "emt_rss", emt_alerts),
+    ):
+        stored = AlertSnapshot(
+            source=src, source_timestamp=None, retrieved_at=RECORDED, alerts=alerts
+        )
+        asyncio.run(put_model(rt.kv, key, stored, 900))
+    return rt, down
+
+
+def _legs(j: dict[str, Any]) -> list[tuple[str, str | None]]:
+    return [(lg["mode"], lg["trip_id"]) for lg in j["legs"] if lg["mode"] != "walk"]
+
+
+C3_RIDE = ("rail", f"cercanias:{C3_TRIP}")
+C4B_RIDE = ("rail", f"cercanias:{C4B_TRIP}")
+S10_RIDE = ("bus", "emt:FE8810069")
+
+
+def test_r11_several_disruptions_are_each_handled(setup: Callable[..., TestClient]) -> None:
+    rt, down = _r11_realtime()
+    body = plan(setup(FakeOtp(load("sol_bernabeu")), rt=rt), **{"from": None, "to": None, **SOL})
+    by_legs = {tuple(_legs(j)): j for j in body["journeys"]}
+
+    # The cancelled train: one issue, the change it breaks not listed again.
+    for key in ((C3_RIDE,), (C3_RIDE, S10_RIDE)):
+        j = by_legs[key]
+        assert j["feasible"] is False
+        assert j["issues"] == ["C3 20:38 from Sol is cancelled."]
+    assert by_legs[(C3_RIDE, S10_RIDE)]["changes"][0]["label"] == "not_feasible"
+
+    # The late train is live; EMT being down leaves the bus on "every ~N min" (not live).
+    j = by_legs[(C4B_RIDE, S10_RIDE)]
+    assert j["feasible"] is True and j["issues"] == []
+    rail, bus = (lg for lg in j["legs"] if lg["mode"] != "walk")
+    assert rail["arrival"]["status"] == "live"
+    assert bus["departure"]["status"] == "frequency" and bus["departure"]["estimated"] is None
+    assert down.calls, "EMT was asked, and its failure did not break the answer"
+    status = {s["feed"]: s["status"] for s in body["realtime"]}
+    assert status == {"cercanias": "live", "emt": "unavailable"}
+
+    # Each journey gets the alerts of its own lines and stops, each once.
+    assert [a["source_alert_id"] for a in j["alerts"]] == ["sol", "c4", "s10"]
+    assert [a["source_alert_id"] for a in by_legs[(C4B_RIDE,)]["alerts"]] == ["sol", "c4"]
+    assert [a["source_alert_id"] for a in by_legs[(C3_RIDE,)]["alerts"]] == ["sol"]
+
+    # Working connections first, the cancelled ones last.
+    assert [x["feasible"] for x in body["journeys"]] == [True, True, False, False]
+
+
+def test_r11_bus_after_a_late_train_waits_for_it(setup: Callable[..., TestClient]) -> None:
+    # Found 2026-11-13: with the C4b 12 min late and EMT down, the S10 after it still left
+    # at OTP's 21:01, before the train arrived, and the connection arrived 12 min "early".
+    plain = plan(setup(FakeOtp(load("sol_bernabeu"))), **{"from": None, "to": None, **SOL})
+    rt, _ = _r11_realtime()
+    body = plan(setup(FakeOtp(load("sol_bernabeu")), rt=rt), **{"from": None, "to": None, **SOL})
+    key = [C4B_RIDE, S10_RIDE]
+    before = next(j for j in plain["journeys"] if _legs(j) == key)
+    after = next(j for j in body["journeys"] if _legs(j) == key)
+
+    def t(x: str) -> datetime:
+        return datetime.fromisoformat(x)
+
+    rail = next(lg for lg in after["legs"] if lg["mode"] == "rail")
+    bus_before = next(lg for lg in before["legs"] if lg["mode"] == "bus")
+    bus = next(lg for lg in after["legs"] if lg["mode"] == "bus")
+    walk = after["legs"][after["legs"].index(bus) - 1]
+    # The bus leaves after you have walked from the late train to its stop.
+    assert t(rail["arrival"]["estimated"]) <= t(walk["departure"]["estimated"])
+    assert t(walk["arrival"]["estimated"]) <= t(bus["departure"]["scheduled"])
+    moved = t(bus["departure"]["scheduled"]) - t(bus_before["departure"]["scheduled"])
+    assert timedelta(0) < moved <= timedelta(minutes=12)
+    assert t(bus["arrival"]["scheduled"]) - t(bus_before["arrival"]["scheduled"]) == moved
+    for s0, s1 in zip(bus_before["intermediate"], bus["intermediate"], strict=True):
+        assert t(s1["time"]) - t(s0["time"]) == moved
+    # The walk to the destination and the journey follow the bus.
+    assert t(after["arrival"]["scheduled"]) - t(before["arrival"]["scheduled"]) == moved
+    assert after["arrival"]["status"] == "frequency"
+
+
+def test_r11_early_train_leaves_the_bus_where_otp_put_it(
+    setup: Callable[..., TestClient],
+) -> None:
+    plain = plan(setup(FakeOtp(load("sol_bernabeu"))), **{"from": None, "to": None, **SOL})
+    snap = snapshot(
+        RECORDED,
+        RECORDED,
+        [{"trip_id": C4B_TRIP, "stop_id": "18101", "time": at(20, 42), "delay": -120}],
+    )
+    body = plan(
+        setup(FakeOtp(load("sol_bernabeu")), rt=realtime(snap)),
+        **{"from": None, "to": None, **SOL},
+    )
+    key = [C4B_RIDE, S10_RIDE]
+    before = next(j for j in plain["journeys"] if _legs(j) == key)
+    after = next(j for j in body["journeys"] if _legs(j) == key)
+    bus0 = next(lg for lg in before["legs"] if lg["mode"] == "bus")
+    bus1 = next(lg for lg in after["legs"] if lg["mode"] == "bus")
+    assert bus1["departure"]["scheduled"] == bus0["departure"]["scheduled"]
+
+
+def test_r11_replan_around_two_cancelled_trains(setup: Callable[..., TestClient]) -> None:
+    snap = snapshot(
+        RECORDED,
+        RECORDED,
+        [{"trip_id": C3_TRIP, "cancelled": True}, {"trip_id": C4B_TRIP, "cancelled": True}],
+    )
+    client = setup(FakeOtp(load("sol_bernabeu")), rt=realtime(snap))
+    everything = plan(client, **{"from": None, "to": None, **SOL})
+    assert not any(j["feasible"] for j in everything["journeys"] if _legs(j))
+    body = plan(
+        client,
+        **{"from": None, "to": None, **SOL},
+        avoid=[f"cercanias:{C3_TRIP}", f"cercanias:{C4B_TRIP}"],
+    )
+    # Only the walk is left: no connection with either cancelled train.
+    assert body["journeys"] and all(not _legs(j) for j in body["journeys"])
+
+
+def test_r11_live_sources_failing_together_still_answer(
+    setup: Callable[..., TestClient],
+) -> None:
+    class Broken:
+        """Redis unreachable: every cache read fails."""
+
+        async def get(self, key: str) -> bytes | None:
+            raise ConnectionError("redis down")
+
+        async def set(self, key: str, value: bytes, ttl_s: int) -> None:
+            raise ConnectionError("redis down")
+
+    rt = Realtime(kv=Broken(), emt_service=None)  # type: ignore[arg-type]
+    body = plan(setup(FakeOtp(load("sol_bernabeu")), rt=rt), **{"from": None, "to": None, **SOL})
+    assert body["journeys"]
+    status = {s["feed"]: s["status"] for s in body["realtime"]}
+    assert status == {"cercanias": "unavailable", "emt": "unavailable"}
+    for j in body["journeys"]:
+        assert j["alerts"] == []
+        assert all(lg["departure"]["status"] != "live" for lg in j["legs"])
 
 
 def test_train_that_already_passed_the_boarding_stop(setup: Callable[..., TestClient]) -> None:

@@ -198,6 +198,25 @@ describe('replanFrom', () => {
     expect(replanFrom(busGone, home, office, ms('10:45'))?.avoid).toEqual([]);
   });
 
+  it('several problems at once (R11): leaves out every cancelled train, once each', () => {
+    const r2 = leg({
+      ...c4,
+      trip_id: 'cercanias:r2-1050',
+      from: 'Atocha',
+      to: 'Alcalá',
+      departure: time('10:50', { status: 'cancelled' }),
+      arrival: time('11:20', { status: 'cancelled' }),
+    });
+    const both = journey([walkIn, cancelledC4, walkChange, r2, cancelledC4, walkOut], {
+      feasible: false,
+    });
+    expect(replanReason(both, ms('10:00'))).toBe('cancelled');
+    expect(replanFrom(both, home, office, ms('10:06'))?.avoid).toEqual([
+      'cercanias:c4-1010',
+      'cercanias:r2-1050',
+    ]);
+  });
+
   it('nothing to re-plan on the last vehicle past its last stop, or walking to the destination', () => {
     expect(replanFrom(ok, home, office, ms('10:58'))).toBeNull();
     expect(replanFrom(ok, home, office, ms('11:07'))).toBeNull();
