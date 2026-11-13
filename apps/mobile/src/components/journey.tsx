@@ -18,7 +18,7 @@ import {
 import { type Journey, type Leg, type Transfer, delayMin } from '../api/journeys';
 import { byAlertSeverity, isSevereAlert } from '../api/stops';
 import { useLegBus, useNow, useReduceMotion, useTrainPosition } from '../hooks';
-import { useT } from '../i18n';
+import { tn, useT } from '../i18n';
 import { colors, modeColors, radius, space, themed, type } from '../theme';
 import { alightAccess, boardAccess } from '../utils/access';
 import { busSourceText, busText, placeBus } from '../utils/busPosition';
@@ -45,30 +45,47 @@ import {
   modeLabel,
 } from './transit';
 
-/** Problems first (not possible, cancelled), then operator alerts on the lines used. */
+/** Most operator alerts shown in full here; the rest are on the Disruptions page. */
+const MAX_ALERTS = 3;
+
+/**
+ * Problems first (not possible, cancelled), then operator alerts on the lines used. With
+ * several problems at once (R11), each is on a line of its own.
+ */
 export function JourneyNotices({ journey }: { journey: Journey }) {
   const { t } = useT();
   if (journey.feasible && !journey.alerts.length) return null;
+  const alerts = byAlertSeverity(journey.alerts);
+  const hidden = alerts.length - MAX_ALERTS;
   return (
     <View style={{ gap: space.sm, marginTop: space.lg }}>
       {!journey.feasible ? (
         <Notice tone="danger" icon="close-octagon-outline" title={t('journey.notPossible')}>
-          {journey.issues.join(' ')}
+          {journey.issues.length > 1
+            ? journey.issues.map((issue) => `• ${issue}`).join('\n')
+            : journey.issues[0]}
         </Notice>
       ) : null}
-      {byAlertSeverity(journey.alerts)
-        .slice(0, 3)
-        .map((a) => (
-          <Notice
-            key={`${a.source}:${a.source_alert_id}`}
-            tone={isSevereAlert(a) ? 'danger' : 'warning'}
-            icon={isSevereAlert(a) ? 'alert-octagon-outline' : undefined}
-            title={t('journey.alert', {
-              operator: a.operator === 'EMT_MADRID' ? 'EMT Madrid' : 'Renfe Cercanías',
-            })}>
-            {a.header ?? a.description ?? t('journey.alertFallback')}
-          </Notice>
-        ))}
+      {alerts.slice(0, MAX_ALERTS).map((a) => (
+        <Notice
+          key={`${a.source}:${a.source_alert_id}`}
+          tone={isSevereAlert(a) ? 'danger' : 'warning'}
+          icon={isSevereAlert(a) ? 'alert-octagon-outline' : undefined}
+          title={t('journey.alert', {
+            operator: a.operator === 'EMT_MADRID' ? 'EMT Madrid' : 'Renfe Cercanías',
+          })}>
+          {a.header ?? a.description ?? t('journey.alertFallback')}
+        </Notice>
+      ))}
+      {hidden > 0 ? (
+        <Pressable
+          accessibilityRole="link"
+          onPress={() => router.push('/disruptions')}
+          style={styles.moreAlerts}>
+          <Text style={styles.moreAlertsText}>{tn('journey.moreAlerts', hidden)}</Text>
+          <MaterialCommunityIcons name="chevron-right" size={18} color={colors.brand} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -548,6 +565,14 @@ const NODE_CENTRE = 15; // marginTop 8 + half of 14
 const INTER_NODE_CENTRE = 12; // marginTop 7 + half of 10
 const DOT = 18;
 const styles = themed(() => StyleSheet.create({
+  moreAlerts: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    marginHorizontal: space.lg,
+    minHeight: 44,
+  },
+  moreAlertsText: { ...type.smallStrong, color: colors.brand },
   colHeads: {
     flexDirection: 'row',
     paddingHorizontal: space.lg,

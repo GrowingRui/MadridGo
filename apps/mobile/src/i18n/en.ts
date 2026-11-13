@@ -110,6 +110,8 @@ export const en = {
   'conn.a11yAlert': 'Alert: {text}',
   'conn.moreAlerts.one': '+{n} more alert',
   'conn.moreAlerts.other': '+{n} more alerts',
+  'conn.moreProblems.one': '+{n} more problem',
+  'conn.moreProblems.other': '+{n} more problems',
 
   // Date, time and options
   'when.dep': 'Dep',
@@ -227,6 +229,8 @@ export const en = {
   'replan.avoiding': 'Alternatives without the cancelled train.',
   'journey.alert': 'Service alert · {operator}',
   'journey.alertFallback': 'Service alert',
+  'journey.moreAlerts.one': 'See {n} more alert on Disruptions',
+  'journey.moreAlerts.other': 'See {n} more alerts on Disruptions',
   'journey.colTime': 'Time',
   'journey.colStop': 'Stop',
   'journey.colPlatform': 'Platform',

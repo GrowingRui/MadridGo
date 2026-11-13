@@ -369,6 +369,9 @@ class _Draft:
     otp_end: datetime | None = None
     duration_s: int = 0
     passed: bool = False  # Renfe: the train is already beyond the boarding stop
+    # Frequency legs: OTP's times before follow_late_vehicles moved them (departure,
+    # arrival, intermediate stops), so moving them again starts from the same place.
+    otp_times: tuple[datetime, datetime, list[datetime]] | None = None
 
 
 @dataclass
@@ -576,6 +579,40 @@ def overlay_renfe(
                     leg.arrival.estimated = arr.info.predicted_time
                     leg.arrival.platform = arr.info.platform
                     leg.arrival.realtime = arr.info
+
+
+def follow_late_vehicles(its: list[_Itinerary]) -> None:
+    """R11: a frequency leg without a live bus after a vehicle running late starts later.
+
+    OTP times an "every ~N min" leg from when you reach its stop (a whole headway after it).
+    When the vehicle before it is late by MadridGo's live data (a Renfe train, or a live EMT
+    bus), you reach the stop that much later, so the leg moves by the same amount; never
+    earlier, as an early vehicle does not bring the next bus forward. Found 2026-11-13 with
+    a C4b 12 min late and EMT down: the S10 after it still left before the train arrived,
+    and the connection arrived 12 min "early". Safe to call again (starts from OTP's times)."""
+    for it in its:
+        for i, d in enumerate(it.drafts):
+            leg = d.leg
+            if leg.headway_min is None or leg.departure.status != "frequency":
+                continue
+            if d.otp_times is None:
+                d.otp_times = (
+                    leg.departure.scheduled,
+                    leg.arrival.scheduled,
+                    [s.time for s in leg.intermediate],
+                )
+            dep, arr, stops = d.otp_times
+            _, prev = _walk_before(it.drafts, i)
+            late = 0
+            if prev is not None:
+                p = it.drafts[prev]
+                if p.leg.arrival.status != "cancelled":
+                    ref = p.otp_end or p.leg.arrival.scheduled
+                    late = max(0, round((p.leg.arrival.best - ref).total_seconds()))
+            leg.departure = leg.departure.model_copy(update={"scheduled": add_seconds(dep, late)})
+            leg.arrival = leg.arrival.model_copy(update={"scheduled": add_seconds(arr, late)})
+            for s, t in zip(leg.intermediate, stops, strict=True):
+                s.time = add_seconds(t, late)
 
 
 def _walk_before(drafts: list[_Draft], i: int) -> tuple[int, int | None]:
@@ -840,10 +877,15 @@ def build_journey(it: _Itinerary) -> Journey:
             issues.append(tr("issue.cancelled", line=name, time=when, stop=lg.from_))
         if d.passed:
             issues.append(tr("issue.left", line=name, time=when, stop=lg.from_))
+    # R11: a change made impossible by a cancelled or departed vehicle is already said above;
+    # with several problems, each is listed once.
+    reported = {
+        i for i, d in enumerate(drafts) if d.passed or d.leg.departure.status == "cancelled"
+    }
     issues += [
         tr("issue.change", stop=c.at, message=c.message)
         for c in changes
-        if c.label == "not_feasible"
+        if c.label == "not_feasible" and not {c.from_leg, c.to_leg} & reported
     ]
 
     first, last = legs[0], legs[-1]
@@ -1166,6 +1208,7 @@ async def journeys(
     if "cercanias" in used:
         fresh = live.renfe_freshness(snap, now)
         overlay_renfe(its, snap, fresh, now)
+        follow_late_vehicles(its)
         statuses.append(
             live.live_status(
                 "cercanias",
@@ -1189,6 +1232,7 @@ async def journeys(
             else when
         )
         overlay_emt(its, fetched, now, start)
+        follow_late_vehicles(its)  # after a live bus running late
         statuses.append(_emt_status(list(results), now))
     for feed in sorted(used - {"cercanias", "emt"}):
         statuses.append(live.no_realtime_status(feed, _operator(feed)))

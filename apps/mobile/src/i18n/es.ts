@@ -111,6 +111,8 @@ export const es: Record<MessageKey, string> = {
   'conn.a11yAlert': 'Aviso: {text}',
   'conn.moreAlerts.one': '+{n} aviso más',
   'conn.moreAlerts.other': '+{n} avisos más',
+  'conn.moreProblems.one': '+{n} problema más',
+  'conn.moreProblems.other': '+{n} problemas más',
 
   // Date, time and options
   'when.dep': 'Salida',
@@ -228,6 +230,8 @@ export const es: Record<MessageKey, string> = {
   'replan.avoiding': 'Alternativas sin el tren cancelado.',
   'journey.alert': 'Aviso · {operator}',
   'journey.alertFallback': 'Aviso del servicio',
+  'journey.moreAlerts.one': 'Ver {n} aviso más en Incidencias',
+  'journey.moreAlerts.other': 'Ver {n} avisos más en Incidencias',
   'journey.colTime': 'Hora',
   'journey.colStop': 'Parada',
   'journey.colPlatform': 'Vía',

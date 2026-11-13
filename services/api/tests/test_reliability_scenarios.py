@@ -1,8 +1,8 @@
 """Reliability scenarios R1-R9 and R13-R15 (docs/RELIABILITY_TEST_PLAN.md §4).
 
 Journey-level parts are in tests/test_journeys.py (Phase 4): R1 transfer labels, R2 flagged
-journeys, R6 routing blocked on expired feeds and R10 missed transfers. R11-R12 (re-planning)
-are Phase 6. Here R1 covers the departure time and delay.
+journeys, R6 routing blocked on expired feeds, R10 missed transfers, R11 several disruptions at
+once and R12 re-planning (Phase 6). Here R1 covers the departure time and delay.
 """
 
 import asyncio
