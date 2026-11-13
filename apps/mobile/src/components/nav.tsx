@@ -130,6 +130,12 @@ export function Footer() {
           <Text
             style={styles.footerLink}
             accessibilityRole="link"
+            onPress={() => router.navigate('/help')}>
+            {t('help.link')}
+          </Text>
+          <Text
+            style={styles.footerLink}
+            accessibilityRole="link"
             onPress={open(`mailto:${CONTACT_EMAIL}`)}>
             {t('about.contact')}
           </Text>

@@ -199,3 +199,36 @@ def test_frequency_line_not_shown_before_it_starts(client: TestClient) -> None:
         "/stops/crtm:par_99_2/departures", params={"at": "2026-11-10T05:00:00", "minutes": 60}
     )
     assert resp.json()["frequencies"] == []  # F2 starts at 07:00
+
+
+def test_arrivals_at_the_terminus_with_origin(client: TestClient) -> None:
+    resp = client.get(
+        "/stops/crtm:par_99_3/arrivals", params={"at": "2026-11-10T07:30:00", "minutes": 60}
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["kind"] == "arrivals" and body["departures"] == []
+    arr = body["arrivals"]
+    # The scheduled arrival time, and where the train comes from.
+    assert [(a["time"][11:16], a["line"]["short_name"]) for a in arr] == [("08:10", "T1")]
+    assert arr[0]["origin"] == "Estación de Testville"
+    # Frequency lines arrive "every ~N min", from their first stop.
+    [f] = body["frequencies"]
+    assert (f["line"]["short_name"], f["headway_min"]) == ("F2", 10)
+    assert f["origin"] == "Av. Prueba - Calle Mayor"
+
+
+def test_no_arrivals_at_a_first_stop(client: TestClient) -> None:
+    resp = client.get(
+        "/stops/crtm:est_99_1/arrivals", params={"at": "2026-11-10T07:00:00", "minutes": 240}
+    )
+    body = resp.json()
+    assert body["arrivals"] == [] and body["frequencies"] == []
+
+
+def test_arrivals_after_midnight(client: TestClient) -> None:
+    resp = client.get(
+        "/stops/crtm:par_99_3/arrivals",
+        params={"at": "2026-11-10T01:00:00+01:00", "minutes": 60},
+    )
+    assert [a["time"] for a in resp.json()["arrivals"]] == ["2026-11-10T01:40:00+01:00"]

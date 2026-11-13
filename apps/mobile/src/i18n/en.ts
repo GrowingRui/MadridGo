@@ -349,6 +349,11 @@ export const en = {
   'board.next': 'Next departures',
   'board.noneTitle': 'No departures in the next 90 minutes',
   'board.noneBody': 'Service may have ended for today, or this stop is not served at this time.',
+  'board.expiredTitle': 'No {operator} times',
+  'board.expiredBody':
+    'The official timetable expired on {date}, and no newer one has been published yet. Times will appear again as soon as there is one.',
+  'board.expiredBodyNoDate':
+    'The official timetable has expired, and no newer one has been published yet. Times will appear again as soon as there is one.',
   'board.updated': 'Updated {time}',
   'board.liveUpdated': 'Live {operator} data · updated {age} ago',
   'board.liveFetched': 'Live {operator} data · fetched {age} ago',
@@ -387,6 +392,14 @@ export const en = {
   'dep.a11yArrivingNow': 'arriving now',
   'dep.a11yInMinutes': 'in {n} minutes',
   'dep.a11yFrequency': '{line} to {headsign}, about every {n} minutes',
+  'arr.tabDepartures': 'Departures',
+  'arr.tabArrivals': 'Arrivals',
+  'arr.loading': 'Loading arrivals…',
+  'arr.next': 'Next arrivals',
+  'arr.noneTitle': 'No arrivals in the next 90 minutes',
+  'arr.from': 'From {place}',
+  'arr.a11yBase': '{line} from {headsign}, arrives {time}',
+  'arr.a11yFrequency': '{line} from {headsign}, about every {n} minutes',
 
   // Saved
   'saved.title': 'Saved',
@@ -520,6 +533,55 @@ export const en = {
     'Starred and recent stops, saved connections and settings stay on this device. Your location is used only when you choose Current location, and is sent to the MadridGo server only to plan that journey. MadridGo has no account and no advertising.',
   'about.contact': 'Contact and feedback',
   'about.contactBody': 'Found a wrong time, a missing stop or a bug? Write to us.',
+
+  // Help and FAQ (app/help.tsx)
+  'help.title': 'Help and FAQ',
+  'help.subtitle': 'Answers to common questions',
+  'help.link': 'Help and FAQ',
+  'help.more': 'Still need help?',
+  'help.contact': 'Write to us',
+  'help.sec.using': 'Using MadridGo',
+  'help.sec.times': 'Times and live data',
+  'help.sec.data': 'Your data and tickets',
+  'help.q.plan': 'How do I plan a journey?',
+  'help.a.plan':
+    'On Plan, enter where you start and where you are going: a stop, an address or a place (type at least three letters), or Current location. Choose when to leave or arrive, then open a connection to see every ride, change and walk.',
+  'help.q.save': 'How do I save a journey and follow it?',
+  'help.a.save':
+    'Open a connection and tap ☆. It is listed in Trips with its latest times until it has arrived. While it is on the way, “Step by step” tells you where to board, when to get off and how long you have to change.',
+  'help.q.board': 'How do I see departures and arrivals at a station?',
+  'help.a.board':
+    'On Departures, search for a stop or tap one nearby. Stations with trains, Metro or Metro Ligero have Departures and Arrivals at the top; arrivals say where each train comes from.',
+  'help.q.disruptions': 'Where can I see disruptions?',
+  'help.a.disruptions':
+    'Tap ⚠ at the top of Plan, Departures or Trips for all current Renfe and EMT alerts, grouped by line. A number on it counts the lines disrupted now. Alerts also appear on the boards of the stations and stops concerned.',
+  'help.q.stepFree': 'Can MadridGo show step-free travel?',
+  'help.a.stepFree':
+    'Turn on More → Accessibility → “Show step-free travel”. Wheelchair icons then appear on connections, trips and station boards. They come from Renfe’s data, so they cover Cercanías only.',
+  'help.q.labels': 'What do Live, Scheduled and “Every ~N min” mean?',
+  'help.a.labels':
+    'Live: from the operator’s real-time feed; a red time is the delay. Scheduled: from the official timetable, so the vehicle may be early or late. Every ~N min: the operator publishes only how often the line runs, not exact times. MadridGo never shows a timetable time as live.',
+  'help.q.metro': 'Why are Metro and interurban bus times not live?',
+  'help.a.metro':
+    'Metro de Madrid publishes no open real-time data, and real-time data for interurban and urban buses needs CRTM’s authorization, which MadridGo has asked for. Until then they show timetable times. Cercanías and EMT city buses are live.',
+  'help.q.bus45': 'Why does a bus show “>45′”?',
+  'help.a.bus45':
+    'EMT gives live times only for buses due in the next 45 minutes. A bus further away is shown as more than 45 minutes.',
+  'help.q.hollow': 'Why is the train point on the map sometimes hollow?',
+  'help.a.hollow':
+    'A hollow point is placed from the timetable (plus the live delay when known), not from the train’s reported position. A solid point is where Renfe reports the train.',
+  'help.q.wrong': 'A time was wrong. What can I do?',
+  'help.a.wrong':
+    'Times come from the operators, as they publish them. When it matters, check on site. Then write to us with the stop, the line and the time you saw, and we will look into it.',
+  'help.q.stored': 'What does MadridGo store about me?',
+  'help.a.stored':
+    'There is no account and no advertising. Starred and recent stops, saved connections and settings stay on this device; delete them under More → Your data on this device.',
+  'help.q.location': 'When does MadridGo use my location?',
+  'help.a.location':
+    'Only when you tap Current location: never in the background, never stored. It is sent to the MadridGo server only to plan that journey.',
+  'help.q.tickets': 'Can I buy tickets or top up my travel card?',
+  'help.a.tickets':
+    'No. There is no public interface for the Tarjeta Transporte Público, so MadridGo cannot sell tickets. Use the machines in stations or the operators’ own apps.',
 } as const;
 
 export type MessageKey = keyof typeof en;

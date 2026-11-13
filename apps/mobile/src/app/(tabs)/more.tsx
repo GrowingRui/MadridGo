@@ -137,6 +137,18 @@ export default function MoreScreen() {
         </View>
         <Divider inset={space.lg} />
         <Pressable
+          onPress={() => router.push('/help')}
+          accessibilityRole="link"
+          style={({ pressed, hovered }: PressState) => [
+            styles.row,
+            (pressed || hovered) && { backgroundColor: colors.pressed },
+          ]}>
+          <MaterialCommunityIcons name="help-circle-outline" size={20} color={colors.brand} />
+          <Text style={[styles.title, { flex: 1 }]}>{t('help.link')}</Text>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textFaint} />
+        </Pressable>
+        <Divider inset={space.lg} />
+        <Pressable
           onPress={() => router.push('/about')}
           accessibilityRole="link"
           style={({ pressed, hovered }: PressState) => [

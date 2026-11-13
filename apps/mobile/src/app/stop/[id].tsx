@@ -1,12 +1,13 @@
 // Departure board for a stop or station: timetables plus live data where an authorized
 // source exists (Renfe GTFS-RT, EMT MobilityLabs). Every source's status is shown.
+// Stations also have an Arrivals board (SBB's Departures | Arrivals switch).
 
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { SourceStatus } from '../../api/stops';
-import { bestTime, stopBoard } from '../../api/stops';
+import type { BoardKind, DataNotice, SourceStatus } from '../../api/stops';
+import { bestTime, boardRows, expiredNotice, hasArrivals, stopBoard } from '../../api/stops';
 import {
   BrandHeader,
   Card,
@@ -21,21 +22,25 @@ import {
 } from '../../components/layout';
 import { DepartureRow, FrequencyRow, LiveArrivalRow } from '../../components/stops';
 import { LinePills, modeLabel } from '../../components/transit';
-import { useAsync, useNow } from '../../hooks';
+import { useAsync, useNow, type PressState } from '../../hooks';
 import { useT } from '../../i18n';
 import { setPlanner } from '../../state/planner';
 import { addRecent, isFavorite, toSaved, toggleFavorite, useSaved } from '../../state/saved';
-import { colors, space, themed, type } from '../../theme';
-import { formatTime } from '../../utils/time';
+import { colors, radius, space, themed, type } from '../../theme';
+import { formatIsoDate, formatTime } from '../../utils/time';
 import { AccessLine } from '../../components/access';
 
 export default function StopBoardScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useT();
-  const board = useAsync(() => stopBoard(id), id);
+  const [kind, setKind] = useState<BoardKind>('departures');
+  const board = useAsync(() => stopBoard(id, 90, kind), `${id}|${kind}`);
   const saved = useSaved();
   const now = useNow();
   const stop = board.data?.stop;
+  const arrivals = kind === 'arrivals';
+  // While the other board loads, the last one is still in `data`: do not show it as this one.
+  const current = board.data && (board.data.kind ?? 'departures') === kind ? board.data : null;
 
   // Refresh while open: every 30 s when the board has live data, else every minute.
   const { reload } = board;
@@ -50,9 +55,10 @@ export default function StopBoardScreen() {
   }, [stop]);
 
   const fav = stop ? isFavorite(stop.id, saved) : false;
-  const upcoming =
-    board.data?.departures.filter((d) => Date.parse(bestTime(d)) >= now - 60_000) ?? [];
-  const liveArrivals = board.data?.live_arrivals ?? [];
+  const upcoming = current
+    ? boardRows(current).filter((d) => Date.parse(bestTime(d)) >= now - 60_000)
+    : [];
+  const liveArrivals = current?.live_arrivals ?? [];
 
   return (
     <Screen
@@ -92,21 +98,44 @@ export default function StopBoardScreen() {
               <LinePills lines={stop.lines} max={14} onDark />
             </View>
           ) : null}
+          {stop && hasArrivals(stop) ? (
+            <View style={styles.tabs} accessibilityRole="tablist">
+              {(['departures', 'arrivals'] as const).map((k) => {
+                const active = k === kind;
+                return (
+                  <Pressable
+                    key={k}
+                    onPress={() => setKind(k)}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: active }}
+                    style={({ pressed, hovered }: PressState) => [
+                      styles.tab,
+                      active && styles.tabActive,
+                      !active && (pressed || hovered) && styles.tabHover,
+                    ]}>
+                    <Text style={[styles.tabText, active && styles.tabTextActive]}>
+                      {t(k === 'arrivals' ? 'arr.tabArrivals' : 'arr.tabDepartures')}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
         </BrandHeader>
       }>
-      {board.loading && !board.data ? (
-        <Loading label={t('board.loading')} />
-      ) : board.error ? (
+      {board.error ? (
         <ErrorState message={board.error} onRetry={board.reload} />
-      ) : board.data ? (
+      ) : !current ? (
+        <Loading label={t(arrivals ? 'arr.loading' : 'board.loading')} />
+      ) : (
         <>
           <AccessLine
-            ok={board.data.step_free}
+            ok={current.step_free}
             yes={t('access.stationBoard')}
             no={t('access.noStationBoard')}
             style={styles.liveLine}
           />
-          {board.data.notices.map((n) => (
+          {current.notices.map((n) => (
             <Notice
               key={n.source}
               tone={n.expiry === 'expired' ? 'danger' : 'warning'}
@@ -114,15 +143,25 @@ export default function StopBoardScreen() {
               {n.message}
             </Notice>
           ))}
-          {board.data.realtime.map((st) => (
-            <SourceNotice key={st.feed} st={st} />
-          ))}
+          {current.realtime
+            // "Times come from the timetable" says nothing useful when that timetable has
+            // expired: the expiry notice above already explains why there are no times.
+            .filter(
+              (st) =>
+                !(
+                  st.status === 'not_available' &&
+                  current.notices.some((n) => n.source === st.feed && n.expiry === 'expired')
+                ),
+            )
+            .map((st) => (
+              <SourceNotice key={st.feed} st={st} />
+            ))}
 
-          {board.data.alerts.length ? (
+          {current.alerts.length ? (
             <>
               <SectionTitle>{t('board.alerts')}</SectionTitle>
               <Card>
-                {board.data.alerts.slice(0, 5).map((a, i) => (
+                {current.alerts.slice(0, 5).map((a, i) => (
                   <View key={a.source_alert_id} style={styles.alert}>
                     {i > 0 ? <Divider /> : null}
                     {a.header ? <Text style={styles.alertTitle}>{a.header}</Text> : null}
@@ -154,14 +193,14 @@ export default function StopBoardScreen() {
             </>
           ) : null}
 
-          {board.data.frequencies.length ? (
+          {current.frequencies.length ? (
             <>
               <SectionTitle>{t('board.frequent')}</SectionTitle>
               <Card>
-                {board.data.frequencies.map((f, i) => (
-                  <View key={`${f.line.route_id}-${f.headsign}-${f.stop_id}`}>
+                {current.frequencies.map((f, i) => (
+                  <View key={`${f.line.route_id}-${f.headsign}-${f.origin}-${f.stop_id}`}>
                     {i > 0 ? <Divider inset={space.lg} /> : null}
-                    <FrequencyRow f={f} />
+                    <FrequencyRow f={f} arrival={arrivals} />
                   </View>
                 ))}
               </Card>
@@ -170,34 +209,55 @@ export default function StopBoardScreen() {
 
           {upcoming.length ? (
             <>
-              <SectionTitle>{t('board.next')}</SectionTitle>
+              <SectionTitle>{t(arrivals ? 'arr.next' : 'board.next')}</SectionTitle>
               <Card>
                 {upcoming.map((d, i) => (
                   <View key={`${d.trip_id}-${d.time}`}>
                     {i > 0 ? <Divider inset={space.lg} /> : null}
-                    <DepartureRow dep={d} now={now} />
+                    <DepartureRow dep={d} now={now} arrival={arrivals} />
                   </View>
                 ))}
               </Card>
             </>
           ) : null}
 
-          {!upcoming.length && !board.data.frequencies.length && !liveArrivals.length ? (
-            <EmptyState
-              icon="clock-remove-outline"
-              title={t('board.noneTitle')}
-              body={t('board.noneBody')}
+          {!upcoming.length && !current.frequencies.length && !liveArrivals.length ? (
+            <EmptyBoard
+              notice={expiredNotice(current)}
+              title={t(arrivals ? 'arr.noneTitle' : 'board.noneTitle')}
             />
           ) : null}
 
           <Text style={styles.footer}>
-            {t('board.updated', { time: formatTime(board.data.generated_at) })} · Powered by CRTM ·
+            {t('board.updated', { time: formatTime(current.generated_at) })} · Powered by CRTM ·
             Renfe (CC BY 4.0) · Powered by EMT de Madrid
           </Text>
         </>
-      ) : null}
+      )}
     </Screen>
   );
+}
+
+/**
+ * Nothing to show. When a timetable has expired, that is the reason, so say it: "service may
+ * have ended for today" would wrongly suggest the line is not running.
+ */
+function EmptyBoard({ notice, title }: { notice: DataNotice | null; title: string }) {
+  const { t } = useT();
+  if (notice) {
+    return (
+      <EmptyState
+        icon="calendar-remove-outline"
+        title={t('board.expiredTitle', { operator: notice.operator })}
+        body={
+          notice.service_end
+            ? t('board.expiredBody', { date: formatIsoDate(notice.service_end) })
+            : t('board.expiredBodyNoDate')
+        }
+      />
+    );
+  }
+  return <EmptyState icon="clock-remove-outline" title={title} body={t('board.noneBody')} />;
 }
 
 /** "12 s" / "3 min": the age of live data, put into a sentence by the caller. */
@@ -261,4 +321,22 @@ const styles = themed(() => StyleSheet.create({
   alertBody: { ...type.small, color: colors.text },
   alertSource: { ...type.small, color: colors.textFaint },
   footer: { ...type.small, color: colors.textFaint, textAlign: 'center', margin: space.lg },
+  tabs: {
+    flexDirection: 'row',
+    backgroundColor: colors.headerDark,
+    borderRadius: radius.pill,
+    padding: 4,
+    marginTop: space.md,
+  },
+  tab: {
+    flexGrow: 1,
+    flexBasis: 0,
+    alignItems: 'center',
+    paddingVertical: space.sm,
+    borderRadius: radius.pill,
+  },
+  tabActive: { backgroundColor: colors.surface },
+  tabHover: { backgroundColor: 'rgba(255,255,255,0.08)' },
+  tabText: { ...type.smallStrong, color: colors.onBrandMuted },
+  tabTextActive: { color: colors.brand, fontWeight: '700' },
 }));

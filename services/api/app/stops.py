@@ -1,10 +1,14 @@
-"""Stop search, nearby stops, stop details and departure boards.
+"""Stop search, nearby stops, stop details and departure and arrival boards.
 
 `Departure.time` is always the *scheduled* time from the operator's static timetable. Live
 information is added next to it (`status`, `realtime`), never in its place, so a client
 cannot mistake one for the other. Frequency-based services (Metro, EMT) have no exact
 times; they are returned separately as "every ~N min", and EMT live predictions as
 `live_arrivals`.
+
+Arrival boards (SBB's "Arrivals") list trips that end or call at a stop, with where they come
+from (`origin`); `time` is then the scheduled arrival. EMT live predictions are not repeated
+there: they say when the next bus reaches the stop to board it, which is the departure board.
 """
 
 from collections import defaultdict
@@ -81,6 +85,7 @@ class Departure(BaseModel):
     stop_id: str
     trip_id: str
     wheelchair_accessible: bool | None
+    origin: str | None = None  # arrival boards: the trip's first stop
     # scheduled: no usable live data; live: realtime.predicted_time is the best estimate;
     # cancelled: the operator cancelled this trip.
     status: Literal["scheduled", "live", "cancelled"] = "scheduled"
@@ -110,19 +115,22 @@ class FrequencyService(BaseModel):
     line: Line
     headsign: str | None
     stop_id: str
+    origin: str | None = None  # arrival boards: the trip's first stop
     headway_min: int  # typical gap between vehicles in the window
     from_time: datetime
     until_time: datetime
 
 
 class StopBoard(BaseModel):
+    kind: Literal["departures", "arrivals"] = "departures"
     stop: StopSummary
     generated_at: datetime
     window_start: datetime
     window_end: datetime
     # scheduled: nothing live on this board; partly_live: some entries are live.
     data_quality: Literal["scheduled", "partly_live"] = "scheduled"
-    departures: list[Departure]
+    departures: list[Departure]  # empty on an arrival board
+    arrivals: list[Departure] = []  # arrival boards only; `time` is the scheduled arrival
     frequencies: list[FrequencyService]
     live_arrivals: list[LiveArrival] = []
     notices: list[DataNotice]
@@ -310,18 +318,48 @@ _STOPS_CTE = """
 # The MATERIALIZED CTEs fix the join order: first this stop's rows (small, indexed),
 # then trips and today's services. Left to itself the planner started from every trip
 # running today (tens of thousands) and took ~1 s per board.
-_DEPARTURES_SQL = f"""
+Kind = Literal["departures", "arrivals"]
+
+# The trip's first stop: its name is the origin on an arrival board, its time anchors
+# frequency windows (frequencies.txt counts from the first stop).
+_FIRST_STOP = """
+    JOIN LATERAL (
+        SELECT s0.stop_sequence, s0.departure_s, fs.name FROM stop_time s0
+        JOIN stop fs ON fs.feed_version_id = s0.feed_version_id AND fs.native_id = s0.stop_id
+        WHERE s0.feed_version_id = t.feed_version_id AND s0.trip_id = t.native_id
+        ORDER BY s0.stop_sequence LIMIT 1
+    ) first ON true
+"""
+
+
+def _board_sql(kind: Kind) -> str:
+    """Timetable rows at a stop. Departures: where you can board (not at the terminus);
+    arrivals: where you can get off (not at the first stop)."""
+    if kind == "departures":
+        t_col, no_service, where = (
+            "departure_s",
+            "pickup_type",
+            "c.stop_sequence < t.last_stop_sequence",
+        )
+    else:
+        t_col, no_service, where = (
+            "arrival_s",
+            "drop_off_type",
+            "c.stop_sequence > first.stop_sequence",
+        )
+    return f"""
     WITH fv AS ({_ACTIVE}), {_SERVICES_CTE}, {_STOPS_CTE},
     cand AS MATERIALIZED (
-        SELECT st.feed_version_id, st.trip_id, st.stop_sequence, st.departure_s,
+        SELECT st.feed_version_id, st.trip_id, st.stop_sequence, st.{t_col} AS time_s,
                stops.id AS stop_gid
         FROM stops
         JOIN stop_time st
           ON st.feed_version_id = stops.feed_version_id AND st.stop_id = stops.native_id
-        WHERE st.departure_s BETWEEN $4 AND $5 AND coalesce(st.pickup_type, 0) <> 1
+        WHERE st.{t_col} BETWEEN $4 AND $5 AND coalesce(st.{no_service}, 0) <> 1
     )
-    SELECT fv.source, c.departure_s, c.stop_gid AS stop_id, t.native_id AS trip_id,
+    SELECT fv.source, c.time_s, c.stop_gid AS stop_id, t.native_id AS trip_id,
            coalesce(nullif(t.headsign, ''), last_stop.name) AS headsign,
+           first.name AS origin,
            t.wheelchair_accessible,
            r.native_id, r.short_name, r.long_name, r.route_type, r.color, r.text_color
     FROM cand c
@@ -335,26 +373,33 @@ _DEPARTURES_SQL = f"""
         WHERE lst.feed_version_id = t.feed_version_id AND lst.trip_id = t.native_id
           AND lst.stop_sequence = t.last_stop_sequence
     ) last_stop ON true
-    WHERE NOT t.is_frequency_based
-      AND c.stop_sequence < t.last_stop_sequence
-    ORDER BY c.departure_s
+    {_FIRST_STOP}
+    WHERE NOT t.is_frequency_based AND {where}
+    ORDER BY c.time_s
     LIMIT $6
 """
 
-_FREQUENCIES_SQL = f"""
+
+def _frequencies_sql(kind: Kind) -> str:
+    if kind == "departures":
+        t_col, where = "departure_s", "c.stop_sequence < t.last_stop_sequence"
+    else:
+        t_col, where = "arrival_s", "c.stop_sequence > first.stop_sequence"
+    return f"""
     WITH fv AS ({_ACTIVE}), {_SERVICES_CTE}, {_STOPS_CTE},
     cand AS MATERIALIZED (
-        SELECT st.feed_version_id, st.trip_id, st.stop_sequence, st.departure_s,
-               stops.id AS stop_gid
+        SELECT st.feed_version_id, st.trip_id, st.stop_sequence,
+               coalesce(st.{t_col}, st.departure_s) AS time_s, stops.id AS stop_gid
         FROM stops
         JOIN stop_time st
           ON st.feed_version_id = stops.feed_version_id AND st.stop_id = stops.native_id
         JOIN trip t0 ON t0.feed_version_id = st.feed_version_id AND t0.native_id = st.trip_id
-        WHERE t0.is_frequency_based AND st.stop_sequence < t0.last_stop_sequence
+        WHERE t0.is_frequency_based
     )
     SELECT fv.source, c.stop_gid AS stop_id, t.headsign, t.direction_id,
-           f.start_s + (c.departure_s - first.departure_s) AS from_s,
-           f.end_s + (c.departure_s - first.departure_s) AS until_s,
+           first.name AS origin,
+           f.start_s + (c.time_s - first.departure_s) AS from_s,
+           f.end_s + (c.time_s - first.departure_s) AS until_s,
            f.headway_s,
            r.native_id, r.short_name, r.long_name, r.route_type, r.color, r.text_color
     FROM cand c
@@ -363,14 +408,15 @@ _FREQUENCIES_SQL = f"""
     JOIN services sv ON sv.feed_version_id = t.feed_version_id AND sv.service_id = t.service_id
     JOIN route r ON r.feed_version_id = t.feed_version_id AND r.native_id = t.route_id
     JOIN frequency f ON f.feed_version_id = t.feed_version_id AND f.trip_id = t.native_id
-    JOIN LATERAL (
-        SELECT s0.departure_s FROM stop_time s0
-        WHERE s0.feed_version_id = t.feed_version_id AND s0.trip_id = t.native_id
-        ORDER BY s0.stop_sequence LIMIT 1
-    ) first ON true
-    WHERE f.end_s + (c.departure_s - first.departure_s) >= $4
-      AND f.start_s + (c.departure_s - first.departure_s) <= $5
+    {_FIRST_STOP}
+    WHERE {where}
+      AND f.end_s + (c.time_s - first.departure_s) >= $4
+      AND f.start_s + (c.time_s - first.departure_s) <= $5
 """
+
+
+_BOARD_SQL = {k: _board_sql(k) for k in ("departures", "arrivals")}
+_FREQUENCIES_SQL = {k: _frequencies_sql(k) for k in ("departures", "arrivals")}
 
 
 def _notices(
@@ -403,19 +449,22 @@ def _notices(
 
 
 def _merge_frequencies(
-    rows: list[asyncpg.Record], day: date, now: datetime, end: datetime
+    rows: list[asyncpg.Record], day: date, now: datetime, end: datetime, kind: Kind = "departures"
 ) -> list[FrequencyService]:
     """Collapse consecutive frequency windows per line and direction into the current one.
+
+    Directions are told apart by where trips go (departures) or come from (arrivals).
 
     Only lines with a window overlapping [now, end] are returned; later windows are used
     just to find when frequent service ends.
     """
     groups: dict[tuple[str, str, str | None, str], list[asyncpg.Record]] = defaultdict(list)
+    end_field = "headsign" if kind == "departures" else "origin"
     for r in rows:
-        groups[(r["source"], r["native_id"], r["headsign"], r["stop_id"])].append(r)
+        groups[(r["source"], r["native_id"], r[end_field], r["stop_id"])].append(r)
     now_s, end_s = seconds_into(day, now), seconds_into(day, end)
     out = []
-    for (source, _, headsign, stop_id), rs in groups.items():
+    for (source, _, _, stop_id), rs in groups.items():
         rs.sort(key=lambda r: r["from_s"])
         # The window running now, else the next one to start within the requested period.
         idx = next(
@@ -434,7 +483,10 @@ def _merge_frequencies(
         out.append(
             FrequencyService(
                 line=_line(source, current),
-                headsign=headsign,
+                headsign=current["headsign"],
+                origin=display_name(current["origin"])
+                if kind == "arrivals" and current["origin"]
+                else None,
                 stop_id=stop_id,
                 headway_min=max(1, round(current["headway_s"] / 60)),
                 from_time=at_service_time(day, current["from_s"]),
@@ -460,17 +512,48 @@ async def get_stop(pool: Pool, stop_id: str) -> StopSummary:
     return summary
 
 
+AtParam = Annotated[datetime | None, Query(description="Start time; default now")]
+MinutesParam = Annotated[int, Query(ge=5, le=240)]
+LimitParam = Annotated[int, Query(ge=1, le=200)]
+
+
 @router.get("/stops/{stop_id}/departures", response_model=StopBoard)
 async def stop_departures(
     pool: Pool,
     rt: RT,
     stop_id: str,
-    at: Annotated[datetime | None, Query(description="Start time; default now")] = None,
-    minutes: Annotated[int, Query(ge=5, le=240)] = 90,
-    limit: Annotated[int, Query(ge=1, le=200)] = 40,
+    at: AtParam = None,
+    minutes: MinutesParam = 90,
+    limit: LimitParam = 40,
 ) -> StopBoard:
     """Departures from a stop or station (all its platforms) in a time window, with live
     data where MadridGo has an authorized source for the operator."""
+    return await _board(pool, rt, stop_id, at, minutes, limit, "departures")
+
+
+@router.get("/stops/{stop_id}/arrivals", response_model=StopBoard)
+async def stop_arrivals(
+    pool: Pool,
+    rt: RT,
+    stop_id: str,
+    at: AtParam = None,
+    minutes: MinutesParam = 90,
+    limit: LimitParam = 40,
+) -> StopBoard:
+    """Arrivals at a stop or station in a time window, each with where it comes from, and
+    Renfe's live delays. Meant for stations; EMT's live bus times are on the departure board."""
+    return await _board(pool, rt, stop_id, at, minutes, limit, "arrivals")
+
+
+async def _board(
+    pool: asyncpg.Pool,
+    rt: Realtime,
+    stop_id: str,
+    at: datetime | None,
+    minutes: int,
+    limit: int,
+    kind: Kind,
+) -> StopBoard:
     summary, sources = await _stop_summary(pool, stop_id)
     now = datetime.now(MADRID)
     start = (
@@ -482,7 +565,7 @@ async def stop_departures(
     query_start = start - LOOKBACK if (at is None and has_rail) else start
     query_limit = limit + 150 if query_start < start else limit
 
-    departures: list[Departure] = []
+    rows: list[Departure] = []
     freq_rows: list[asyncpg.Record] = []
     freq_day = start.date()
     # Trips after midnight belong to the previous service day (times > 24:00:00).
@@ -491,12 +574,15 @@ async def stop_departures(
         if b < 0:
             continue
         args = (stop_id, day, day.isoweekday(), a, b)
-        for r in await pool.fetch(_DEPARTURES_SQL, *args, query_limit):
-            departures.append(
+        for r in await pool.fetch(_BOARD_SQL[kind], *args, query_limit):
+            rows.append(
                 Departure(
-                    time=at_service_time(day, r["departure_s"]),
+                    time=at_service_time(day, r["time_s"]),
                     line=_line(r["source"], r),
                     headsign=display_name(r["headsign"]) if r["headsign"] else None,
+                    origin=(
+                        display_name(r["origin"]) if kind == "arrivals" and r["origin"] else None
+                    ),
                     stop_id=r["stop_id"],
                     trip_id=r["trip_id"],
                     # Only where the operator's data can be trusted (app/access.py).
@@ -511,17 +597,17 @@ async def stop_departures(
             # Fetch windows to the end of the service day so back-to-back windows can be merged.
             sa = seconds_into(day, start)
             freq_args = (stop_id, day, day.isoweekday(), sa, max(b, 30 * 3600))
-            freq_rows = list(await pool.fetch(_FREQUENCIES_SQL, *freq_args))
+            freq_rows = list(await pool.fetch(_FREQUENCIES_SQL[kind], *freq_args))
 
     statuses: list[SourceStatus] = []
     if has_rail:
-        departures, status = await _overlay_renfe(rt, departures, now)
+        rows, status = await _overlay_renfe(rt, rows, now)
         statuses.append(status)
-    departures = [d for d in departures if d.best_time >= start]
-    departures.sort(key=lambda d: (d.best_time, d.time))
+    rows = [d for d in rows if d.best_time >= start]
+    rows.sort(key=lambda d: (d.best_time, d.time))
 
     live_arrivals: list[LiveArrival] = []
-    if "emt" in sources:
+    if "emt" in sources and kind == "departures":
         live_arrivals, status = await _emt_arrivals(rt, summary, now)
         statuses.append(status)
     for src in set(sources) - {"cercanias", "emt"}:
@@ -532,16 +618,18 @@ async def stop_departures(
         r["source"]: r["service_end"]
         for r in await pool.fetch("SELECT source, service_end FROM feed_version WHERE is_active")
     }
-    shown = departures[:limit]
+    shown = rows[:limit]
     any_live = any(d.status != "scheduled" for d in shown) or bool(live_arrivals)
     return StopBoard(
+        kind=kind,
         stop=summary,
         generated_at=now,
         window_start=start,
         window_end=end,
         data_quality="partly_live" if any_live else "scheduled",
-        departures=shown,
-        frequencies=_merge_frequencies(freq_rows, freq_day, start, end),
+        departures=shown if kind == "departures" else [],
+        arrivals=shown if kind == "arrivals" else [],
+        frequencies=_merge_frequencies(freq_rows, freq_day, start, end, kind),
         live_arrivals=live_arrivals,
         notices=_notices(sources, service_end, now.date()),
         realtime=statuses,
