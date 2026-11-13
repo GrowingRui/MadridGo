@@ -14,6 +14,8 @@ import { colors, space, themed, type } from '../theme';
 import { busSourceText, busText, isBusShown, placeBusOnTrip } from '../utils/busPosition';
 import { formatTime } from '../utils/time';
 import { placeOnTrip, positionAgeS, ridingText, sourceText, trackY } from '../utils/trainPosition';
+import { useSettings } from '../state/settings';
+import { AccessLine, AccessMark } from './access';
 import { TrainDot } from './journey';
 
 const TIME_W = 64;
@@ -39,6 +41,7 @@ export function TripStatus({
   tracked: boolean;
 }) {
   const { t } = useT();
+  const { stepFree } = useSettings();
   const placed = pos ? placeOnTrip(pos, now) : null;
   const late = trip.delay_s ? Math.round(trip.delay_s / 60) : 0;
   let main: string | null = null;
@@ -56,7 +59,8 @@ export function TripStatus({
   } else if (!tracked) {
     detail = t('trip.notTracked');
   }
-  if (!main && !detail && late <= 0) return null;
+  const access = stepFree ? trip.wheelchair_accessible : null;
+  if (!main && !detail && late <= 0 && access == null) return null;
   return (
     <View style={styles.status}>
       {main ? <Text style={styles.live}>{main}</Text> : null}
@@ -66,6 +70,7 @@ export function TripStatus({
           {t('trip.runningLate', { n: late })}
         </Text>
       ) : null}
+      <AccessLine ok={access} yes={t('access.train')} no={t('access.noTrain')} />
     </View>
   );
 }
@@ -164,11 +169,14 @@ export function TripRoute({
               />
             </View>
             <View style={styles.body}>
-              <Text
-                style={[key ? styles.nameKey : styles.name, faded && styles.passed]}
-                numberOfLines={2}>
-                {s.name}
-              </Text>
+              <View style={styles.nameRow}>
+                <Text
+                  style={[key ? styles.nameKey : styles.name, faded && styles.passed, styles.flex]}
+                  numberOfLines={2}>
+                  {s.name}
+                </Text>
+                <AccessMark ok={s.step_free} size={15} />
+              </View>
               {i === board && trip.board_index != null ? (
                 <Text style={styles.tag}>{t('trip.getOn')}</Text>
               ) : null}
@@ -234,6 +242,8 @@ const styles = themed(() => StyleSheet.create({
   body: { flex: 1, paddingLeft: space.sm, paddingTop: NODE_TOP - 2, paddingBottom: space.sm },
   name: { ...type.small, color: colors.text },
   nameKey: { ...type.bodyStrong, color: colors.text },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingRight: space.xs },
+  flex: { flexShrink: 1 },
   tag: { ...type.smallStrong, color: colors.brand, marginTop: 2 },
   passed: { color: colors.textFaint },
 }));

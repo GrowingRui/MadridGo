@@ -38,6 +38,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel
 
+from app.access import ACCESS_FEEDS, accessible, trip_access
 from app.dbpool import get_pool
 from app.i18n import tr
 from app.realtime import renfe
@@ -126,6 +127,7 @@ class TripStop:
     lon: float | None
     arrival_s: int | None
     departure_s: int | None
+    step_free: bool | None = None  # Cercanías only (app/access.py)
 
     def ref(self) -> PositionStop:
         return PositionStop(
@@ -393,7 +395,7 @@ class TripTimetable:
         rows = await self.pool.fetch(
             """
             SELECT st.stop_id AS native_id, s.id, s.root_id, s.name, s.lat, s.lon,
-                   st.arrival_s, st.departure_s
+                   st.arrival_s, st.departure_s, s.wheelchair_boarding
             FROM feed_version fv
             JOIN stop_time st ON st.feed_version_id = fv.id AND st.trip_id = $2
             JOIN stop s ON s.feed_version_id = fv.id AND s.native_id = st.stop_id
@@ -414,9 +416,14 @@ class TripTimetable:
                 lon=r["lon"],
                 arrival_s=r["arrival_s"],
                 departure_s=r["departure_s"],
+                step_free=accessible(r["wheelchair_boarding"]) if feed in ACCESS_FEEDS else None,
             )
             for i, r in enumerate(rows)
         ]
+
+    async def vehicle_access(self, feed: str, native_trip: str) -> bool | None:
+        """Whether the train is wheelchair accessible (Cercanías only, app/access.py)."""
+        return (await trip_access(self.pool, [(feed, native_trip)])).get((feed, native_trip))
 
 
 def get_trip_timetable(pool: Annotated[asyncpg.Pool, Depends(get_pool)]) -> TripTimetable:
@@ -435,6 +442,7 @@ class TripStopTime(BaseModel):
     # Timetable times on the journey's day (aligned to your boarding time, see trip_details).
     arrival: datetime | None = None
     departure: datetime | None = None
+    step_free: bool | None = None  # Cercanías stations only (app/access.py)
 
 
 class TripDetails(BaseModel):
@@ -448,6 +456,7 @@ class TripDetails(BaseModel):
     freshness: Freshness | None = None
     source: str | None = None
     attribution: str | None = None
+    wheelchair_accessible: bool | None = None  # the train; Cercanías only (app/access.py)
 
 
 def trip_details(
@@ -501,6 +510,7 @@ def trip_details(
                 name=s.name,
                 arrival=at(s.arrival_s),
                 departure=at(s.departure_s),
+                step_free=s.step_free,
             )
             for s in stops
         ],
@@ -538,7 +548,10 @@ async def trip_route(
     if departure is not None and departure.tzinfo is None:
         departure = departure.replace(tzinfo=MADRID)
     snap = await rt.renfe_snapshot() if feed == "cercanias" else None
-    return trip_details(trip_id, stops, departure, from_stop, to_stop, snap, now_utc())
+    details = trip_details(trip_id, stops, departure, from_stop, to_stop, snap, now_utc())
+    if feed in ACCESS_FEEDS:
+        details.wheelchair_accessible = await timetable.vehicle_access(feed, native)
+    return details
 
 
 @router.get("/trips/{trip_id}/position", response_model=TripPosition)

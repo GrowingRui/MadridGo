@@ -15,6 +15,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from app.access import ACCESS_FEEDS, accessible, stop_access
 from app.dbpool import get_pool
 from app.feeds import ExpiryState, expiry_state
 from app.i18n import tr
@@ -127,6 +128,8 @@ class StopBoard(BaseModel):
     notices: list[DataNotice]
     realtime: list[SourceStatus] = []  # one per operator serving this stop
     alerts: list[ServiceAlert] = []
+    # Step-free access to the platforms (app/access.py): Cercanías stations only.
+    step_free: bool | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -496,10 +499,11 @@ async def stop_departures(
                     headsign=display_name(r["headsign"]) if r["headsign"] else None,
                     stop_id=r["stop_id"],
                     trip_id=r["trip_id"],
+                    # Only where the operator's data can be trusted (app/access.py).
                     wheelchair_accessible=(
-                        None
-                        if r["wheelchair_accessible"] in (None, 0)
-                        else r["wheelchair_accessible"] == 1
+                        accessible(r["wheelchair_accessible"])
+                        if r["source"] in ACCESS_FEEDS
+                        else None
                     ),
                 )
             )
@@ -542,6 +546,7 @@ async def stop_departures(
         notices=_notices(sources, service_end, now.date()),
         realtime=statuses,
         alerts=await _alerts(rt, summary, shown, now),
+        step_free=(await stop_access(pool, [summary.id])).get(summary.id) if has_rail else None,
     )
 
 

@@ -8,6 +8,7 @@ import { bestTime } from '../api/stops';
 import { useT } from '../i18n';
 import { colors, space, themed, type } from '../theme';
 import { countdownShort, formatTime } from '../utils/time';
+import { AccessMark } from './access';
 import { LinePill, LinePills, ModeIcon, StatusBadge } from './transit';
 
 /**
@@ -167,14 +168,7 @@ export function DepartureRow({ dep, now }: { dep: Departure; now: number }) {
             </Text>
           ) : null}
           {platform ? <Text style={styles.until}>{t('dep.platform', { p: platform })}</Text> : null}
-          {dep.wheelchair_accessible ? (
-            <MaterialCommunityIcons
-              name="wheelchair-accessibility"
-              size={16}
-              color={colors.textMuted}
-              accessibilityLabel={t('dep.wheelchair')}
-            />
-          ) : null}
+          <AccessMark ok={dep.wheelchair_accessible} size={16} />
         </View>
       </View>
       <Text style={[styles.countdown, !soon && styles.countdownEmpty]}>{soon ?? ''}</Text>

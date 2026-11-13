@@ -102,6 +102,12 @@ class FakeStatic:
     async def nearest_stop(self, lat: float, lon: float) -> tuple[float, float] | None:
         return None
 
+    async def access(
+        self, trips: list[tuple[str, str]], stop_ids: list[str]
+    ) -> tuple[dict[tuple[str, str], bool | None], dict[str, bool | None]]:
+        self.access_asked = (trips, stop_ids)
+        return {t: True for t in trips}, {s: s != ATOCHA for s in stop_ids}
+
     async def trip_stops(
         self, trips: list[tuple[str, str]]
     ) -> dict[tuple[str, str], list[TripStop]]:
@@ -244,6 +250,19 @@ def test_recorded_parla_atocha_answer(setup: Callable[..., TestClient]) -> None:
     assert j["transfers"] == 1 and j["is_preview"] is False and j["feasible"] is True
     assert j["duration_min"] == 50  # 20:40:49 -> 21:31
     assert j["walk_min"] == round((73 + 683) / 60)
+
+
+def test_step_free_information_on_cercanias_rides_only(setup: Callable[..., TestClient]) -> None:
+    """The train and its two stations, from Renfe's data; nothing for the other modes."""
+    static = FakeStatic()
+    j = plan(setup(FakeOtp(load("parla_atocha")), static))["journeys"][0]
+    walk, bus, rail = j["legs"][0], j["legs"][1], j["legs"][3]
+    assert rail["accessibility"] == {"vehicle": True, "board": True, "alight": False}
+    assert walk["accessibility"] is None and bus["accessibility"] is None
+    trips, stops = static.access_asked
+    assert all(feed == "cercanias" for feed, _ in trips)
+    assert "renfe:37012" in stops and ATOCHA in stops
+    assert not any(s.startswith("crtm:") for s in stops)
 
 
 def test_route_map_geometry_and_coordinates(setup: Callable[..., TestClient]) -> None:

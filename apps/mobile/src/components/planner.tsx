@@ -22,6 +22,8 @@ import {
   lineColors,
 } from './transit';
 import type { PressState } from '../hooks';
+import { journeyAccess } from '../utils/access';
+import { AccessMark } from './access';
 
 // ---------------------------------------------------------------------------
 // From / To
@@ -386,6 +388,7 @@ export function ConnectionCard({
             </Text>
           ) : null}
           <StatusBadge status={status} text={mixed ? t('status.partlyLive') : undefined} />
+          <AccessMark ok={journeyAccess(journey)} />
         </View>
         <Text style={styles.meta}>
           <Text style={styles.metaStrong}>{formatDuration(journey.duration_min)}</Text>
