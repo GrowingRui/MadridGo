@@ -10,6 +10,7 @@ import { StyleSheet, View } from 'react-native';
 import type { Journey } from '../../api/journeys';
 import { ConnectionActions, ConnectionCard, ConnectionHeader } from '../../components/connection';
 import { JourneyNotices, JourneyTimeline } from '../../components/journey';
+import { ReplanButton } from '../../components/replan';
 import { BrandHeader, Card, EmptyState, Notice, Screen } from '../../components/layout';
 import { useT } from '../../i18n';
 import { refreshConnection, savedConnection, useSavedConnections } from '../../state/connections';
@@ -90,6 +91,7 @@ export default function JourneyScreen() {
       ) : null}
       <View>
         <JourneyNotices journey={journey} />
+        <ReplanButton journey={journey} from={from} to={to} />
         <Card style={{ marginTop: space.lg }}>
           <JourneyTimeline journey={journey} />
         </Card>

@@ -928,6 +928,19 @@ def from_address(
             last.distance_m += moved(destination, otp_destination)
 
 
+MAX_AVOID = 5
+
+
+def without_trips(journeys: list[Journey], avoid: list[str] | None) -> list[Journey]:
+    """R12: leave out journeys riding any of these trips (a cancelled train the traveller is
+    re-planning around). OTP's planConnection can only exclude whole routes, so this is done
+    on its answer; OTP rarely offers the same train twice, so the page stays full enough."""
+    if not avoid:
+        return journeys
+    banned = set(avoid)
+    return [j for j in journeys if not any(lg.trip_id in banned for lg in j.legs)]
+
+
 def drop_slow_walks(journeys: list[Journey]) -> list[Journey]:
     """OTP always adds a walk-only option. Keep it only if it is no slower than public
     transport (or if there is nothing else)."""
@@ -1051,9 +1064,18 @@ async def journeys(
         str | None, Query(max_length=2000, description="earlier_cursor or later_cursor")
     ] = None,
     limit: Annotated[int, Query(ge=1, le=10)] = 5,
+    avoid: Annotated[
+        list[str] | None,
+        Query(
+            max_length=MAX_AVOID,
+            description="Trip ids to leave out (R12: re-planning around a cancelled train)",
+        ),
+    ] = None,
 ) -> JourneyPlan:
     """Journeys between two stops or points, with live times where MadridGo has an
     authorized source and a reliability label for each change."""
+    if avoid and any(len(a) > 200 for a in avoid):
+        raise HTTPException(status_code=422, detail="Invalid trip id in avoid")
     origin = (
         await static.place(from_)
         if from_
@@ -1177,7 +1199,9 @@ async def journeys(
         built.setdefault(j.id, j)  # OTP can return the same itinerary twice
     for j in built.values():
         from_address(j, origin, otp_origin, destination, otp_destination)
-    result = drop_frequency_copies(sort_journeys(drop_slow_walks(list(built.values())), sort))
+    result = drop_frequency_copies(
+        sort_journeys(drop_slow_walks(without_trips(list(built.values()), avoid)), sort)
+    )
     alert_snaps = await rt.alert_snapshots()
     if alert_snaps:
         result = [

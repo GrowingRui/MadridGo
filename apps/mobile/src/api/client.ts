@@ -16,11 +16,13 @@ export class ApiError extends Error {
 
 export async function getJson<T>(
   path: string,
-  params: Record<string, string | number | undefined> = {},
+  params: Record<string, string | number | readonly string[] | undefined> = {},
   timeoutMs = 8000,
   fetchImpl: typeof fetch = fetch,
 ): Promise<T> {
+  // A list is sent as the same name repeated (?avoid=a&avoid=b), as FastAPI reads it.
   const query = Object.entries(params)
+    .flatMap(([k, v]) => (Array.isArray(v) ? v.map((x) => [k, x] as const) : [[k, v] as const]))
     .filter(([, v]) => v !== undefined && v !== '')
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
     .join('&');

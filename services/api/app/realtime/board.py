@@ -164,7 +164,13 @@ def renfe_train(
 
     delay = t.delay_s
     at_update_stop = t.stop_id == native_stop_id
-    if t.stop_time is not None and delay is not None:
+    vehicle = snap.vehicles.get(trip_id)
+    at_this_stop = vehicle is not None and vehicle.stop_id == native_stop_id
+    # Renfe names the next station in the trip update even while the train still stands at
+    # this one (found 2026-11-13: trains waiting at Parla, their first station, all showed as
+    # gone). Stopped here, it has not passed.
+    stopped_here = at_this_stop and vehicle is not None and vehicle.current_status == "STOPPED_AT"
+    if t.stop_time is not None and delay is not None and not stopped_here:
         # Times along a trip only increase, so a stop scheduled before the next stop's
         # scheduled arrival lies behind the train.
         if scheduled < t.stop_time - timedelta(seconds=delay):
@@ -174,8 +180,6 @@ def renfe_train(
     if delay is None:
         return TrainState(None)
 
-    vehicle = snap.vehicles.get(trip_id)
-    at_this_stop = vehicle is not None and vehicle.stop_id == native_stop_id
     return TrainState(
         base.model_copy(
             update={

@@ -128,6 +128,8 @@ export interface PlanParams {
   arriveBy?: boolean;
   sort?: SortOption;
   cursor?: string | null; // earlier_cursor or later_cursor of a previous answer
+  /** Trip ids to leave out: re-planning around a cancelled train (utils/replan.ts). */
+  avoid?: readonly string[];
 }
 
 /** Routing can take a few seconds (OTP); allow more than the default timeout. */
@@ -152,6 +154,7 @@ export function planJourneys(p: PlanParams, fetchImpl: typeof fetch = fetch): Pr
       arrive_by: p.arriveBy ? 'true' : undefined,
       sort: p.sort,
       cursor: p.cursor ?? undefined,
+      avoid: p.avoid?.length ? p.avoid : undefined,
     },
     PLAN_TIMEOUT_MS,
     fetchImpl,

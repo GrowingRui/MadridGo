@@ -42,6 +42,11 @@ export interface PlannerState {
   sort: SortOption;
   /** Plan screen view: From/To form, stop tiles, or map. */
   view: PlanView;
+  /**
+   * Trip ids the search leaves out: set when re-planning around a cancelled train
+   * (utils/replan.ts); forgotten as soon as From or To changes.
+   */
+  avoid: string[];
 }
 
 export type PlanView = 'timetable' | 'touch' | 'map';
@@ -55,12 +60,33 @@ let state: PlannerState = {
   arriveBy: false,
   sort: DEFAULT_SORT,
   view: 'timetable',
+  avoid: [],
 };
 const listeners = new Set<() => void>();
 
 export function setPlanner(patch: Partial<PlannerState>) {
-  state = { ...state, ...patch };
+  const placesChanged = 'from' in patch || 'to' in patch;
+  state = { ...state, ...(placesChanged ? { avoid: [] } : null), ...patch };
   listeners.forEach((l) => l());
+}
+
+/** Set by startSearch: the Plan screen opens the connections even if they were open before. */
+let newSearch = false;
+
+/**
+ * A search started from elsewhere (re-planning from a connection): fills the planner; the
+ * caller then goes to the Plan screen, which opens the connections for it.
+ */
+export function startSearch(patch: Pick<PlannerState, 'from' | 'to'> & Partial<PlannerState>) {
+  newSearch = true;
+  setPlanner({ when: null, arriveBy: false, sort: DEFAULT_SORT, view: 'timetable', ...patch });
+}
+
+/** For the Plan screen: true once after startSearch. */
+export function takeNewSearch(): boolean {
+  const was = newSearch;
+  newSearch = false;
+  return was;
 }
 
 export function swapPlaces() {
