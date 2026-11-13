@@ -23,7 +23,7 @@ from app.main import app
 from app.otp import PLAN_QUERY, OtpClient, get_otp
 from app.realtime.cache import MemoryKV
 from app.realtime.emt import EmtArrivalsService
-from app.realtime.models import EmtArrival, EmtArrivals, FeedSnapshot
+from app.realtime.models import EmtArrival, EmtArrivals, FeedSnapshot, VehicleRealtime
 from app.realtime.service import Realtime, get_realtime
 from app.timetable import MADRID
 from app.transfers import TransferSide, assess, label_for_margin, worst
@@ -557,6 +557,53 @@ def test_train_that_already_passed_the_boarding_stop(setup: Callable[..., TestCl
         if any(lg["trip_id"] == f"cercanias:{C4A_TRIP}" for lg in j["legs"])
     )
     assert j["feasible"] is False and j["issues"] == ["C4a 21:03 has already left Parla."]
+
+
+def test_train_waiting_at_its_first_station_has_not_left(
+    setup: Callable[..., TestClient],
+) -> None:
+    # Found 2026-11-13: trains parked at Parla (their first station) before leaving get a trip
+    # update for the next station already; with the vehicle reported STOPPED_AT Parla, every
+    # one of them showed "has already left Parla".
+    first = plan(setup(FakeOtp(load("parla_atocha"))))
+    rail = next(
+        lg
+        for j in first["journeys"]
+        for lg in j["legs"]
+        if lg["trip_id"] == f"cercanias:{C4A_TRIP}"
+    )
+    board = rail["from_stop_id"].split(":", 1)[1]
+    trip_only = snapshot(
+        RECORDED,
+        RECORDED,
+        [{"trip_id": C4A_TRIP, "stop_id": "18000", "time": at(21, 31), "delay": 0}],
+    )
+    vehicle = VehicleRealtime(
+        trip_id=C4A_TRIP,
+        vehicle_id="27301",
+        label="C4a-27301-PLATF.(1)",
+        platform="1",
+        lat=None,
+        lon=None,
+        current_status="STOPPED_AT",
+        stop_id=board,
+        timestamp=RECORDED,
+    )
+    snap = trip_only.model_copy(update={"vehicles": {C4A_TRIP: vehicle}})
+    body = plan(setup(FakeOtp(load("parla_atocha")), rt=realtime(snap)))
+    j = next(
+        j
+        for j in body["journeys"]
+        if any(lg["trip_id"] == f"cercanias:{C4A_TRIP}" for lg in j["legs"])
+    )
+    assert j["feasible"] is True and j["issues"] == []
+    leg = next(lg for lg in j["legs"] if lg["trip_id"] == f"cercanias:{C4A_TRIP}")
+    assert leg["departure"]["status"] == "live" and leg["departure"]["platform"] == "1"
+    # Not stopped there (only last seen there, already moving on): still counted as gone.
+    moving = vehicle.model_copy(update={"current_status": "IN_TRANSIT_TO"})
+    snap = trip_only.model_copy(update={"vehicles": {C4A_TRIP: moving}})
+    body = plan(setup(FakeOtp(load("parla_atocha")), rt=realtime(snap)))
+    assert any(j["issues"] == ["C4a 21:03 has already left Parla."] for j in body["journeys"])
 
 
 def test_live_data_is_not_matched_to_another_day(setup: Callable[..., TestClient]) -> None:
