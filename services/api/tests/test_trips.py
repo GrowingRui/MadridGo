@@ -282,6 +282,9 @@ class FakeTimetable:
     async def stops(self, feed: str, native_trip: str) -> list[TripStop]:
         return TIMETABLE.get(native_trip, [])
 
+    async def vehicle_access(self, feed: str, native_trip: str) -> bool | None:
+        return False
+
 
 @pytest.fixture
 def client() -> Iterator[TestClient]:
@@ -497,3 +500,9 @@ def test_endpoint_returns_the_trip(client: TestClient) -> None:
 def test_endpoint_unknown_trip_route(client: TestClient) -> None:
     assert client.get("/trips/cercanias:nope").status_code == 404
     assert client.get("/trips/nocolon").status_code == 422
+
+
+def test_endpoint_trip_route_says_whether_the_train_is_accessible(client: TestClient) -> None:
+    body = client.get(f"/trips/cercanias:{C7_MOVING}").json()
+    assert body["wheelchair_accessible"] is False  # FakeTimetable: not accessible
+    assert all("step_free" in s for s in body["stops"])

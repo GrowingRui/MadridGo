@@ -47,6 +47,15 @@ export interface Leg {
   to_lat?: number | null;
   to_lon?: number | null;
   geometry?: string | null;
+  /** Step-free travel: Cercanías rides only (Renfe's data); absent for other modes. */
+  accessibility?: LegAccess | null;
+}
+
+/** For a wheelchair user: the train, and the stations where you board and get off. null: no information. */
+export interface LegAccess {
+  vehicle: boolean | null;
+  board: boolean | null;
+  alight: boolean | null;
 }
 
 /** RELIABILITY_STRATEGY.md §5. No percentages until a delay model is validated. */

@@ -23,6 +23,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.access import ACCESS_FEEDS, LegAccess, stop_access, trip_access
 from app.boarding import TripStop, board_nearer, decode, encode, walks_to_frequency_buses
 from app.dbpool import get_pool
 from app.feeds import ExpiryState, expiry_state
@@ -118,6 +119,8 @@ class Leg(BaseModel):
     to_lat: float | None = None
     to_lon: float | None = None
     geometry: str | None = None
+    # Step-free travel (app/access.py): Cercanías rides only; None for other modes and walks.
+    accessibility: LegAccess | None = None
 
 
 class Transfer(BaseModel):
@@ -199,6 +202,11 @@ class StaticData:
         if summary.lat is None or summary.lon is None:
             raise HTTPException(status_code=422, detail=f"Stop {stop_id} has no location")
         return Place(name=summary.name, stop_id=summary.id, lat=summary.lat, lon=summary.lon)
+
+    async def access(
+        self, trips: list[tuple[str, str]], stop_ids: list[str]
+    ) -> tuple[dict[tuple[str, str], bool | None], dict[str, bool | None]]:
+        return await trip_access(self.pool, trips), await stop_access(self.pool, stop_ids)
 
     async def feeds(self, today: date) -> FeedInfo:
         rows = await self.pool.fetch(
@@ -502,6 +510,32 @@ def apply_termini(its: list[_Itinerary], termini: dict[tuple[str, str], str]) ->
 
 # ---------------------------------------------------------------------------
 # Live overlays
+
+
+def access_wanted(its: list[_Itinerary]) -> tuple[list[tuple[str, str]], list[str]]:
+    """The trips and stops whose step-free information to look up (Cercanías rides)."""
+    rides = [
+        d for it in its for d in it.drafts if d.feed in ACCESS_FEEDS and d.trip_native is not None
+    ]
+    trips = sorted({(d.feed or "", d.trip_native or "") for d in rides})
+    stops = sorted({s for d in rides for s in (d.leg.from_stop_id, d.leg.to_stop_id) if s})
+    return trips, stops
+
+
+def apply_access(
+    its: list[_Itinerary],
+    trips: dict[tuple[str, str], bool | None],
+    stops: dict[str, bool | None],
+) -> None:
+    for it in its:
+        for d in it.drafts:
+            if d.feed not in ACCESS_FEEDS or d.trip_native is None:
+                continue
+            d.leg.accessibility = LegAccess(
+                vehicle=trips.get((d.feed, d.trip_native)),
+                board=stops.get(d.leg.from_stop_id or ""),
+                alight=stops.get(d.leg.to_stop_id or ""),
+            )
 
 
 def _near(t: datetime, now: datetime, window: tuple[timedelta, timedelta]) -> bool:
@@ -1102,6 +1136,7 @@ async def journeys(
     )
     if buses:
         await board_nearer(its, await static.trip_stops(buses), otp)
+    apply_access(its, *(await static.access(*access_wanted(its))))
 
     used = set().union(*(it.feeds for it in its)) if its else set()
     statuses: list[SourceStatus] = []

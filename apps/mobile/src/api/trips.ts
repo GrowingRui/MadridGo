@@ -62,6 +62,8 @@ export interface TripStopTime {
   name: string;
   arrival?: string | null;
   departure?: string | null;
+  /** Step-free station: Cercanías only. */
+  step_free?: boolean | null;
 }
 
 /** Every stop of a trip from origin to terminus, with timetable times on the journey's day. */
@@ -75,6 +77,8 @@ export interface TripDetails {
   freshness?: Freshness | null;
   source?: string | null;
   attribution?: string | null;
+  /** The train: Cercanías only (Renfe's data). */
+  wheelchair_accessible?: boolean | null;
 }
 
 export function getTrip(

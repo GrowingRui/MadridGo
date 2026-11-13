@@ -12,11 +12,13 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
 
 import { fetchHealth, getApiBaseUrl } from '../../api/health';
+import { AccessIcon } from '../../components/access';
 import { type FeedStatus, feedStatuses } from '../../api/stops';
 import {
   BrandHeader,
@@ -41,6 +43,7 @@ import { clearAllSaved, clearRecents, useSaved } from '../../state/saved';
 import {
   type AppearancePreference,
   setAppearance,
+  setStepFree,
   useSettings,
 } from '../../state/settings';
 import { colors, space, themed, type } from '../../theme';
@@ -83,6 +86,9 @@ export default function MoreScreen() {
 
       <SectionTitle>{t('more.appearance')}</SectionTitle>
       <AppearancePicker />
+
+      <SectionTitle>{t('access.section')}</SectionTitle>
+      <StepFreeCard />
 
       <SectionTitle>{t('more.location')}</SectionTitle>
       <LocationCard />
@@ -180,6 +186,30 @@ function AppearancePicker() {
       onChange={setAppearance}
       options={options.map((o) => ({ value: o.value, label: t(o.label) }))}
     />
+  );
+}
+
+/** "Show step-free travel": wheelchair icons, off by default as in SBB Mobile. */
+function StepFreeCard() {
+  const { t } = useT();
+  const { stepFree } = useSettings();
+  return (
+    <Card>
+      <View style={styles.row}>
+        <AccessIcon ok size={22} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={styles.title}>{t('access.setting')}</Text>
+          <Text style={styles.small}>{t('access.settingBody')}</Text>
+        </View>
+        <Switch
+          value={stepFree}
+          onValueChange={setStepFree}
+          accessibilityLabel={t('access.setting')}
+          trackColor={{ true: colors.brand, false: colors.border }}
+          thumbColor={colors.surface}
+        />
+      </View>
+    </Card>
   );
 }
 

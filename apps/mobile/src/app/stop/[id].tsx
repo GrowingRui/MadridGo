@@ -27,6 +27,7 @@ import { setPlanner } from '../../state/planner';
 import { addRecent, isFavorite, toSaved, toggleFavorite, useSaved } from '../../state/saved';
 import { colors, space, themed, type } from '../../theme';
 import { formatTime } from '../../utils/time';
+import { AccessLine } from '../../components/access';
 
 export default function StopBoardScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -99,6 +100,12 @@ export default function StopBoardScreen() {
         <ErrorState message={board.error} onRetry={board.reload} />
       ) : board.data ? (
         <>
+          <AccessLine
+            ok={board.data.step_free}
+            yes={t('access.stationBoard')}
+            no={t('access.noStationBoard')}
+            style={styles.liveLine}
+          />
           {board.data.notices.map((n) => (
             <Notice
               key={n.source}

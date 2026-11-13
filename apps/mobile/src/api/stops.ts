@@ -157,6 +157,8 @@ export interface StopBoard {
   notices: DataNotice[];
   realtime: SourceStatus[];
   alerts: ServiceAlert[];
+  /** Step-free access to the platforms: Cercanías stations only (Renfe's data). */
+  step_free?: boolean | null;
 }
 
 export interface FeedStatus {

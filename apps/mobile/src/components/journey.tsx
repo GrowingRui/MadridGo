@@ -20,6 +20,7 @@ import { byAlertSeverity, isSevereAlert } from '../api/stops';
 import { useLegBus, useNow, useReduceMotion, useTrainPosition } from '../hooks';
 import { useT } from '../i18n';
 import { colors, modeColors, radius, space, themed, type } from '../theme';
+import { alightAccess, boardAccess } from '../utils/access';
 import { busSourceText, busText, placeBus } from '../utils/busPosition';
 import { changeDetails, walkLegsInChanges } from '../utils/changeDetails';
 import { formatDuration, formatTime } from '../utils/time';
@@ -32,6 +33,7 @@ import {
   ridingText,
   trackY,
 } from '../utils/trainPosition';
+import { AccessLine } from './access';
 import { Notice } from './layout';
 import {
   LinePill,
@@ -377,6 +379,11 @@ function TransitLeg({
         </View>
         <View style={styles.stopBody}>
           <Text style={[styles.stopName, passed(0) && styles.passedText]}>{leg.from}</Text>
+          <AccessLine
+            ok={boardAccess(leg.accessibility)}
+            yes={t('access.board')}
+            no={t('access.noBoard')}
+          />
         </View>
         <Platform value={leg.departure.platform} />
       </View>
@@ -419,6 +426,11 @@ function TransitLeg({
               </Text>
             ) : null}
           </View>
+          <AccessLine
+            ok={leg.accessibility?.vehicle}
+            yes={t('access.train')}
+            no={t('access.noTrain')}
+          />
           {riding && ridingLine ? (
             <Text style={styles.small}>
               <Text style={styles.liveStrong}>{ridingLine}</Text>
@@ -480,6 +492,11 @@ function TransitLeg({
         </View>
         <View style={styles.stopBody}>
           <Text style={styles.stopName}>{leg.to}</Text>
+          <AccessLine
+            ok={alightAccess(leg.accessibility)}
+            yes={t('access.alight')}
+            no={t('access.noAlight')}
+          />
         </View>
         <Platform value={leg.arrival.platform} />
       </View>

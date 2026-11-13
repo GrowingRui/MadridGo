@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StyleSheet } from 'react-native';
 
-import { resetSettingsForTests, setAppearance } from '../state/settings';
+import { resetSettingsForTests, setAppearance, setStepFree } from '../state/settings';
 import { applyScheme, colors, currentScheme, type Palette, palettes, themed } from './index';
 
 afterEach(() => resetSettingsForTests());
@@ -37,9 +37,16 @@ describe('settings', () => {
     setAppearance('dark');
     expect(currentScheme()).toBe('dark');
     const stored = JSON.parse((await AsyncStorage.getItem('madridgo.settings.v1')) ?? '{}');
-    expect(stored).toEqual({ appearance: 'dark' });
+    expect(stored).toEqual({ appearance: 'dark', stepFree: false });
     setAppearance('light');
     expect(currentScheme()).toBe('light');
+  });
+
+  it('remembers "Show step-free travel" with the appearance', async () => {
+    setStepFree(true);
+    const stored = JSON.parse((await AsyncStorage.getItem('madridgo.settings.v1')) ?? '{}');
+    expect(stored).toEqual({ appearance: 'light', stepFree: true });
+    setStepFree(false);
   });
 });
 
