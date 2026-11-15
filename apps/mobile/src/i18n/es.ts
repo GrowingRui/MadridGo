@@ -138,7 +138,7 @@ export const es: Record<MessageKey, string> = {
   'when.madridTime': 'Hora de Madrid.',
   'sort.title': 'Ordenar conexiones por',
   'sort.earliest_arrival': 'Llegada más temprana',
-  'sort.earliest_arrival.hint': 'Llegar lo antes posible',
+  'sort.earliest_arrival.hint': 'Llegar pronto; primero los viajes más sencillos si llegan pocos minutos después',
   'sort.fastest': 'Menor tiempo de viaje',
   'sort.fastest.hint': 'Menos tiempo en el trayecto',
   'sort.fewest_transfers': 'Menos transbordos',

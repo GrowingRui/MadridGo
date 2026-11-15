@@ -137,7 +137,7 @@ export const en = {
   'when.madridTime': 'Madrid time.',
   'sort.title': 'Sort connections by',
   'sort.earliest_arrival': 'Earliest arrival',
-  'sort.earliest_arrival.hint': 'Get there as early as possible',
+  'sort.earliest_arrival.hint': 'Get there early; simpler trips first if only a few minutes later',
   'sort.fastest': 'Shortest travel time',
   'sort.fastest.hint': 'Least time on the way',
   'sort.fewest_transfers': 'Fewest changes',
