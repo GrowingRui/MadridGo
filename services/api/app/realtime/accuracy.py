@@ -318,6 +318,33 @@ async def metrics(pool: asyncpg.Pool, first: date, last: date) -> list[asyncpg.R
     return rows
 
 
+@dataclass(frozen=True)
+class Report:
+    """The figures for service days `first` to `last`, as the CLI and `GET /accuracy` show
+    them. `provisional` until there are MIN_DAYS days with data and MIN_SAMPLE matched
+    predictions in every operator-wide row (RELIABILITY_STRATEGY.md §4)."""
+
+    first: date
+    last: date
+    days_with_data: int
+    rows: list[asyncpg.Record]
+    provisional: bool
+
+
+async def report(pool: asyncpg.Pool, last: date, days: int) -> Report:
+    first = last - timedelta(days=days - 1)
+    rows = await metrics(pool, first, last)
+    span = await pool.fetchval(
+        "SELECT count(DISTINCT service_date) FROM observed_arrival"
+        " WHERE service_date BETWEEN $1 AND $2",
+        first,
+        last,
+    )
+    overall = [r for r in rows if r["line"] == "*"]
+    provisional = span < MIN_DAYS or not overall or any(r["n"] < MIN_SAMPLE for r in overall)
+    return Report(first, last, span, rows, provisional)
+
+
 async def aggregate_and_prune(pool: asyncpg.Pool, now: datetime) -> None:
     """Keep daily results of finished service days for good, then delete raw rows older than
     the retention period. A service day is finished 4 h after its midnight (night trains)."""

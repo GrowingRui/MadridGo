@@ -11,7 +11,7 @@ import asyncio
 import json
 import logging
 from dataclasses import asdict
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import asyncpg
 import httpx
@@ -19,7 +19,7 @@ import httpx
 from app.config import get_settings
 from app.db import create_pool, migrate
 from app.realtime import renfe
-from app.realtime.accuracy import MIN_DAYS, MIN_SAMPLE, metrics
+from app.realtime.accuracy import MIN_DAYS, MIN_SAMPLE, report
 from app.realtime.cache import close_kv, get_kv
 from app.realtime.freshness import THRESHOLDS
 from app.realtime.service import USER_AGENT
@@ -91,22 +91,16 @@ async def cmd_accuracy(days: int, lines: bool) -> None:
     try:
         async with pool.acquire() as conn:
             await migrate(conn)
-        last = datetime.now(UTC).astimezone(MADRID).date()
-        first = last - timedelta(days=days - 1)
-        rows = await metrics(pool, first, last)
-        span = await pool.fetchval(
-            "SELECT count(DISTINCT service_date) FROM observed_arrival"
-            " WHERE service_date BETWEEN $1 AND $2",
-            first,
-            last,
-        )
+        rep = await report(pool, datetime.now(UTC).astimezone(MADRID).date(), days)
     finally:
         await pool.close()
-    print(f"Renfe Cercanias, service days {first} to {last} ({span} with data)")
+    print(
+        f"Renfe Cercanias, service days {rep.first} to {rep.last} ({rep.days_with_data} with data)"
+    )
     print("error = actual arrival - time shown; bias > 0: later than shown")
     head = f"{'line':6} {'kind':10} {'horizon':>7} {'n':>7} {'MAE':>6} {'median':>6} {'p90':>6}"
     print(head + f" {'bias':>6} {'<=1m':>5} {'<=2m':>5} {'<=5m':>5}")
-    for r in rows:
+    for r in rep.rows:
         if r["line"] != "*" and not lines:
             continue
         if r["kind"] == "schedule":
@@ -119,7 +113,7 @@ async def cmd_accuracy(days: int, lines: bool) -> None:
             f" {r['median_abs_s']:>5.0f}s {r['p90_abs_s']:>5.0f}s {r['bias_s']:>+5.0f}s"
             f" {r['pct_1m']:>5.0%} {r['pct_2m']:>5.0%} {r['pct_5m']:>5.0%}"
         )
-    if span < MIN_DAYS or any(r["n"] < MIN_SAMPLE for r in rows if r["line"] == "*"):
+    if rep.provisional:
         print(
             f"provisional: a figure is final with >= {MIN_SAMPLE} matched predictions"
             f" over >= {MIN_DAYS} days (RELIABILITY_STRATEGY.md section 4)"

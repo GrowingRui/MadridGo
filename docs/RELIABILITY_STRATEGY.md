@@ -68,6 +68,7 @@ Initial thresholds (configurable per adapter in `config/freshness.yaml`):
   - Signed bias.
   - % within ±1 min, ±2 min and ±5 min.
 - **Minimum sample** before publishing a metric: ≥ 500 matched predictions per operator and horizon over ≥ 7 days (initial proposal).
+- **Shown** (built 2026-11-15): `GET /accuracy?days=1|7|30` (up to 90) returns the figures for all lines and per line, with line colours and `provisional`; the app's **Live time accuracy** page (More, About and the website footer) shows, per horizon, the share within 2 min as a bar and the 1 and 5 min shares, the usual gap and the average direction as text, for Live, Live · est. and the timetable alone. While below the minimum sample it says "Early figures" with the days and arrivals still needed; a row with fewer than 20 arrivals says "Too few arrivals yet" instead of a share. Answers are kept 5 minutes (the query takes ~0.3 s per day of data).
 - Scheduled times are evaluated separately ("schedule adherence") and are **never** mixed into prediction accuracy.
 - Retention must respect licence terms (EMT requires deletion on termination) and keep only what is needed: aggregated metrics are kept long-term, raw samples for 90 days (proposal).
 

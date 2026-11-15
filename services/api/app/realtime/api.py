@@ -1,16 +1,23 @@
-"""Real-time endpoints: adapter status (monitoring) and service alerts."""
+"""Real-time endpoints: adapter status (monitoring), service alerts and how accurate the
+live times have been (`GET /accuracy`)."""
 
-from datetime import datetime
+import time
+from datetime import date, datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query
+import asyncpg
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel
 
 from app.config import Settings, get_settings
-from app.realtime import board, emt, renfe
+from app.dbpool import get_pool
+from app.disruptions import LineLookup, fallback_line, get_line_lookup
+from app.realtime import accuracy, board, emt, renfe
 from app.realtime.models import Freshness, ServiceAlert
 from app.realtime.resilience import UpstreamStatus
 from app.realtime.service import Realtime, crtm_realtime_enabled, get_realtime, now_utc
+from app.stops import Line
+from app.timetable import MADRID, line_sort_key
 
 router = APIRouter(tags=["realtime"])
 RT = Annotated[Realtime, Depends(get_realtime)]
@@ -129,4 +136,105 @@ async def service_alerts(
                     continue
             out.append(a)
     out.sort(key=lambda a: a.active_from or now, reverse=True)
+    return out
+
+
+class AccuracyRow(BaseModel):
+    """One group of matched arrivals. Errors are actual arrival - time shown, in seconds;
+    the pct_* are shares (0-1) within 1, 2 and 5 minutes."""
+
+    line: str  # "*" = all lines together
+    kind: Literal["prediction", "schedule"]  # schedule = the timetable alone (adherence)
+    horizon_min: int | None  # minutes before the arrival the time was shown; None for schedule
+    estimated: bool  # "Live · est.": delay carried forward from the stop Renfe names
+    n: int
+    mae_s: float
+    median_abs_s: float
+    p90_abs_s: float
+    bias_s: float  # > 0: trains came later than shown
+    pct_1m: float
+    pct_2m: float
+    pct_5m: float
+
+
+class AccuracyReport(BaseModel):
+    operator: str
+    operator_name: str
+    first_day: date
+    last_day: date
+    days: int
+    days_with_data: int
+    provisional: bool
+    min_sample: int
+    min_days: int
+    generated_at: datetime
+    lines: list[Line]  # the lines with figures, in line order, with their colours
+    rows: list[AccuracyRow]
+
+
+# The query takes ~0.3 s for one day of data and grows with the period: one answer per
+# period is kept this long, which is also how long clients may cache it.
+ACCURACY_TTL_S = 300
+_accuracy_cache: dict[tuple[date, int], tuple[float, AccuracyReport]] = {}
+
+
+@router.get("/accuracy", response_model=AccuracyReport)
+async def live_accuracy(
+    response: Response,
+    pool: Annotated[asyncpg.Pool, Depends(get_pool)],
+    lookup: Annotated[LineLookup, Depends(get_line_lookup)],
+    days: Annotated[int, Query(ge=1, le=accuracy.RETENTION_DAYS)] = 7,
+) -> AccuracyReport:
+    """How close Renfe Cercanías live times came to the real arrivals over the last `days`
+    service days (RELIABILITY_STRATEGY.md §4), for all lines ("*") and per line, plus how
+    well trains kept the timetable. Provisional until there is enough data."""
+    now = now_utc()
+    last = now.astimezone(MADRID).date()
+    response.headers["Cache-Control"] = f"public, max-age={ACCURACY_TTL_S}"
+    cached = _accuracy_cache.get((last, days))
+    if cached and cached[0] > time.monotonic():
+        return cached[1]
+    rep = await accuracy.report(pool, last, days)
+    names = {r["line"] for r in rep.rows if r["line"] != "*"}
+    known: dict[str, Line] = {}
+    # The lookup compares names in upper case (C4a is C4A there).
+    for ln in await lookup.lines("cercanias", {n.upper() for n in names}, by="name"):
+        known.setdefault(ln.short_name.upper(), ln)  # Renfe has one route per direction
+    lines = sorted(
+        (known.get(n.upper()) or fallback_line("cercanias", n) for n in names),
+        key=lambda ln: line_sort_key(ln.short_name),
+    )
+    out = AccuracyReport(
+        operator=renfe.OPERATOR,
+        operator_name="Renfe Cercanías",
+        first_day=rep.first,
+        last_day=rep.last,
+        days=days,
+        days_with_data=rep.days_with_data,
+        provisional=rep.provisional,
+        min_sample=accuracy.MIN_SAMPLE,
+        min_days=accuracy.MIN_DAYS,
+        generated_at=now,
+        lines=lines,
+        rows=[
+            AccuracyRow(
+                line=r["line"],
+                kind=r["kind"],
+                horizon_min=r["horizon_min"] if r["kind"] == "prediction" else None,
+                estimated=r["estimated"],
+                n=r["n"],
+                mae_s=round(r["mae_s"], 1),
+                median_abs_s=round(r["median_abs_s"], 1),
+                p90_abs_s=round(r["p90_abs_s"], 1),
+                bias_s=round(r["bias_s"], 1),
+                pct_1m=round(r["pct_1m"], 4),
+                pct_2m=round(r["pct_2m"], 4),
+                pct_5m=round(r["pct_5m"], 4),
+            )
+            for r in rep.rows
+        ],
+    )
+    for key in [k for k, (exp, _) in _accuracy_cache.items() if exp <= time.monotonic()]:
+        del _accuracy_cache[key]
+    _accuracy_cache[(last, days)] = (time.monotonic() + ACCURACY_TTL_S, out)
     return out
