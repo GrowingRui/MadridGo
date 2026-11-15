@@ -134,7 +134,7 @@ def _line_name(source: str, route_id: str) -> str:
     return route_id
 
 
-def _fallback_line(feed: str, name: str) -> Line:
+def fallback_line(feed: str, name: str) -> Line:
     """A line the timetable does not know (e.g. an EMT special service): no colour."""
     return Line(
         source=feed,
@@ -223,7 +223,7 @@ async def build_disruptions(
             if name.upper() in seen:
                 continue
             seen.add(name.upper())
-            alert_lines.append(lines.get((src, key)) or _fallback_line(feed, name))
+            alert_lines.append(lines.get((src, key)) or fallback_line(feed, name))
         alert_lines.sort(key=lambda ln: (MODE_ORDER.get(ln.mode, 9), line_sort_key(ln.short_name)))
         alert_stations = [stations.get(s) or DisruptionStation(id=None, name=s) for s in a.stop_ids]
         out.append(

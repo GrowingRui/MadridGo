@@ -590,6 +590,43 @@ export const en = {
   'help.q.tickets': 'Can I buy tickets or top up my travel card?',
   'help.a.tickets':
     'No. There is no public interface for the Tarjeta Transporte Público, so MadridGo cannot sell tickets. Use the machines in stations or the operators’ own apps.',
+  // Live time accuracy (app/accuracy.tsx)
+  'acc.title': 'Live time accuracy',
+  'acc.link': 'How accurate are live times?',
+  'acc.subtitle': '{operator} · {from} to {to}',
+  'acc.subtitleDay': '{operator} · {day}',
+  'acc.period.1': 'Today',
+  'acc.period.7': '7 days',
+  'acc.period.30': '30 days',
+  'acc.intro':
+    'How close the live times MadridGo showed came to when trains really arrived. Every Cercanías train is measured: the arrival comes from Renfe’s train positions, to within about 10 seconds.',
+  'acc.provisional': 'Early figures',
+  'acc.provisionalBody':
+    'Measured on {days} of the {min} days needed. The figures are final with at least {sample} arrivals in each row.',
+  'acc.allLines': 'All lines',
+  'acc.lineFilter': 'Line',
+  'acc.live': 'Live',
+  'acc.liveBody': 'The next station, with Renfe’s live time.',
+  'acc.est': 'Live · est.',
+  'acc.estBody': 'Stations further on: the train’s delay carried forward.',
+  'acc.timetable': 'Timetable alone',
+  'acc.timetableRow': 'Timetable time',
+  'acc.timetableBody': 'How far from the timetable trains arrived, for comparison.',
+  'acc.before': '{n} min before',
+  'acc.arrivals.one': '{n} arrival',
+  'acc.arrivals.other': '{n} arrivals',
+  'acc.within2': '{pct} within 2 min',
+  'acc.within': '{p1} within 1 min · {p5} within 5 min',
+  'acc.typical': 'Usually {t} off',
+  'acc.later': 'later on average: {t}',
+  'acc.earlier': 'earlier on average: {t}',
+  'acc.onTime': 'on time on average',
+  'acc.tooFew': 'Too few arrivals yet',
+  'acc.none': 'No measurements yet',
+  'acc.noneBody': 'Figures appear here once trains have arrived at stations while MadridGo was showing their times.',
+  'acc.noLine': 'No measurements for this line in this period.',
+  'acc.method':
+    'A time counts at 30, 20, 10, 5 and 2 minutes before the train was due. “Off” is the gap between the time shown and the real arrival, either way. Only Renfe Cercanías for now: EMT buses will follow.',
 } as const;
 
 export type MessageKey = keyof typeof en;

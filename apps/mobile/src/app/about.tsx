@@ -114,6 +114,15 @@ export default function AboutScreen() {
           }
           text={t('about.label.outdatedBody')}
         />
+        <Divider inset={space.lg} />
+        <View style={styles.block}>
+          <Text
+            style={styles.link}
+            accessibilityRole="link"
+            onPress={() => router.push('/accuracy')}>
+            {`${t('acc.link')} ›`}
+          </Text>
+        </View>
       </Card>
 
       <SectionTitle>{t('about.coverage')}</SectionTitle>
