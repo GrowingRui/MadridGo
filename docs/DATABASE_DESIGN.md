@@ -57,7 +57,7 @@ erDiagram
 | `service_alert` | `id`, `source`, `source_alert_id`, `header`, `description` (jsonb i18n), `cause`, `effect`, `active_from`, `active_to`, `source_ts`, `retrieved_at` | |
 | `alert_entity` | `alert_id`, `route_id`, `stop_id`, `trip_ref` | |
 | `adapter_health` | `source`, `checked_at`, `ok`, `latency_ms`, `feed_age_s`, `entity_count`, `match_rate`, `error` | Monitoring history |
-| `accuracy_metric` | `operator_id`, `route_id?`, `horizon_min`, `period`, `n`, `mae_s`, `p90_s`, `bias_s`, `pct_1m`, `pct_2m`, `pct_5m` | Aggregates retained long-term |
+| `accuracy_metric` | `operator_id`, `route_id?`, `horizon_min`, `period`, `n`, `mae_s`, `p90_s`, `bias_s`, `pct_1m`, `pct_2m`, `pct_5m` | Aggregates retained long-term. **Built 2026-11-14 (migration 0003)** as `prediction_sample` (one row per trip, service day, stop and horizon), `observed_arrival` (ground truth, with `uncertainty_s`), both kept 90 days, and `accuracy_daily` (per day, line or `*`, kind `prediction`/`schedule`, horizon, estimated), kept for good; SQL function `accuracy_metrics(first, last)` |
 
 ### Users (Phase 6, only if push notifications ship)
 | Table | Notes |

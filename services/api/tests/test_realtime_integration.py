@@ -97,3 +97,58 @@ def test_alerts_endpoint_filters_by_line(client: TestClient) -> None:
     c3 = client.get("/alerts", params={"line": "C3"}).json()
     assert c3 and all(any(r.endswith("C3") for r in a["route_ids"]) for a in c3)
     assert client.get("/alerts", params={"operator": "EMT_MADRID"}).json() == []
+
+
+def test_accuracy_metrics_daily_results_and_retention() -> None:
+    from datetime import date
+
+    from app.realtime.accuracy import Arrival, Prediction, aggregate_and_prune, metrics, store
+
+    day = date(2020, 1, 6)  # far in the past: never mixed with live samples
+    base = datetime(2020, 1, 6, 9, 0, tzinfo=UTC)
+    trip = "zz_test_trip"
+
+    def pred(i: int, predicted_off_s: int, estimated: bool) -> Prediction:
+        sched = base + timedelta(minutes=10 * i)
+        return Prediction(
+            trip, day, i, f"S{i}", "Z1", 5, sched - timedelta(minutes=5), None, sched,
+            sched + timedelta(seconds=predicted_off_s), 0, estimated, None,
+        )  # fmt: skip
+
+    def arr(i: int, late_s: int) -> Arrival:
+        sched = base + timedelta(minutes=10 * i)
+        return Arrival(trip, day, i, f"S{i}", "Z1", sched, sched + timedelta(seconds=late_s), 10)
+
+    async def scenario(pool: asyncpg.Pool):  # type: ignore[no-untyped-def]
+        async def clean() -> None:
+            for table in ("prediction_sample", "observed_arrival"):
+                await pool.execute(f"DELETE FROM {table} WHERE trip_id = $1", trip)  # noqa: S608
+            await pool.execute("DELETE FROM accuracy_daily WHERE day = $1", day)
+
+        await clean()
+        try:
+            # Actual 60 s and 180 s late; predictions said +0 s and +60 s.
+            await store(pool, [pred(1, 0, False), pred(2, 60, True)], [arr(1, 60), arr(2, 180)])
+            await store(pool, [pred(1, 30, False)], [arr(1, 999)])  # duplicates: ignored
+            rows = await metrics(pool, day, day)
+            # Daily results are kept; raw rows past the retention period go. The test rows
+            # are from 2020, so `now` is 2020-04-30 (retention 90 days).
+            await aggregate_and_prune(pool, datetime(2020, 4, 30, 12, tzinfo=UTC))
+            daily = await pool.fetch("SELECT * FROM accuracy_daily WHERE day = $1", day)
+            left = await pool.fetchval(
+                "SELECT count(*) FROM observed_arrival WHERE trip_id = $1", trip
+            )
+            return rows, daily, left
+        finally:
+            await clean()
+
+    rows, daily, left = asyncio.run(_with_pool(scenario))
+    by = {(r["line"], r["kind"], r["estimated"]): r for r in rows}
+    live = by[("Z1", "prediction", False)]
+    assert live["n"] == 1 and live["bias_s"] == 60 and live["pct_1m"] == 1
+    est = by[("Z1", "prediction", True)]
+    assert est["mae_s"] == 120 and est["pct_1m"] == 0 and est["pct_2m"] == 1
+    sched = by[("*", "schedule", False)]
+    assert sched["n"] == 2 and sched["mae_s"] == 120 and sched["horizon_min"] == 0
+    assert {(r["line"], r["kind"]) for r in daily} >= {("Z1", "prediction"), ("*", "schedule")}
+    assert left == 0

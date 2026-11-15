@@ -3,6 +3,7 @@
 python -m app.realtime run          poll Renfe (30 s) and alerts (2 min) forever
 python -m app.realtime once         one poll of every feed, print a summary
 python -m app.realtime calibrate    suggest freshness thresholds from adapter_health
+python -m app.realtime accuracy     how close live times came to the real arrivals
 """
 
 import argparse
@@ -10,6 +11,7 @@ import asyncio
 import json
 import logging
 from dataclasses import asdict
+from datetime import UTC, datetime, timedelta
 
 import asyncpg
 import httpx
@@ -17,10 +19,12 @@ import httpx
 from app.config import get_settings
 from app.db import create_pool, migrate
 from app.realtime import renfe
+from app.realtime.accuracy import MIN_DAYS, MIN_SAMPLE, metrics
 from app.realtime.cache import close_kv, get_kv
 from app.realtime.freshness import THRESHOLDS
 from app.realtime.service import USER_AGENT
 from app.realtime.worker import Worker, calibrate, make_upstreams, record_health, run_forever
+from app.timetable import MADRID
 
 log = logging.getLogger("app.realtime")
 
@@ -82,6 +86,46 @@ async def cmd_calibrate(days: int) -> None:
         print("note: less than 7 days of data; treat the suggestion as provisional")
 
 
+async def cmd_accuracy(days: int, lines: bool) -> None:
+    pool = await create_pool(get_settings().database_url.get_secret_value())
+    try:
+        async with pool.acquire() as conn:
+            await migrate(conn)
+        last = datetime.now(UTC).astimezone(MADRID).date()
+        first = last - timedelta(days=days - 1)
+        rows = await metrics(pool, first, last)
+        span = await pool.fetchval(
+            "SELECT count(DISTINCT service_date) FROM observed_arrival"
+            " WHERE service_date BETWEEN $1 AND $2",
+            first,
+            last,
+        )
+    finally:
+        await pool.close()
+    print(f"Renfe Cercanias, service days {first} to {last} ({span} with data)")
+    print("error = actual arrival - time shown; bias > 0: later than shown")
+    head = f"{'line':6} {'kind':10} {'horizon':>7} {'n':>7} {'MAE':>6} {'median':>6} {'p90':>6}"
+    print(head + f" {'bias':>6} {'<=1m':>5} {'<=2m':>5} {'<=5m':>5}")
+    for r in rows:
+        if r["line"] != "*" and not lines:
+            continue
+        if r["kind"] == "schedule":
+            kind, horizon = "timetable", "-"
+        else:
+            kind = "live est." if r["estimated"] else "live"
+            horizon = f"{r['horizon_min']} min"
+        print(
+            f"{r['line']:6} {kind:10} {horizon:>7} {r['n']:>7} {r['mae_s']:>5.0f}s"
+            f" {r['median_abs_s']:>5.0f}s {r['p90_abs_s']:>5.0f}s {r['bias_s']:>+5.0f}s"
+            f" {r['pct_1m']:>5.0%} {r['pct_2m']:>5.0%} {r['pct_5m']:>5.0%}"
+        )
+    if span < MIN_DAYS or any(r["n"] < MIN_SAMPLE for r in rows if r["line"] == "*"):
+        print(
+            f"provisional: a figure is final with >= {MIN_SAMPLE} matched predictions"
+            f" over >= {MIN_DAYS} days (RELIABILITY_STRATEGY.md section 4)"
+        )
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     parser = argparse.ArgumentParser(prog="python -m app.realtime")
@@ -90,11 +134,16 @@ def main() -> None:
     sub.add_parser("once")
     cal = sub.add_parser("calibrate")
     cal.add_argument("--days", type=int, default=7)
+    acc = sub.add_parser("accuracy")
+    acc.add_argument("--days", type=int, default=7)
+    acc.add_argument("--lines", action="store_true", help="also one row per line")
     args = parser.parse_args()
     if args.cmd == "run":
         asyncio.run(cmd_run())
     elif args.cmd == "once":
         asyncio.run(cmd_once())
+    elif args.cmd == "accuracy":
+        asyncio.run(cmd_accuracy(args.days, args.lines))
     else:
         asyncio.run(cmd_calibrate(args.days))
 
