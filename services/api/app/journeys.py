@@ -54,6 +54,14 @@ RENFE_WINDOW = (timedelta(hours=-2), timedelta(hours=3))
 EMT_WINDOW = (timedelta(minutes=-5), timedelta(minutes=45))
 MAX_EMT_STOPS = 6  # EMT calls per request, at most
 
+# "Earliest arrival" prefers simpler journeys when arrivals are close: each change counts
+# as CHANGE_COST and each minute of walking as WALK_COST_PER_MIN, together at most
+# MAX_COMFORT_COST. So a journey with fewer changes or less walking can move ahead of one
+# arriving up to MAX_COMFORT_COST earlier, never more.
+CHANGE_COST = timedelta(minutes=3)
+WALK_COST_PER_MIN = timedelta(seconds=15)
+MAX_COMFORT_COST = timedelta(minutes=5)
+
 # OTP preferences per sort option. OTP returns a Pareto set; these shift it towards the
 # option, and the results are then sorted by it.
 _PREFERENCES: dict[SortOption, dict[str, int | float]] = {
@@ -993,11 +1001,16 @@ def drop_slow_walks(journeys: list[Journey]) -> list[Journey]:
     return [j for j in journeys if j in transit or j.duration_min <= fastest]
 
 
+def comfort_cost(j: Journey) -> timedelta:
+    """How much a journey's changes and walking count against it (see CHANGE_COST)."""
+    return min(MAX_COMFORT_COST, j.transfers * CHANGE_COST + j.walk_min * WALK_COST_PER_MIN)
+
+
 def sort_journeys(journeys: list[Journey], sort: SortOption) -> list[Journey]:
     def key(j: Journey) -> tuple[Any, ...]:
         arr = j.arrival.best
         primary: Any = {
-            "earliest_arrival": arr,
+            "earliest_arrival": (arr + comfort_cost(j), arr, j.transfers, j.walk_min),
             "fastest": j.duration_min,
             "fewest_transfers": j.transfers,
             "least_walking": j.walk_min,
