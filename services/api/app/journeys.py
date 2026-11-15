@@ -62,6 +62,13 @@ CHANGE_COST = timedelta(minutes=3)
 WALK_COST_PER_MIN = timedelta(seconds=15)
 MAX_COMFORT_COST = timedelta(minutes=5)
 
+# A journey that only adds a ride before or after the same vehicle(s) as a simpler one
+# (e.g. bus 331 for two stops onto the same E bus) is dropped unless the extra ride gets
+# you there more than FEEDER_TIME_GAIN earlier or saves at least FEEDER_WALK_GAIN_MIN of
+# walking (see drop_feeder_copies).
+FEEDER_TIME_GAIN = timedelta(minutes=2)
+FEEDER_WALK_GAIN_MIN = 5
+
 # OTP preferences per sort option. OTP returns a Pareto set; these shift it towards the
 # option, and the results are then sorted by it.
 _PREFERENCES: dict[SortOption, dict[str, int | float]] = {
@@ -708,6 +715,51 @@ def drop_frequency_copies(journeys: list[Journey]) -> list[Journey]:
     return [j for j in journeys if id(j) in keep]
 
 
+def _same_vehicle(a: Leg, b: Leg) -> bool:
+    """Two rides, possibly boarded at different stops, on the same vehicle. A timetabled
+    ride is its trip; a frequency ride (no trip to compare) is its line to the same stop,
+    arriving within one headway, as in _same_ride."""
+    if a.mode != b.mode:
+        return False
+    if a.headway_min is None and b.headway_min is None:
+        return a.trip_id is not None and a.trip_id == b.trip_id
+    if a.headway_min is None or b.headway_min is None or not (a.line and b.line):
+        return False
+    if a.line.route_id != b.line.route_id or not a.to_stop_id or a.to_stop_id != b.to_stop_id:
+        return False
+    gap = abs((a.arrival.best - b.arrival.best).total_seconds())
+    return gap < max(a.headway_min, b.headway_min) * 60
+
+
+def _rides_within(fewer: list[Leg], more: list[Leg]) -> bool:
+    """Every ride of `fewer` is, in order, on a vehicle that `more` also rides."""
+    it = iter(more)
+    return all(any(_same_vehicle(a, b) for b in it) for a in fewer)
+
+
+def drop_feeder_copies(journeys: list[Journey]) -> list[Journey]:
+    """Drop a journey that rides the same vehicle(s) as a simpler, feasible one plus extra
+    rides that bring nothing: no earlier arrival beyond FEEDER_TIME_GAIN (frequency times
+    are estimates) and less than FEEDER_WALK_GAIN_MIN less walking. Found 2026-11-15:
+    Campus Sur -> Conde Casal offered 331 for two stops onto the same E bus as the direct
+    E, walking more. A feeder that saves a long walk to the station stays. Order kept."""
+
+    def rides(j: Journey) -> list[Leg]:
+        return [lg for lg in j.legs if lg.mode != "walk"]
+
+    def copies(j: Journey, k: Journey) -> bool:
+        rj, rk = rides(j), rides(k)
+        return (
+            k.feasible
+            and 0 < len(rk) < len(rj)
+            and j.arrival.best >= k.arrival.best - FEEDER_TIME_GAIN
+            and j.walk_min > k.walk_min - FEEDER_WALK_GAIN_MIN
+            and _rides_within(rk, rj)
+        )
+
+    return [j for j in journeys if not any(copies(j, k) for k in journeys if k is not j)]
+
+
 def overlay_emt(
     its: list[_Itinerary], fetched: dict[str, LiveFetch], now: datetime, start: datetime
 ) -> None:
@@ -1256,8 +1308,10 @@ async def journeys(
         built.setdefault(j.id, j)  # OTP can return the same itinerary twice
     for j in built.values():
         from_address(j, origin, otp_origin, destination, otp_destination)
-    result = drop_frequency_copies(
-        sort_journeys(drop_slow_walks(without_trips(list(built.values()), avoid)), sort)
+    result = drop_feeder_copies(
+        drop_frequency_copies(
+            sort_journeys(drop_slow_walks(without_trips(list(built.values()), avoid)), sort)
+        )
     )
     alert_snaps = await rt.alert_snapshots()
     if alert_snaps:

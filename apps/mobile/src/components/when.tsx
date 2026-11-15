@@ -195,11 +195,12 @@ function Stepper({
 }) {
   const { t } = useT();
   return (
+    // Like a time wheel: earlier values above, later ones below.
     <View style={styles.stepper}>
       <Pressable
-        onPress={onPlus}
+        onPress={onMinus}
         accessibilityRole="button"
-        accessibilityLabel={t('when.later', { unit: label })}
+        accessibilityLabel={t('when.earlier', { unit: label })}
         style={({ pressed, hovered }: PressState) => [
           styles.stepBtn,
           (pressed || hovered) && styles.pressed,
@@ -210,9 +211,9 @@ function Stepper({
         {value}
       </Text>
       <Pressable
-        onPress={onMinus}
+        onPress={onPlus}
         accessibilityRole="button"
-        accessibilityLabel={t('when.earlier', { unit: label })}
+        accessibilityLabel={t('when.later', { unit: label })}
         style={({ pressed, hovered }: PressState) => [
           styles.stepBtn,
           (pressed || hovered) && styles.pressed,
