@@ -15,6 +15,7 @@ import asyncpg
 import httpx
 
 from app.realtime import emt, renfe
+from app.realtime.accuracy import Sampler, aggregate_and_prune
 from app.realtime.cache import (
     EMT_ALERTS,
     KV,
@@ -105,6 +106,12 @@ class Worker:
     emt_rss_up: Upstream
     pool: asyncpg.Pool | None = None
     last_poll: dict[str, str] = field(default_factory=dict)
+    # Prediction accuracy (app/realtime/accuracy.py); needs the database.
+    sampler: Sampler | None = None
+
+    def __post_init__(self) -> None:
+        if self.sampler is None and self.pool is not None:
+            self.sampler = Sampler(self.pool)
 
     def _now(self) -> datetime:
         return datetime.now(UTC)
@@ -147,6 +154,8 @@ class Worker:
 
         await put_model(self.kv, RENFE_SNAPSHOT, snap, SNAPSHOT_TTL_S)
         self.last_poll[renfe.SOURCE] = "ok"
+        if self.sampler is not None:
+            await self.sampler.record(snap, self._now())
         age = (retrieved - snap.source_timestamp).total_seconds() if snap.source_timestamp else None
         return HealthSample(
             renfe.SOURCE,
@@ -209,8 +218,11 @@ class Worker:
                 "DELETE FROM adapter_health WHERE checked_at < now() - make_interval(days => $1)",
                 HEALTH_RETENTION_DAYS,
             )
-        except (OSError, asyncpg.PostgresError):
-            pass
+            await aggregate_and_prune(self.pool, self._now())
+        except (OSError, asyncpg.PostgresError) as exc:
+            log.warning("prune failed: %s", type(exc).__name__)
+        if self.sampler is not None:
+            self.sampler.forget_plans()
 
 
 async def run_forever(worker: Worker, renfe_every_s: float, alerts_every_s: float) -> None:

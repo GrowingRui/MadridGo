@@ -58,10 +58,10 @@ Initial thresholds (configurable per adapter in `config/freshness.yaml`):
 
 ## 4. Prediction accuracy framework
 - **Ground truth:**
-  - Cercanías: a vehicle position at a stop (`currentStatus = STOPPED_AT`, vehicle timestamp) gives an approximate actual arrival.
+  - Cercanías: a vehicle position at a stop (`currentStatus = STOPPED_AT`) gives the actual arrival. Built 2026-11-14 (`app/realtime/accuracy.py`): Renfe's vehicle timestamps equal the feed's header time, so the arrival is placed halfway between the last feed without `STOPPED_AT` that stop and the first with it (feed every ~20 s: about ±10 s). Only a station further along the trip than the last one seen counts (the feed sometimes jumps back a station; `STOPPED_AT X` -> `IN_TRANSIT_TO X` means the train left X), and never the first station.
   - EMT: the last prediction before a bus disappears from a stop's list gives a weaker proxy [I].
   - Without ground truth there is **no** accuracy metric.
-- **Storage:** for each (trip, stop), keep a sample of predictions at horizons of 30, 20, 10, 5 and 2 minutes, plus the observed actual time.
+- **Storage:** for each (trip, stop), keep a sample of predictions at horizons of 30, 20, 10, 5 and 2 minutes, plus the observed actual time. The prediction is what the app shows (timetable + the trip's delay); predictions carried forward from the stop Renfe names are kept apart ("Live · est."), and for that stop Renfe's own time is stored too (it differs from timetable + delay in about 40% of updates).
 - **Metrics** per operator, line and horizon:
   - MAE.
   - Median and p90 absolute error.
