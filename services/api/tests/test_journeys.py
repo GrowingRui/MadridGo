@@ -70,6 +70,7 @@ class FakeStatic:
         trip_stops: dict[tuple[str, str], list[TripStop]] | None = None,
     ) -> None:
         self.expired_routes = expired_routes or {}
+        self.untimed_lines: dict[str, list[str]] = {}
         self.stops_of_trips = trip_stops or {}
         self.termini_names = termini or {}
         self.termini_asked: list[tuple[str, str]] = []
@@ -110,6 +111,9 @@ class FakeStatic:
 
     async def nearest_stop(self, lat: float, lon: float) -> tuple[float, float] | None:
         return None
+
+    async def untimed(self, stop_ids: list[str]) -> dict[str, list[str]]:
+        return {s: self.untimed_lines[s] for s in stop_ids if s in self.untimed_lines}
 
     async def access(
         self, trips: list[tuple[str, str]], stop_ids: list[str]
@@ -412,6 +416,20 @@ def test_r6_itinerary_on_an_expired_feed_is_dropped(setup: Callable[..., TestCli
     notice = next(n for n in result["notices"] if n["source"] == "metro")
     assert notice["expiry"] == "expired"
     assert "not used in these journeys" in notice["message"]
+
+
+def test_start_stop_served_by_lines_without_timetable(setup: Callable[..., TestClient]) -> None:
+    # CRTM lists lines such as 721 with no trips (app/untimed.py): say so at their stops.
+    static = FakeStatic()
+    static.untimed_lines = {PARLA_STOP: ["721", "N702"]}
+    result = plan(setup(FakeOtp(load("parla_atocha")), static))
+    notice = next(n for n in result["notices"] if n["source"] == f"untimed:{PARLA_STOP}")
+    assert notice["operator"] == "CRTM" and notice["expiry"] == "ok"
+    assert notice["message"].startswith(
+        "Lines 721, N702 also stop at Av. Leguario - Luis Chamizo, but CRTM publishes no "
+        "timetable for them"
+    )
+    assert not any(n["source"] == f"untimed:{ATOCHA}" for n in result["notices"])
 
 
 # ---------------------------------------------------------------------------

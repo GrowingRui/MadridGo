@@ -40,6 +40,7 @@ from app.timetable import (
     mode_for,
     seconds_into,
 )
+from app.untimed import untimed_lines, untimed_message
 
 router = APIRouter(tags=["stops"])
 Pool = Annotated[asyncpg.Pool, Depends(get_pool)]
@@ -460,6 +461,21 @@ def _notices(
     return notices
 
 
+def _untimed_notices(stop_id: str, lines: list[str]) -> list[DataNotice]:
+    """Lines stopping here that CRTM lists without a timetable (app/untimed.py)."""
+    if not lines:
+        return []
+    return [
+        DataNotice(
+            source=f"untimed:{stop_id}",  # one per stop (the app keys notices by source)
+            operator="CRTM",
+            expiry="ok",  # the feed itself is current; these lines are missing from it
+            service_end=None,
+            message=untimed_message(lines),
+        )
+    ]
+
+
 def _merge_frequencies(
     rows: list[asyncpg.Record], day: date, now: datetime, end: datetime, kind: Kind = "departures"
 ) -> list[FrequencyService]:
@@ -637,6 +653,9 @@ async def _board(
     service_end = {r["source"]: r["service_end"] for r in feeds}
     carried_from = {r["source"]: r["carried_from"] for r in feeds if r["carried_from"]}
     shown = rows[:limit]
+    notices = _notices(sources, service_end, now.date(), carried_from)
+    untimed = await untimed_lines(pool, [summary.id])
+    notices += _untimed_notices(summary.id, untimed.get(summary.id, []))
     any_live = any(d.status != "scheduled" for d in shown) or bool(live_arrivals)
     return StopBoard(
         kind=kind,
@@ -649,7 +668,7 @@ async def _board(
         arrivals=shown if kind == "arrivals" else [],
         frequencies=_merge_frequencies(freq_rows, freq_day, start, end, kind),
         live_arrivals=live_arrivals,
-        notices=_notices(sources, service_end, now.date(), carried_from),
+        notices=notices,
         realtime=statuses,
         alerts=await _alerts(rt, summary, shown, now),
         step_free=(await stop_access(pool, [summary.id])).get(summary.id) if has_rail else None,

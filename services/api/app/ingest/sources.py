@@ -12,6 +12,10 @@ RENFE_CERCANIAS_URL = "https://ssl.renfe.com/ftransit/Fichero_CER_FOMENTO/foment
 RENFE_CERCANIAS_LICENCE = "https://data.renfe.com/dataset/horarios-cercanias"
 # CRTM's Metro GTFS of March 2025 (service 2025-03-26 -> 2026-03-26), as kept by Mobility
 # Database. Source of Line 3, which CRTM's later file leaves without trips.
+# CRTM's network map (open-data portal, same licence): stops of every current itinerary.
+CRTM_NETWORK_LAYER = (
+    "https://services5.arcgis.com/UxADft6QPcvFyDU1/arcgis/rest/services/{}/FeatureServer/3"
+)
 METRO_MARCH_2025_URL = (
     "https://files.mobilitydatabase.org/mdb-794/mdb-794-202503270057/mdb-794-202503270057.zip"
 )
@@ -47,6 +51,9 @@ class GtfsSource:
     # calendar is carried forward. Each acts only while the feed still has the gap.
     restore_routes: tuple[RouteRestore, ...] = ()
     extend_routes: tuple[RouteExtension, ...] = ()
+    # Map layer listing the stops of each line (app/ingest/untimed.py): where lines the feed
+    # gives no trips stop, so boards and journeys there can say they are missing.
+    network_layer: str | None = None
 
 
 def _crtm(
@@ -59,6 +66,7 @@ def _crtm(
     calendar_from: str | None = None,
     restore_routes: tuple[RouteRestore, ...] = (),
     extend_routes: tuple[RouteExtension, ...] = (),
+    network_layer: str | None = None,
 ) -> GtfsSource:
     return GtfsSource(
         key=key,
@@ -72,6 +80,7 @@ def _crtm(
         calendar_from=calendar_from,
         restore_routes=restore_routes,
         extend_routes=extend_routes,
+        network_layer=network_layer,
     )
 
 
@@ -137,8 +146,23 @@ GTFS_SOURCES: tuple[GtfsSource, ...] = (
         # this place. The other 94 Madrid stations match CRTM's copy exactly.
         stop_positions=(("70005", 40.3819607, -3.6245835),),
     ),
-    _crtm("interurban", "CRTM Autobuses interurbanos", "bus", "885399f83408473c8d815e40c5e702b7"),
-    _crtm("urban", "CRTM Autobuses urbanos", "bus", "357e63c2904f43aeb5d8a267a64346d8"),
+    # Both bus feeds list lines without trips (2026-11-16: interurban 720-728, N702, 635,
+    # N908; urban Colmenar Viejo 1 and 2, Getafe 3A, Valdemoro SE, Algete I1), also in every
+    # archived copy since November 2025. Their stops come from CRTM's network map.
+    _crtm(
+        "interurban",
+        "CRTM Autobuses interurbanos",
+        "bus",
+        "885399f83408473c8d815e40c5e702b7",
+        network_layer=CRTM_NETWORK_LAYER.format("M8_Red"),
+    ),
+    _crtm(
+        "urban",
+        "CRTM Autobuses urbanos",
+        "bus",
+        "357e63c2904f43aeb5d8a267a64346d8",
+        network_layer=CRTM_NETWORK_LAYER.format("M9_Red"),
+    ),
     _crtm("emt", "EMT Madrid", "bus", "868df0e58fca47e79b942902dffd7da0", namespace="emt"),
 )
 
