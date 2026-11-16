@@ -12,6 +12,7 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BrandHeader, Card, Divider, Screen, SectionTitle } from '../components/layout';
 import { StatusBadge } from '../components/transit';
+import { UsualDelayNote } from '../components/usualDelay';
 import { type PressState, useIsWide } from '../hooks';
 import { type MessageKey, useT } from '../i18n';
 import { colors, radius, space, themed, type } from '../theme';
@@ -63,6 +64,9 @@ const COVERAGE: { icon: IconName; text: MessageKey; live: boolean }[] = [
   { icon: 'bus-side', text: 'about.cov.crtm', live: false },
 ];
 
+
+/** An example for the labels list. */
+const ABOUT_USUAL = { minutes: 4, often_minutes: 9, sample: 0, days: 0, scope: 'line' } as const;
 export default function AboutScreen() {
   const { t } = useT();
   const isWide = useIsWide();
@@ -95,6 +99,8 @@ export default function AboutScreen() {
         />
         <Divider inset={space.lg} />
         <LabelRow badge={<StatusBadge status="scheduled" />} text={t('about.label.scheduled')} />
+        <Divider inset={space.lg} />
+        <LabelRow badge={<UsualDelayNote usual={ABOUT_USUAL} />} text={t('about.label.usual')} />
         <Divider inset={space.lg} />
         <LabelRow
           badge={<StatusBadge status="frequency" text={t('status.everyGeneric')} />}

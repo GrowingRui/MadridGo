@@ -9,6 +9,7 @@ import { useT } from '../i18n';
 import { colors, space, themed, type } from '../theme';
 import { countdownShort, formatTime } from '../utils/time';
 import { AccessMark } from './access';
+import { UsualDelayNote } from './usualDelay';
 import { LinePill, LinePills, ModeIcon, StatusBadge } from './transit';
 
 /**
@@ -186,6 +187,7 @@ export function DepartureRow({
           {platform ? <Text style={styles.until}>{t('dep.platform', { p: platform })}</Text> : null}
           <AccessMark ok={dep.wheelchair_accessible} size={16} />
         </View>
+        {cancelled || live ? null : <UsualDelayNote usual={dep.usual_delay} />}
       </View>
       <Text style={[styles.countdown, !soon && styles.countdownEmpty]}>{soon ?? ''}</Text>
     </View>

@@ -43,6 +43,9 @@ export const es: Record<MessageKey, string> = {
   'status.cancelled': 'Cancelado',
   'status.everyN': 'Cada ~{n} min',
   'status.everyGeneric': 'Cada ~N min',
+  'usual.late': 'Suele llegar ~{n} min tarde',
+  'usual.onTime': 'Suele ir puntual',
+  'usual.a11yOften': ', a menudo hasta {n} min',
   'transfer.comfortable': 'Transbordo cómodo',
   'transfer.tight': 'Transbordo justo',
   'transfer.at_risk': 'Transbordo en riesgo',
@@ -522,6 +525,8 @@ export const es: Record<MessageKey, string> = {
   'about.label.notDeparted':
     'El tren aún está en su primera estación. Renfe lo da en hora hasta que sale, así que puede llegar unos minutos más tarde.',
   'about.label.scheduled': 'Del horario oficial. El vehículo puede adelantarse o retrasarse.',
+  'about.label.usual':
+    'Trenes de Cercanías aún sin hora en tiempo real: cuánto suele retrasarse este tren en esta estación y franja horaria, según las llegadas que MadridGo ha visto en las últimas cuatro semanas. Solo con al menos una semana de datos. La hora en tiempo real lo sustituye.',
   'about.label.every': 'El operador solo publica una frecuencia, no horas exactas.',
   'about.label.estimated': 'Estimado según el horario',
   'about.label.estimatedBody':

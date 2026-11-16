@@ -21,6 +21,7 @@ from app.ingest.sources import GtfsSource
 from app.main import app
 from app.realtime.cache import MemoryKV
 from app.realtime.service import Realtime, get_realtime
+from app.realtime.usual import UsualDelays, get_usual_delays
 from tests import gtfs_fixture
 
 pytestmark = [
@@ -77,12 +78,14 @@ def imported(tmp_path_factory: pytest.TempPathFactory) -> Iterator[int]:
 @pytest.fixture
 def client(imported: int) -> Iterator[TestClient]:
     # Boards must not depend on whatever live data the local Redis holds.
+    app.dependency_overrides[get_usual_delays] = UsualDelays
     app.dependency_overrides[get_realtime] = lambda: Realtime(kv=MemoryKV(), emt_service=None)
     try:
         with TestClient(app) as c:
             yield c
     finally:
         app.dependency_overrides.pop(get_realtime, None)
+        app.dependency_overrides.pop(get_usual_delays, None)
 
 
 def test_import_records_version_metadata(imported: int) -> None:

@@ -15,6 +15,7 @@ from app.main import app
 from app.realtime import renfe
 from app.realtime.cache import RENFE_ALERTS, RENFE_SNAPSHOT, MemoryKV, put_model
 from app.realtime.service import Realtime, get_realtime
+from app.realtime.usual import UsualDelays, get_usual_delays
 from app.realtime.worker import HealthSample, calibrate, record_health
 from tests.realtime_helpers import FIXTURES
 
@@ -72,12 +73,14 @@ def client() -> Iterator[TestClient]:
     trips = renfe.parse_trip_updates((FIXTURES / "renfe_trip_updates.pb").read_bytes(), retrieved)
     asyncio.run(put_model(kv, RENFE_ALERTS, alerts, 900))
     asyncio.run(put_model(kv, RENFE_SNAPSHOT, trips, 900))
+    app.dependency_overrides[get_usual_delays] = UsualDelays
     app.dependency_overrides[get_realtime] = lambda: Realtime(kv=kv, emt_service=None)
     try:
         with TestClient(app) as c:
             yield c
     finally:
         app.dependency_overrides.pop(get_realtime, None)
+        app.dependency_overrides.pop(get_usual_delays, None)
 
 
 def test_realtime_status_reports_sources_honestly(client: TestClient) -> None:

@@ -34,6 +34,7 @@ import {
   trackY,
 } from '../utils/trainPosition';
 import { AccessLine } from './access';
+import { UsualDelayNote } from './usualDelay';
 import { Notice } from './layout';
 import {
   LinePill,
@@ -445,6 +446,7 @@ function TransitLeg({
               </Text>
             ) : null}
           </View>
+          {leg.departure.status === 'scheduled' ? <UsualDelayNote usual={leg.usual_delay} /> : null}
           <AccessLine
             ok={leg.accessibility?.vehicle}
             yes={t('access.train')}

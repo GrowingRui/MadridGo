@@ -30,6 +30,7 @@ from app.realtime import emt, renfe
 from app.realtime.board import SourceStatus
 from app.realtime.models import RealtimeInfo, ServiceAlert
 from app.realtime.service import Realtime, get_realtime
+from app.realtime.usual import UsualDelay, UsualDelays, get_usual_delays
 from app.timetable import (
     MADRID,
     MODE_ORDER,
@@ -43,6 +44,7 @@ from app.timetable import (
 router = APIRouter(tags=["stops"])
 Pool = Annotated[asyncpg.Pool, Depends(get_pool)]
 RT = Annotated[Realtime, Depends(get_realtime)]
+Usual = Annotated[UsualDelays, Depends(get_usual_delays)]
 # On a live board, also look this far back so a late train scheduled earlier still shows.
 LOOKBACK = timedelta(minutes=45)
 
@@ -90,6 +92,8 @@ class Departure(BaseModel):
     # cancelled: the operator cancelled this trip.
     status: Literal["scheduled", "live", "cancelled"] = "scheduled"
     realtime: RealtimeInfo | None = None
+    # Cercanías rows without a live time: how late this train usually is (realtime/usual.py).
+    usual_delay: UsualDelay | None = None
 
     @property
     def best_time(self) -> datetime:
@@ -529,6 +533,7 @@ LimitParam = Annotated[int, Query(ge=1, le=200)]
 async def stop_departures(
     pool: Pool,
     rt: RT,
+    usual: Usual,
     stop_id: str,
     at: AtParam = None,
     minutes: MinutesParam = 90,
@@ -536,13 +541,14 @@ async def stop_departures(
 ) -> StopBoard:
     """Departures from a stop or station (all its platforms) in a time window, with live
     data where MadridGo has an authorized source for the operator."""
-    return await _board(pool, rt, stop_id, at, minutes, limit, "departures")
+    return await _board(pool, rt, stop_id, at, minutes, limit, "departures", usual)
 
 
 @router.get("/stops/{stop_id}/arrivals", response_model=StopBoard)
 async def stop_arrivals(
     pool: Pool,
     rt: RT,
+    usual: Usual,
     stop_id: str,
     at: AtParam = None,
     minutes: MinutesParam = 90,
@@ -550,7 +556,7 @@ async def stop_arrivals(
 ) -> StopBoard:
     """Arrivals at a stop or station in a time window, each with where it comes from, and
     Renfe's live delays. Meant for stations; EMT's live bus times are on the departure board."""
-    return await _board(pool, rt, stop_id, at, minutes, limit, "arrivals")
+    return await _board(pool, rt, stop_id, at, minutes, limit, "arrivals", usual)
 
 
 async def _board(
@@ -561,6 +567,7 @@ async def _board(
     minutes: int,
     limit: int,
     kind: Kind,
+    usual: UsualDelays | None = None,
 ) -> StopBoard:
     summary, sources = await _stop_summary(pool, stop_id)
     now = datetime.now(MADRID)
@@ -613,6 +620,8 @@ async def _board(
         statuses.append(status)
     rows = [d for d in rows if d.best_time >= start]
     rows.sort(key=lambda d: (d.best_time, d.time))
+    if usual is not None and has_rail:
+        rows = [_with_usual(d, usual) for d in rows]
 
     live_arrivals: list[LiveArrival] = []
     if "emt" in sources and kind == "departures":
@@ -692,6 +701,14 @@ async def _overlay_renfe(
         snap.source_timestamp if snap else None,
     )
     return out, status
+
+
+def _with_usual(d: Departure, usual: UsualDelays) -> Departure:
+    """A Cercanías row with no live time gets how late its train usually is."""
+    if d.line.source != "cercanias" or d.status != "scheduled":
+        return d
+    figure = usual.lookup(d.line.short_name, _native(d.stop_id), d.time)
+    return d.model_copy(update={"usual_delay": figure}) if figure else d
 
 
 async def _emt_arrivals(

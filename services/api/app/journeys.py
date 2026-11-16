@@ -36,6 +36,7 @@ from app.realtime.board import SourceStatus, add_seconds
 from app.realtime.emt import LiveFetch
 from app.realtime.models import AlertSnapshot, FeedSnapshot, Freshness, RealtimeInfo, ServiceAlert
 from app.realtime.service import Realtime, get_realtime
+from app.realtime.usual import UsualDelay, UsualDelays, get_usual_delays
 from app.startpoint import NEAR_M, unstick
 from app.stops import Line, _stop_summary
 from app.timetable import MADRID, display_name, mode_for, seconds_into
@@ -136,6 +137,9 @@ class Leg(BaseModel):
     geometry: str | None = None
     # Step-free travel (app/access.py): Cercanías rides only; None for other modes and walks.
     accessibility: LegAccess | None = None
+    # Cercanías rides without a live time: how late this train usually is at the boarding
+    # station (app/realtime/usual.py). Never set next to a live time.
+    usual_delay: UsualDelay | None = None
 
 
 class Transfer(BaseModel):
@@ -878,6 +882,17 @@ def _boundary(
     return LegTime(scheduled=scheduled, estimated=est, status="live", realtime=info)
 
 
+def add_usual_delays(j: Journey, usual: UsualDelays) -> None:
+    """How late each Cercanías ride without a live time usually is, at its boarding station."""
+    for i, lg in enumerate(j.legs):
+        if lg.line is None or lg.line.source != "cercanias" or lg.departure.status != "scheduled":
+            continue
+        stop = lg.from_stop_id.split(":", 1)[-1] if lg.from_stop_id else None
+        figure = usual.lookup(lg.line.short_name, stop, lg.departure.scheduled)
+        if figure is not None:
+            j.legs[i] = lg.model_copy(update={"usual_delay": figure})
+
+
 def _journey_id(legs: list[Leg]) -> str:
     key = "|".join(
         f"{lg.mode}:{lg.trip_id or ''}:{lg.departure.scheduled.isoformat()}:{lg.from_stop_id}"
@@ -1157,6 +1172,7 @@ async def journeys(
     otp: Annotated[OtpClient, Depends(get_otp)],
     rt: Annotated[Realtime, Depends(get_realtime)],
     clock: Annotated[Callable[[], datetime], Depends(get_clock)],
+    usual: Annotated[UsualDelays, Depends(get_usual_delays)],
     from_: Annotated[str | None, Query(alias="from", description="Start stop id")] = None,
     to: Annotated[str | None, Query(description="Destination stop id")] = None,
     from_lat: Lat = None,
@@ -1313,6 +1329,7 @@ async def journeys(
         built.setdefault(j.id, j)  # OTP can return the same itinerary twice
     for j in built.values():
         from_address(j, origin, otp_origin, destination, otp_destination)
+        add_usual_delays(j, usual)
     result = drop_feeder_copies(
         drop_frequency_copies(
             sort_journeys(drop_slow_walks(without_trips(list(built.values()), avoid)), sort)

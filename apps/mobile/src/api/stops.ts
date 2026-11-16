@@ -66,6 +66,20 @@ export interface Departure {
   origin?: string | null;
   status: 'scheduled' | 'live' | 'cancelled';
   realtime: RealtimeInfo | null;
+  /** Cercanías rows without a live time: how late this train usually is. */
+  usual_delay?: UsualDelay | null;
+}
+
+/** How late a train usually is, from past days (never next to a live time). */
+export interface UsualDelay {
+  /** Median lateness in minutes; 0 or 1 = on time. */
+  minutes: number;
+  /** 80% of trains came within this. */
+  often_minutes: number;
+  sample: number;
+  days: number;
+  /** How detailed the figure is: this station at this time of the week, ..., the whole line. */
+  scope: 'stop_time' | 'stop' | 'line_time' | 'line';
 }
 
 /** A live prediction with no timetable row behind it (EMT buses). */
