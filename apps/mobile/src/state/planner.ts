@@ -47,6 +47,10 @@ export interface PlannerState {
    * (utils/replan.ts); forgotten as soon as From or To changes.
    */
   avoid: string[];
+  /** Plan > Map: every Cercanías train on the map (kept while the app runs). */
+  liveTrains: boolean;
+  /** Live trains of this line only (short name, e.g. "C5"); null: all lines. */
+  trainLine: string | null;
 }
 
 export type PlanView = 'timetable' | 'touch' | 'map';
@@ -61,6 +65,8 @@ let state: PlannerState = {
   sort: DEFAULT_SORT,
   view: 'timetable',
   avoid: [],
+  liveTrains: false,
+  trainLine: null,
 };
 const listeners = new Set<() => void>();
 

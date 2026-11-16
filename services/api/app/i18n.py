@@ -344,6 +344,12 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
     "pos.at": {"en": "At {stop}", "es": "En {stop}"},
     "pos.between": {"en": "Between {a} and {b}", "es": "Entre {a} y {b}"},
+    "trains.no_live": {
+        "en": "Renfe's live train data is unavailable or outdated right now, so no trains "
+        "are shown.",
+        "es": "Los datos de trenes en tiempo real de Renfe no están disponibles o están "
+        "desactualizados, así que no se muestran trenes.",
+    },
     # --- Disruptions page ----------------------------------------------------------------
     "disruptions.ok": {
         "en": "{operator}: alerts as published by the operator.",

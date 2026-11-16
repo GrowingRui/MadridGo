@@ -1,5 +1,6 @@
 // Trip screen: every stop of one journey leg's vehicle, from its origin to its terminus, with
-// the train's point moving along the line (opens when the ride is tapped on a journey).
+// the train's point moving along the line (opens when the ride is tapped on a journey, or with
+// `trip` alone from a train on Plan > Map > Live trains).
 
 import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
@@ -18,16 +19,19 @@ import { LinePill, lineColors, modeLabel } from '../components/transit';
 import { TripRoute, TripStatus } from '../components/trip';
 import { useAsync, useLegBus, useNow, useTripPosition } from '../hooks';
 import { useT } from '../i18n';
-import { journeyCache } from '../state/journeys';
+import { journeyCache, trainCache } from '../state/journeys';
 import { colors, modeColors, space, themed } from '../theme';
 import { canTrackBus } from '../utils/busPosition';
 import { canTrack } from '../utils/trainPosition';
 
 export default function TripScreen() {
   const { t, tn } = useT();
-  const params = useLocalSearchParams<{ journey: string; leg: string }>();
-  const leg = journeyCache.get(params.journey)?.legs[Number(params.leg)];
-  const tripId = leg?.trip_id ?? null;
+  const params = useLocalSearchParams<{ journey?: string; leg?: string; trip?: string }>();
+  const leg = params.journey ? journeyCache.get(params.journey)?.legs[Number(params.leg)] : undefined;
+  // A Cercanías train from Live trains: running now, so today's timetable and its position.
+  const bare = !leg && params.trip?.startsWith('cercanias:') ? params.trip : null;
+  const train = bare ? trainCache.get(bare) : undefined;
+  const tripId = leg?.trip_id ?? bare;
   const trip = useAsync(
     tripId
       ? () =>
@@ -40,39 +44,43 @@ export default function TripScreen() {
     `${tripId}:${leg?.departure.scheduled}`,
   );
   const slowNow = useNow(60_000);
-  const pos = useTripPosition(tripId, leg?.from_stop_id, !!leg && canTrack(leg, slowNow));
+  const pos = useTripPosition(tripId, leg?.from_stop_id, !!bare || (!!leg && canTrack(leg, slowNow)));
   const bus = useLegBus(leg);
-  const tracked = !!leg && (canTrack(leg, slowNow) || canTrackBus(leg, slowNow));
+  const tracked = !!bare || (!!leg && (canTrack(leg, slowNow) || canTrackBus(leg, slowNow)));
   const now = useNow(pos || bus ? 1000 : 60_000);
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
-  if (!leg || !tripId) {
+  if (!tripId) {
     return (
       <Screen header={<BrandHeader title={t('trip.title')} onBack={back} />}>
         <EmptyState icon="map-marker-path" title={t('trip.gone')} body={t('journey.searchAgain')} />
       </Screen>
     );
   }
-  const color = leg.line ? lineColors(leg.line).bg : (modeColors[leg.mode]?.bg ?? colors.brand);
+  const line = leg?.line ?? train?.line ?? null;
+  const mode = leg?.mode ?? 'rail';
+  const color = line ? lineColors(line).bg : (modeColors[mode]?.bg ?? colors.brand);
   const data = trip.data;
   const first = data?.stops[0]?.name;
   const lastStop = data?.stops[data.stops.length - 1]?.name;
-  const direction = lastStop ?? leg.headsign;
+  const direction = lastStop ?? leg?.headsign ?? train?.headsign;
 
   return (
     <Screen
       header={
         <BrandHeader
-          title={`${modeLabel(leg.mode)}${direction ? ` · ${t('conn.direction', { name: direction })}` : ''}`}
+          title={`${modeLabel(mode)}${direction ? ` · ${t('conn.direction', { name: direction })}` : ''}`}
           subtitle={
             data
               ? tn('trip.subtitle', data.stops.length, { from: first ?? '', to: lastStop ?? '' })
-              : `${leg.from} → ${leg.to}`
+              : leg
+                ? `${leg.from} → ${leg.to}`
+                : undefined
           }
           onBack={back}>
-          {leg.line ? (
+          {line ? (
             <View style={styles.pill}>
-              <LinePill line={leg.line} />
+              <LinePill line={line} />
             </View>
           ) : null}
         </BrandHeader>

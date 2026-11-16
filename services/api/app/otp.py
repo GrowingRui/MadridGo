@@ -116,6 +116,23 @@ class OtpClient:
             raise OtpUnavailable("no data")
         return dict(data)
 
+    async def query(self, query: str, timeout_s: float | None = None) -> dict[str, Any]:
+        """Run any GraphQL query and return its `data` (OtpUnavailable when there is none)."""
+        url = f"{self.base_url.rstrip('/')}/otp/gtfs/v1"
+        try:
+            resp = await self.http.post(
+                url, json={"query": query}, timeout=timeout_s or self.timeout_s
+            )
+            body = resp.json() if resp.status_code == 200 else {}
+        except (httpx.HTTPError, ValueError) as exc:
+            log.warning("OTP request failed: %s", type(exc).__name__)
+            raise OtpUnavailable(type(exc).__name__) from exc
+        data = body.get("data")
+        if not data:
+            status = resp.status_code
+            raise OtpUnavailable(f"HTTP {status}" if status != 200 else "no data")
+        return dict(data)
+
     async def walk(
         self, origin: tuple[float, float], destination: tuple[float, float]
     ) -> Walk | None:

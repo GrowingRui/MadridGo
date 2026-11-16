@@ -5,7 +5,12 @@
 //               | {type:'train', lon, lat, color, estimated, glide} | {type:'train', hide:true}
 //                 (the live trip map: the followed train's point, solid when live, hollow when
 //                 estimated; it glides to each new place unless "reduce motion" is on)
+//               | {type:'tracks', lines: [{color, dim, coords}]} (Live trains: the Cercanías
+//                 lines under the trains; [] hides them)
+//               | {type:'trains', trains: [{id, lon, lat, color, estimated, label}], selected,
+//                 glide} (Live trains: every train; each glides from where it is drawn)
 //   map -> app: {type:'ready'} | {type:'moved', lat, lon, zoom} | {type:'stop', id}
+//               | {type:'trainTap', id}
 // Loading MapLibre from a CDN keeps it out of the app bundle and works in Expo Go.
 
 import { modeColors, palettes, type Scheme } from '../theme';
@@ -83,6 +88,31 @@ export function mapHtml(
   map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
   var me = null, popup = null, routeMode = false, hint = document.getElementById('hint');
   var routeBounds = null, train = null, trainEl = null, trainAt = null, trainAnim = 0, trainFitted = false;
+  var trainsMode = false, trainsAt = {}, trainsAnim = 0;
+
+  // Live trains: all of them glide together from where they are drawn to their new places.
+  function showTrains(msg) {
+    var src = map.getSource('trains'); if (!src) return;
+    var items = msg.trains.map(function (t) {
+      return { t: t, from: trainsAt[t.id] || [t.lon, t.lat], to: [t.lon, t.lat] };
+    });
+    cancelAnimationFrame(trainsAnim);
+    var start = performance.now(), dur = msg.glide ? 900 : 0;
+    var frame = function (now) {
+      var k = dur ? Math.min(1, (now - start) / dur) : 1;
+      var at = {};
+      src.setData({ type: 'FeatureCollection', features: items.map(function (i) {
+        var p = [i.from[0] + (i.to[0] - i.from[0]) * k, i.from[1] + (i.to[1] - i.from[1]) * k];
+        at[i.t.id] = p;
+        return { type: 'Feature', geometry: { type: 'Point', coordinates: p },
+          properties: { id: i.t.id, color: i.t.color, est: !!i.t.estimated, label: i.t.label,
+            sel: i.t.id === msg.selected } };
+      }) });
+      trainsAt = at;
+      if (k < 1) trainsAnim = requestAnimationFrame(frame);
+    };
+    trainsAnim = requestAnimationFrame(frame);
+  }
 
   function showTrain(msg) {
     if (msg.hide) { if (train) train.remove(); train = null; trainAt = null; return; }
@@ -123,6 +153,13 @@ export function mapHtml(
   }
 
   map.on('load', function () {
+    // Live trains: the lines first, so stops and trains are drawn over them.
+    map.addSource('tracks', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map.addLayer({ id: 'tracks', type: 'line', source: 'tracks',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': ['get', 'color'],
+        'line-width': ['interpolate', ['linear'], ['zoom'], 9, 2, 14, 4.5],
+        'line-opacity': ['case', ['get', 'dim'], 0.18, 0.75] } });
     map.addSource('stops', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
     map.addLayer({ id: 'stops', type: 'circle', source: 'stops', paint: {
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 5, 17, 9],
@@ -156,8 +193,29 @@ export function mapHtml(
       'text-field': ['get', 'name'], 'text-size': 13, 'text-offset': [0, 1.1], 'text-anchor': 'top',
       'text-font': ['Noto Sans Bold'], 'text-optional': true },
       paint: { 'text-color': '#16181D', 'text-halo-color': '#fff', 'text-halo-width': 1.8 } });
+    map.addSource('trains', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map.addLayer({ id: 'trains', type: 'circle', source: 'trains', paint: {
+      // zoom may only drive a top-level interpolate, so the selected size sits inside it.
+      'circle-radius': ['interpolate', ['linear'], ['zoom'],
+        9, ['case', ['get', 'sel'], 8, 5], 14, ['case', ['get', 'sel'], 11, 8]],
+      'circle-color': ['case', ['get', 'est'], '#fff', ['get', 'color']],
+      'circle-stroke-color': ['case', ['get', 'sel'], '#16181D', ['get', 'est'], ['get', 'color'], '#fff'],
+      'circle-stroke-width': ['case', ['get', 'sel'], 3, ['get', 'est'], 3, 2] } });
+    map.addLayer({ id: 'train-labels', type: 'symbol', source: 'trains', minzoom: 12, layout: {
+      'text-field': ['get', 'label'], 'text-size': 11, 'text-offset': [0, -1.5], 'text-anchor': 'bottom',
+      'text-font': ['Noto Sans Bold'], 'text-optional': true, 'text-allow-overlap': true },
+      paint: { 'text-color': '#16181D', 'text-halo-color': '#fff', 'text-halo-width': 1.5 } });
+    map.on('click', 'trains', function (e) {
+      var f = e.features && e.features[0];
+      if (f) { e.preventDefault(); send({ type: 'trainTap', id: f.properties.id }); }
+    });
+    map.on('mouseenter', 'trains', function () { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', 'trains', function () { map.getCanvas().style.cursor = ''; });
     ['stops', 'route-stops'].forEach(function (layer) {
-      map.on('click', layer, function (e) { showStop(e.features && e.features[0]); });
+      map.on('click', layer, function (e) {
+        // A train over the stop wins (its card opens instead).
+        if (!e.defaultPrevented) showStop(e.features && e.features[0]);
+      });
       map.on('mouseenter', layer, function () { map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', layer, function () { map.getCanvas().style.cursor = ''; });
     });
@@ -182,7 +240,7 @@ export function mapHtml(
 
   function moved() {
     var c = map.getCenter(), z = map.getZoom();
-    hint.style.display = !routeMode && z < ${STOPS_MIN_ZOOM} ? 'block' : 'none';
+    hint.style.display = !routeMode && !trainsMode && z < ${STOPS_MIN_ZOOM} ? 'block' : 'none';
     send({ type: 'moved', lat: c.lat, lon: c.lng, zoom: z });
   }
   map.on('moveend', moved);
@@ -204,6 +262,16 @@ export function mapHtml(
       }) });
     } else if (msg.type === 'train') {
       showTrain(msg);
+    } else if (msg.type === 'trains') {
+      showTrains(msg);
+    } else if (msg.type === 'tracks') {
+      var tsrc = map.getSource('tracks'); if (!tsrc) return;
+      tsrc.setData({ type: 'FeatureCollection', features: msg.lines.map(function (l) {
+        return { type: 'Feature', geometry: { type: 'MultiLineString', coordinates: l.coords },
+          properties: { color: l.color, dim: !!l.dim } };
+      }) });
+      trainsMode = msg.lines.length > 0;
+      moved();
     } else if (msg.type === 'route') {
       var bounds = new maplibregl.LngLatBounds();
       map.getSource('route').setData({ type: 'FeatureCollection', features: msg.lines.map(function (l) {
