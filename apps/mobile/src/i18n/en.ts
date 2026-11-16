@@ -35,6 +35,7 @@ export const en = {
   // Reliability labels
   'status.live': 'Live',
   'status.liveEstimated': 'Live · est.',
+  'status.notDeparted': 'Not departed yet',
   'status.partlyLive': 'Partly live',
   'status.scheduled': 'Scheduled',
   'status.frequency': 'Frequency',
@@ -513,6 +514,8 @@ export const en = {
     'MadridGo plans journeys across the Community of Madrid by Metro, Cercanías, bus and Metro Ligero, and tells you how far you can trust every time it shows.',
   'about.labels': 'What the labels mean',
   'about.label.live': 'From the operator’s real-time feed. A red time is the delay.',
+  'about.label.notDeparted':
+    'The train is still at its first station. Renfe reports it on time until it leaves, so it may come a few minutes later.',
   'about.label.scheduled': 'From the official timetable. The vehicle may be early or late.',
   'about.label.every': 'The operator publishes only a frequency, not exact times.',
   'about.label.estimated': 'Estimated from the timetable',
@@ -611,6 +614,9 @@ export const en = {
   'acc.liveBody': 'The next station, with Renfe’s live time.',
   'acc.est': 'Live · est.',
   'acc.estBody': 'Stations further on: the train’s delay carried forward.',
+  'acc.notDeparted': 'Not departed yet',
+  'acc.notDepartedBody':
+    'Trains still waiting at their first station. Renfe reports them on time until they leave, so they often come later than shown. Measured since 16 Nov 2026.',
   'acc.timetable': 'Timetable alone',
   'acc.timetableRow': 'Timetable time',
   'acc.timetableBody': 'How far from the timetable trains arrived, for comparison.',

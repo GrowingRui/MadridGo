@@ -106,7 +106,11 @@ async def cmd_accuracy(days: int, lines: bool) -> None:
         if r["kind"] == "schedule":
             kind, horizon = "timetable", "-"
         else:
-            kind = "live est." if r["estimated"] else "live"
+            kind = (
+                "not dep."
+                if r["kind"] == "not_departed"
+                else ("live est." if r["estimated"] else "live")
+            )
             horizon = f"{r['horizon_min']} min"
         print(
             f"{r['line']:6} {kind:10} {horizon:>7} {r['n']:>7} {r['mae_s']:>5.0f}s"

@@ -33,6 +33,10 @@ class RealtimeInfo(BaseModel):
     # True when the time is the train's current delay applied to a later stop, not a
     # prediction the source made for this stop.
     estimated_from_trip_delay: bool = False
+    # The train still stands at (or has not reached) its first station. Renfe reports
+    # delay 0 until it leaves, and such trains came ~3.5 min later than that time on
+    # 2026-11-15/16, so the app says "Not departed yet" (accuracy.py, DEVELOPMENT_ROADMAP.md).
+    not_departed: bool = False
     vehicle_id: str | None = None
     platform: str | None = None
 
@@ -69,6 +73,9 @@ class FeedSnapshot(BaseModel):
     retrieved_at: datetime
     trips: dict[str, TripRealtime] = {}
     vehicles: dict[str, VehicleRealtime] = {}
+    # Trips whose train is still at (or on its way to) its first station, marked by the
+    # worker, which knows each trip's first stop (renfe.not_departed).
+    not_departed: list[str] = []
 
 
 # --- Alerts --------------------------------------------------------------------------------

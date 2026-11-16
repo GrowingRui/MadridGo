@@ -55,6 +55,7 @@ Initial thresholds (configurable per adapter in `config/freshness.yaml`):
 - A source timestamp more than 30 s in the future is not trusted: the age falls back to the retrieval time and the anomaly is flagged (R5).
 - Cached snapshots are kept for 15 min, longer than the STALE threshold, so the app can say "outdated, last update 12 min ago" instead of "no data". Freshness is computed on every read and STALE data is never shown as live.
 - Renfe sends one stop update per train (its next stop) and a trip delay. Later stops get the same delay, marked `estimated_from_trip_delay` ("Live · est." in the app). Stops before the update stop are treated as passed and removed.
+- Renfe sends whole-minute delays only. An early delay is shown as on time (`board.shown_delay`), on boards, connections, the trip screen and the live map: trains wait at stations, and on 2026-11-15/16 those reported early arrived ~3 min after the early time. A train still at (or coming to) its first station is marked `not_departed` ("Not departed yet" in the app): Renfe reports delay 0 until it leaves, and such trains came ~3.5 min later than shown. The worker marks them in the snapshot from each trip's first two stops (`renfe.not_departed`). Added 2026-11-16 from the first accuracy report.
 
 ## 4. Prediction accuracy framework
 - **Ground truth:**

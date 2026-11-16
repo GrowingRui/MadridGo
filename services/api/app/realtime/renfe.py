@@ -6,7 +6,7 @@ schedule_relationship CANCELED and no stop updates. Trip IDs match the static GT
 """
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime
 
 from google.transit import gtfs_realtime_pb2 as rt
@@ -110,6 +110,23 @@ def parse_vehicle_positions(data: bytes) -> tuple[datetime | None, dict[str, Veh
             timestamp=_ts(v.timestamp),
         )
     return _ts(msg.header.timestamp), out
+
+
+def not_departed(snap: FeedSnapshot, starts: Mapping[str, tuple[str, ...]]) -> list[str]:
+    """Trips whose train has not left its first station: the vehicle is at it or on its way
+    to it, whatever its status. `starts` gives each trip's first two stops. Renfe then
+    already names the second station in the trip update, with delay 0 until the train
+    moves (checked 2026-11-16: 55 of 123 trains). The trip update must name the first or
+    second station, so a trip that comes back to where it started is not caught."""
+    out = []
+    for trip_id, v in snap.vehicles.items():
+        t = snap.trips.get(trip_id)
+        first = starts.get(trip_id, ())
+        if t is None or not first or v.stop_id != first[0]:
+            continue
+        if t.stop_id is None or t.stop_id in first:
+            out.append(trip_id)
+    return sorted(out)
 
 
 def _text(ts: rt.TranslatedString, prefer: Iterable[str] = ("es", "en")) -> str | None:

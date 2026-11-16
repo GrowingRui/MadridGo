@@ -9,7 +9,13 @@ from pydantic import ValidationError
 from app.config import Settings
 from app.realtime import board, emt, renfe
 from app.realtime.freshness import THRESHOLDS, Thresholds, assess
-from app.realtime.models import Freshness, RealtimeInfo
+from app.realtime.models import (
+    FeedSnapshot,
+    Freshness,
+    RealtimeInfo,
+    TripRealtime,
+    VehicleRealtime,
+)
 from app.realtime.service import crtm_realtime_enabled
 from app.timetable import MADRID
 from tests.realtime_helpers import FIXTURES
@@ -202,3 +208,77 @@ def test_emt_rss_fixture() -> None:
 
 def test_thresholds_cover_every_live_source() -> None:
     assert {renfe.SOURCE, emt.SOURCE} <= set(THRESHOLDS)
+
+
+# --- Trains not yet departed (renfe.not_departed, board.renfe_train) -----------------------
+
+
+def _vehicle(trip_id: str, stop: str, status: str = "STOPPED_AT") -> VehicleRealtime:
+    return VehicleRealtime(
+        trip_id=trip_id,
+        vehicle_id="v",
+        label=None,
+        platform=None,
+        lat=None,
+        lon=None,
+        current_status=status,
+        stop_id=stop,
+        timestamp=NOW,
+    )
+
+
+def _trip(trip_id: str, next_stop: str | None, delay: int = 0) -> TripRealtime:
+    return TripRealtime(
+        trip_id=trip_id,
+        entity_id=trip_id,
+        cancelled=False,
+        delay_s=delay,
+        stop_id=next_stop,
+        stop_time=None,
+    )
+
+
+def test_not_departed_is_a_train_still_at_or_coming_to_its_first_station() -> None:
+    starts = {
+        "waiting": ("A", "B"),
+        "arriving": ("A", "B"),
+        "moving": ("A", "B"),
+        "loop": ("A", "B"),
+    }
+    snap = FeedSnapshot(
+        source=renfe.SOURCE,
+        source_timestamp=NOW,
+        retrieved_at=NOW,
+        trips={
+            "waiting": _trip("waiting", "B"),  # Renfe already names the second station
+            "arriving": _trip("arriving", "A"),
+            "moving": _trip("moving", "C"),
+            "loop": _trip("loop", "Z"),  # back at A at the end of a loop: not before departure
+            "no_timetable": _trip("no_timetable", "B"),
+        },
+        vehicles={
+            "waiting": _vehicle("waiting", "A"),
+            "arriving": _vehicle("arriving", "A", "IN_TRANSIT_TO"),
+            "moving": _vehicle("moving", "B", "IN_TRANSIT_TO"),
+            "loop": _vehicle("loop", "A"),
+            "no_timetable": _vehicle("no_timetable", "A"),
+        },
+    )
+    assert renfe.not_departed(snap, starts) == ["arriving", "waiting"]
+
+
+def test_board_marks_a_train_not_yet_departed() -> None:
+    f = assess(NOW, NOW, NOW, THRESHOLDS[renfe.SOURCE])
+    snap = FeedSnapshot(
+        source=renfe.SOURCE,
+        source_timestamp=NOW,
+        retrieved_at=NOW,
+        trips={"t": _trip("t", "B")},
+        vehicles={"t": _vehicle("t", "A")},
+        not_departed=["t"],
+    )
+    info = board.renfe_train("t", "C", NOW + timedelta(minutes=20), snap, f).info
+    assert info is not None and info.classification == "LIVE" and info.not_departed
+    snap.not_departed = []
+    info = board.renfe_train("t", "C", NOW + timedelta(minutes=20), snap, f).info
+    assert info is not None and not info.not_departed

@@ -8,6 +8,9 @@ On every Renfe poll the worker stores, for each running train:
    Renfe names is marked `estimated` ("Live · est." in the app). For the stop Renfe names,
    Renfe's own time is kept too (`source_predicted_at`): it differs from timetable + delay
    in about 40% of updates (trace of 2026-11-14), so we can later see which is better.
+   Delays are applied as the app does (`board.shown_delay`: never early), and predictions
+   for a train that has not left its first station are marked `not_departed` and reported
+   apart ("Not departed yet" in the app), since 2026-11-16.
 2. **Arrivals (ground truth).** Renfe's vehicle positions say `STOPPED_AT <stop>` from the
    moment a train is at a station. The arrival is placed halfway between the last feed
    that did not say so and the first that did (the feed updates every ~20 s), so it is off
@@ -30,7 +33,7 @@ from datetime import date, datetime, timedelta
 import asyncpg
 
 from app.realtime import renfe
-from app.realtime.board import add_seconds, renfe_freshness
+from app.realtime.board import add_seconds, renfe_freshness, shown_delay
 from app.realtime.freshness import is_usable
 from app.realtime.models import FeedSnapshot
 from app.timetable import MADRID, at_service_time
@@ -85,6 +88,7 @@ class Prediction:
     delay_s: int
     estimated: bool
     source_predicted_at: datetime | None
+    not_departed: bool = False
 
 
 @dataclass(frozen=True)
@@ -134,6 +138,8 @@ def predictions(snap: FeedSnapshot, plans: dict[str, TripPlan], now: datetime) -
             delay = round((t.stop_time - at_update).total_seconds())
         if delay is None:
             continue
+        shown = shown_delay(delay)
+        waiting = trip_id in snap.not_departed
         for s in plan.stops:
             if s.index == 0:
                 continue
@@ -143,7 +149,7 @@ def predictions(snap: FeedSnapshot, plans: dict[str, TripPlan], now: datetime) -
                     continue  # behind the train
             elif t.stop_time is not None and scheduled < t.stop_time - timedelta(seconds=delay):
                 continue
-            predicted = add_seconds(scheduled, delay)
+            predicted = add_seconds(scheduled, shown)
             lead = (predicted - made).total_seconds()
             for h in HORIZONS_MIN:
                 if h * 60 - HORIZON_WINDOW_S < lead <= h * 60:
@@ -159,9 +165,10 @@ def predictions(snap: FeedSnapshot, plans: dict[str, TripPlan], now: datetime) -
                             source_ts=snap.source_timestamp,
                             scheduled_at=scheduled,
                             predicted_at=predicted,
-                            delay_s=delay,
+                            delay_s=delay,  # Renfe's, as sent (predicted_at uses shown)
                             estimated=s.index != update_idx,
                             source_predicted_at=t.stop_time if s.index == update_idx else None,
+                            not_departed=waiting,
                         )
                     )
     return out
@@ -256,8 +263,8 @@ async def store(pool: asyncpg.Pool, preds: list[Prediction], arrivals: list[Arri
         await pool.executemany(
             """INSERT INTO prediction_sample (source, trip_id, service_date, stop_index, stop_id,
                    line, horizon_min, made_at, source_ts, scheduled_at, predicted_at, delay_s,
-                   estimated, source_predicted_at)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                   estimated, source_predicted_at, not_departed)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
                ON CONFLICT DO NOTHING""",
             [(renfe.SOURCE, *astuple(p)) for p in preds],
         )
@@ -340,7 +347,9 @@ async def report(pool: asyncpg.Pool, last: date, days: int) -> Report:
         first,
         last,
     )
-    overall = [r for r in rows if r["line"] == "*"]
+    # Trains not yet departed are a small group of their own (few within 5 min of a stop),
+    # so they do not hold the main figures back.
+    overall = [r for r in rows if r["line"] == "*" and r["kind"] != "not_departed"]
     provisional = span < MIN_DAYS or not overall or any(r["n"] < MIN_SAMPLE for r in overall)
     return Report(first, last, span, rows, provisional)
 

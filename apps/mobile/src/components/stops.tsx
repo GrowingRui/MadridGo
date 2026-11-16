@@ -167,7 +167,13 @@ export function DepartureRow({
           ) : live ? (
             <StatusBadge
               status="live"
-              text={dep.realtime?.estimated_from_trip_delay ? t('status.liveEstimated') : undefined}
+              text={
+                dep.realtime?.not_departed
+                  ? t('status.notDeparted')
+                  : dep.realtime?.estimated_from_trip_delay
+                    ? t('status.liveEstimated')
+                    : undefined
+              }
             />
           ) : (
             <StatusBadge status="scheduled" />
