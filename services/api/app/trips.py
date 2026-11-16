@@ -42,7 +42,7 @@ from app.access import ACCESS_FEEDS, accessible, trip_access
 from app.dbpool import get_pool
 from app.i18n import tr
 from app.realtime import renfe
-from app.realtime.board import add_seconds, renfe_freshness
+from app.realtime.board import add_seconds, renfe_freshness, shown_delay
 from app.realtime.freshness import is_usable
 from app.realtime.models import FeedSnapshot, Freshness
 from app.realtime.service import Realtime, get_realtime, now_utc
@@ -317,13 +317,15 @@ def locate(
     last = by_native.get(vehicle.stop_id) if vehicle and vehicle.stop_id else None
     if vehicle is None or last is None:
         if tu is not None and tu.delay_s is not None:
-            return estimated(tu.delay_s, tr("pos.why_delay"))
+            return estimated(shown_delay(tu.delay_s), tr("pos.why_delay"))
         return estimated(None, tr("pos.why_no_position"))
 
     base = base.model_copy(
         update={
             "kind": "live",
-            "delay_s": tu.delay_s if tu is not None else None,
+            "delay_s": shown_delay(tu.delay_s)
+            if tu is not None and tu.delay_s is not None
+            else None,
             "stops_away": base.board_index - last.index if base.board_index is not None else None,
             "last_stop": last.ref(),
         }
@@ -500,7 +502,7 @@ def trip_details(
         fresh = renfe_freshness(snap, now)
         source, attribution = renfe.SOURCE, renfe.ATTRIBUTION
         tu = snap.trips.get(trip_id.partition(":")[2]) if snap and is_usable(fresh) else None
-        delay_s = tu.delay_s if tu is not None else None
+        delay_s = shown_delay(tu.delay_s) if tu is not None and tu.delay_s is not None else None
     return TripDetails(
         trip_id=trip_id,
         stops=[

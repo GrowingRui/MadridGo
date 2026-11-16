@@ -89,6 +89,11 @@ export default function AboutScreen() {
       <Card>
         <LabelRow badge={<StatusBadge status="live" />} text={t('about.label.live')} />
         <Divider inset={space.lg} />
+        <LabelRow
+          badge={<StatusBadge status="live" text={t('status.notDeparted')} />}
+          text={t('about.label.notDeparted')}
+        />
+        <Divider inset={space.lg} />
         <LabelRow badge={<StatusBadge status="scheduled" />} text={t('about.label.scheduled')} />
         <Divider inset={space.lg} />
         <LabelRow

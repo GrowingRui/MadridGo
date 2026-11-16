@@ -107,14 +107,18 @@ def test_train_already_beyond_this_stop_is_removed() -> None:
     assert deps == []
 
 
-def test_early_train_negative_delay() -> None:
+def test_early_train_is_shown_on_time() -> None:
+    # Trains wait at stations: those Renfe reported early came about on time (accuracy data
+    # of 2026-11-15/16), so an early delay is shown as on time, still live.
     sched = NOW + timedelta(minutes=10)
     deps, _ = overlay(
         NOW,
         [{"trip_id": TRIP, "stop_id": "18000", "time": sched - timedelta(minutes=1), "delay": -60}],
         [departure(TRIP, sched)],
     )
-    assert deps[0].realtime is not None and deps[0].realtime.delay_s == -60
+    rt = deps[0].realtime
+    assert rt is not None and rt.classification == "LIVE"
+    assert rt.delay_s == 0 and rt.predicted_time == sched
 
 
 # --- R2 Cancelled trip -----------------------------------------------------------------------

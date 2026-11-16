@@ -6,6 +6,7 @@ import {
   formatSeconds,
   getAccuracy,
   liveRows,
+  notDepartedRows,
   timetableRow,
 } from './accuracy';
 
@@ -47,6 +48,8 @@ const report: AccuracyReport = {
     row({ kind: 'schedule', horizon_min: null }),
     row({ line: 'C4a', horizon_min: 5 }),
     row({ line: 'C4a', kind: 'schedule', horizon_min: null, n: 7 }),
+    row({ kind: 'not_departed', horizon_min: 5 }),
+    row({ kind: 'not_departed', horizon_min: 20 }),
   ],
 };
 
@@ -56,6 +59,11 @@ describe('accuracy helpers', () => {
     expect(liveRows(report, '*', true).map((r) => r.horizon_min)).toEqual([10]);
     expect(liveRows(report, 'C4a', false).map((r) => r.horizon_min)).toEqual([5]);
     expect(liveRows(report, 'C1', false)).toEqual([]);
+  });
+
+  it('keeps trains not yet departed apart from the live rows', () => {
+    expect(notDepartedRows(report, '*').map((r) => r.horizon_min)).toEqual([20, 5]);
+    expect(notDepartedRows(report, 'C4a')).toEqual([]);
   });
 
   it('finds the timetable row', () => {

@@ -7,8 +7,9 @@ import type { Line } from './stops';
 export interface AccuracyRow {
   /** '*' = all lines together. */
   line: string;
-  /** schedule = the timetable alone, i.e. how well trains kept it. */
-  kind: 'prediction' | 'schedule';
+  /** schedule = the timetable alone, i.e. how well trains kept it; not_departed = times
+   * shown while the train still stood at its first station ("Not departed yet"). */
+  kind: 'prediction' | 'not_departed' | 'schedule';
   /** Minutes before the arrival the time was shown; null for the timetable. */
   horizon_min: number | null;
   /** "Live · est.": the delay carried forward to a station after the one Renfe names. */
@@ -55,6 +56,13 @@ export function getAccuracy(days: Period, fetchImpl: typeof fetch = fetch): Prom
 export function liveRows(r: AccuracyReport, line: string, estimated: boolean): AccuracyRow[] {
   return r.rows
     .filter((x) => x.line === line && x.kind === 'prediction' && x.estimated === estimated)
+    .sort((a, b) => (b.horizon_min ?? 0) - (a.horizon_min ?? 0));
+}
+
+/** Times shown while the train had not left its first station, latest horizon last. */
+export function notDepartedRows(r: AccuracyReport, line: string): AccuracyRow[] {
+  return r.rows
+    .filter((x) => x.line === line && x.kind === 'not_departed')
     .sort((a, b) => (b.horizon_min ?? 0) - (a.horizon_min ?? 0));
 }
 

@@ -108,11 +108,11 @@ def test_accuracy_metrics_daily_results_and_retention() -> None:
     base = datetime(2020, 1, 6, 9, 0, tzinfo=UTC)
     trip = "zz_test_trip"
 
-    def pred(i: int, predicted_off_s: int, estimated: bool) -> Prediction:
+    def pred(i: int, predicted_off_s: int, estimated: bool, waiting: bool = False) -> Prediction:
         sched = base + timedelta(minutes=10 * i)
         return Prediction(
             trip, day, i, f"S{i}", "Z1", 5, sched - timedelta(minutes=5), None, sched,
-            sched + timedelta(seconds=predicted_off_s), 0, estimated, None,
+            sched + timedelta(seconds=predicted_off_s), 0, estimated, None, waiting,
         )  # fmt: skip
 
     def arr(i: int, late_s: int) -> Arrival:
@@ -129,6 +129,8 @@ def test_accuracy_metrics_daily_results_and_retention() -> None:
         try:
             # Actual 60 s and 180 s late; predictions said +0 s and +60 s.
             await store(pool, [pred(1, 0, False), pred(2, 60, True)], [arr(1, 60), arr(2, 180)])
+            # A train that had not left its first station: reported apart, never "live est.".
+            await store(pool, [pred(3, 0, True, waiting=True)], [arr(3, 240)])
             await store(pool, [pred(1, 30, False)], [arr(1, 999)])  # duplicates: ignored
             rows = await metrics(pool, day, day)
             # Daily results are kept; raw rows past the retention period go. The test rows
@@ -148,7 +150,13 @@ def test_accuracy_metrics_daily_results_and_retention() -> None:
     assert live["n"] == 1 and live["bias_s"] == 60 and live["pct_1m"] == 1
     est = by[("Z1", "prediction", True)]
     assert est["mae_s"] == 120 and est["pct_1m"] == 0 and est["pct_2m"] == 1
+    waiting = by[("Z1", "not_departed", False)]
+    assert waiting["n"] == 1 and waiting["bias_s"] == 240 and waiting["horizon_min"] == 5
     sched = by[("*", "schedule", False)]
-    assert sched["n"] == 2 and sched["mae_s"] == 120 and sched["horizon_min"] == 0
-    assert {(r["line"], r["kind"]) for r in daily} >= {("Z1", "prediction"), ("*", "schedule")}
+    assert sched["n"] == 3 and sched["mae_s"] == 160 and sched["horizon_min"] == 0
+    assert {(r["line"], r["kind"]) for r in daily} >= {
+        ("Z1", "prediction"),
+        ("Z1", "not_departed"),
+        ("*", "schedule"),
+    }
     assert left == 0

@@ -16,6 +16,7 @@ import {
   formatSeconds,
   getAccuracy,
   liveRows,
+  notDepartedRows,
   MIN_ROW,
   PERIODS,
   type Period,
@@ -104,6 +105,7 @@ function Report({
   const { t } = useT();
   const live = liveRows(data, line, false);
   const est = liveRows(data, line, true);
+  const waiting = notDepartedRows(data, line);
   const timetable = timetableRow(data, line);
   const empty = !data.rows.some((r) => r.line === ALL_LINES);
 
@@ -149,11 +151,12 @@ function Report({
             </ScrollView>
           ) : null}
 
-          {live.length + est.length === 0 && !timetable ? (
+          {live.length + est.length + waiting.length === 0 && !timetable ? (
             <Text style={styles.note}>{t('acc.noLine')}</Text>
           ) : null}
           <Section title={t('acc.live')} body={t('acc.liveBody')} rows={live} />
           <Section title={t('acc.est')} body={t('acc.estBody')} rows={est} />
+          <Section title={t('acc.notDeparted')} body={t('acc.notDepartedBody')} rows={waiting} />
           {timetable ? (
             <Section
               title={t('acc.timetable')}

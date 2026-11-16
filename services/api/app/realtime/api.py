@@ -144,7 +144,9 @@ class AccuracyRow(BaseModel):
     the pct_* are shares (0-1) within 1, 2 and 5 minutes."""
 
     line: str  # "*" = all lines together
-    kind: Literal["prediction", "schedule"]  # schedule = the timetable alone (adherence)
+    # schedule = the timetable alone (adherence); not_departed = live times shown while the
+    # train still stood at its first station ("Not departed yet"), from 2026-11-16
+    kind: Literal["prediction", "not_departed", "schedule"]
     horizon_min: int | None  # minutes before the arrival the time was shown; None for schedule
     estimated: bool  # "Live · est.": delay carried forward from the stop Renfe names
     n: int
@@ -220,7 +222,7 @@ async def live_accuracy(
             AccuracyRow(
                 line=r["line"],
                 kind=r["kind"],
-                horizon_min=r["horizon_min"] if r["kind"] == "prediction" else None,
+                horizon_min=r["horizon_min"] if r["kind"] != "schedule" else None,
                 estimated=r["estimated"],
                 n=r["n"],
                 mae_s=round(r["mae_s"], 1),

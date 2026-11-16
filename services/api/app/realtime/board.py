@@ -6,6 +6,8 @@ Rules (RELIABILITY_STRATEGY.md):
 - A trip the feed does not mention stays Scheduled (R3).
 - Renfe gives one stop update and a trip delay. At later stops the delay is carried
   forward and marked `estimated_from_trip_delay`; at earlier stops the train has passed.
+- A train Renfe reports early is shown on time (`shown_delay`): trains wait at stations, and
+  on 2026-11-15/16 those reported early came ~3 min later than the early time.
 """
 
 import re
@@ -134,6 +136,13 @@ def renfe_freshness(snap: FeedSnapshot | None, now: datetime) -> Freshness:
     return assess(now, snap.source_timestamp, snap.retrieved_at, THRESHOLDS[renfe.SOURCE])
 
 
+def shown_delay(delay_s: int) -> int:
+    """The delay applied to timetable times: never negative, as Cercanías trains wait at
+    stations rather than leave early (accuracy data of 2026-11-15/16: trains Renfe reported
+    early arrived on average ~3 min later than the early time, i.e. about on time)."""
+    return max(delay_s, 0)
+
+
 @dataclass(frozen=True)
 class TrainState:
     info: RealtimeInfo | None  # None: show the scheduled time
@@ -179,6 +188,7 @@ def renfe_train(
         delay = round((t.stop_time - scheduled).total_seconds())
     if delay is None:
         return TrainState(None)
+    delay = shown_delay(delay)
 
     return TrainState(
         base.model_copy(
@@ -187,6 +197,7 @@ def renfe_train(
                 "predicted_time": add_seconds(scheduled, delay),
                 "delay_s": delay,
                 "estimated_from_trip_delay": not at_update_stop,
+                "not_departed": trip_id in snap.not_departed,
                 "vehicle_id": vehicle.vehicle_id if vehicle else None,
                 "platform": vehicle.platform if vehicle and at_this_stop else None,
             }

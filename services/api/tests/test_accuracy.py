@@ -110,6 +110,23 @@ def test_prediction_is_timetable_plus_delay_as_the_app_shows_it() -> None:
     assert b.delay_s == 60
 
 
+def test_an_early_train_is_judged_on_the_time_shown_on_time() -> None:
+    now = at(10, 5, 10)
+    # Renfe: 1 min early. The app shows B at 10:10 (never early); Renfe's raw delay is kept.
+    preds = predictions(snap(now, delay=-60, stop_time=at(10, 9)), PLANS, now)
+    b = next(p for p in preds if p.stop_id == "B")
+    assert b.predicted_at == at(10, 10) and b.delay_s == -60
+
+
+def test_predictions_for_a_train_not_yet_departed_are_marked() -> None:
+    now = at(9, 50)  # B is 20 min away
+    s = snap(now, vehicle=("STOPPED_AT", "A"))
+    s.not_departed = [TRIP]
+    preds = predictions(s, PLANS, now)
+    assert preds and all(p.not_departed for p in preds)
+    assert not any(p.not_departed for p in predictions(snap(now), PLANS, now))
+
+
 def test_horizon_window_tolerates_a_missed_poll_but_not_more() -> None:
     # B at 10:10: 5-min sample from 10:05:00 down to 10:06:30.
     def at_b(now: datetime) -> list[int]:

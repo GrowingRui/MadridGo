@@ -99,6 +99,27 @@ async def _madrid_stops(pool: asyncpg.Pool | None) -> set[str]:
     return {r["native_id"] for r in rows}
 
 
+async def _trip_starts(
+    pool: asyncpg.Pool | None, trip_ids: list[str]
+) -> dict[str, tuple[str, ...]] | None:
+    """The first two stops of each Cercanías trip (for renfe.not_departed); None when the
+    database cannot be asked, so nothing is cached."""
+    if pool is None:
+        return None
+    try:
+        rows = await pool.fetch(
+            """SELECT trip_id, (array_agg(stop_id ORDER BY stop_sequence))[1:2] AS starts
+               FROM stop_time st JOIN feed_version fv
+                 ON fv.id = st.feed_version_id AND fv.is_active AND fv.source = 'cercanias'
+               WHERE st.trip_id = ANY($1::text[])
+               GROUP BY trip_id""",
+            trip_ids,
+        )
+    except (OSError, asyncpg.PostgresError):
+        return None
+    return {r["trip_id"]: tuple(r["starts"]) for r in rows}
+
+
 @dataclass
 class Worker:
     kv: KV
@@ -108,6 +129,8 @@ class Worker:
     last_poll: dict[str, str] = field(default_factory=dict)
     # Prediction accuracy (app/realtime/accuracy.py); needs the database.
     sampler: Sampler | None = None
+    # First two stops per trip id; () when the trip is not in the timetable. Cleared daily.
+    starts: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.sampler is None and self.pool is not None:
@@ -151,6 +174,14 @@ class Worker:
             )
         except UpstreamUnavailable as exc:
             log.info("vehicle positions skipped: %s", exc)
+        if snap.vehicles:
+            missing = [t for t in snap.vehicles if t not in self.starts]
+            if missing:
+                found = await _trip_starts(self.pool, missing)
+                if found is not None:
+                    for t in missing:
+                        self.starts[t] = found.get(t, ())
+            snap.not_departed = renfe.not_departed(snap, self.starts)
 
         await put_model(self.kv, RENFE_SNAPSHOT, snap, SNAPSHOT_TTL_S)
         self.last_poll[renfe.SOURCE] = "ok"
@@ -223,6 +254,7 @@ class Worker:
             log.warning("prune failed: %s", type(exc).__name__)
         if self.sampler is not None:
             self.sampler.forget_plans()
+        self.starts.clear()
 
 
 async def run_forever(worker: Worker, renfe_every_s: float, alerts_every_s: float) -> None:

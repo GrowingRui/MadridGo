@@ -36,6 +36,7 @@ export const es: Record<MessageKey, string> = {
   // Reliability labels
   'status.live': 'Tiempo real',
   'status.liveEstimated': 'Tiempo real · est.',
+  'status.notDeparted': 'Aún no ha salido',
   'status.partlyLive': 'Tiempo real parcial',
   'status.scheduled': 'Programado',
   'status.frequency': 'Frecuencia',
@@ -518,6 +519,8 @@ export const es: Record<MessageKey, string> = {
     'MadridGo planifica viajes por la Comunidad de Madrid en Metro, Cercanías, autobús y Metro Ligero, y te dice cuánto puedes fiarte de cada hora que muestra.',
   'about.labels': 'Qué significan las etiquetas',
   'about.label.live': 'Del sistema en tiempo real del operador. Una hora en rojo es el retraso.',
+  'about.label.notDeparted':
+    'El tren aún está en su primera estación. Renfe lo da en hora hasta que sale, así que puede llegar unos minutos más tarde.',
   'about.label.scheduled': 'Del horario oficial. El vehículo puede adelantarse o retrasarse.',
   'about.label.every': 'El operador solo publica una frecuencia, no horas exactas.',
   'about.label.estimated': 'Estimado según el horario',
@@ -616,6 +619,9 @@ export const es: Record<MessageKey, string> = {
   'acc.liveBody': 'La próxima estación, con la hora en tiempo real de Renfe.',
   'acc.est': 'Tiempo real · est.',
   'acc.estBody': 'Estaciones siguientes: se aplica el retraso del tren.',
+  'acc.notDeparted': 'Aún no ha salido',
+  'acc.notDepartedBody':
+    'Trenes que aún esperan en su primera estación. Renfe los da en hora hasta que salen, así que a menudo llegan más tarde de lo indicado. Medido desde el 16 nov 2026.',
   'acc.timetable': 'Solo el horario',
   'acc.timetableRow': 'Hora del horario',
   'acc.timetableBody': 'Cuánto se apartaron los trenes del horario, para comparar.',

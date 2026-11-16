@@ -434,7 +434,9 @@ function TransitLeg({
               text={
                 leg.departure.status === 'frequency' && leg.headway_min
                   ? t('status.everyN', { n: leg.headway_min })
-                  : undefined
+                  : leg.departure.status === 'live' && leg.departure.realtime?.not_departed
+                    ? t('status.notDeparted')
+                    : undefined
               }
             />
             {late > 0 ? (

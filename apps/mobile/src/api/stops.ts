@@ -47,6 +47,8 @@ export interface RealtimeInfo {
   delay_s: number | null;
   /** The train's current delay applied to this stop, not a prediction for this stop. */
   estimated_from_trip_delay: boolean;
+  /** The train still stands at its first station: Renfe says "on time" until it leaves. */
+  not_departed?: boolean;
   vehicle_id: string | null;
   platform: string | null;
 }
