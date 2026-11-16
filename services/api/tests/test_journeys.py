@@ -33,6 +33,7 @@ from app.realtime.models import (
     VehicleRealtime,
 )
 from app.realtime.service import Realtime, get_realtime
+from app.realtime.usual import ALL, Figure, UsualDelays, get_usual_delays
 from app.timetable import MADRID
 from app.transfers import TransferSide, assess, label_for_margin, worst
 from tests.realtime_helpers import snapshot
@@ -179,11 +180,13 @@ def setup() -> Iterator[Callable[..., TestClient]]:
         static: FakeStatic | None = None,
         rt: Realtime | None = None,
         now: datetime = RECORDED,
+        usual: UsualDelays | None = None,
     ) -> TestClient:
         app.dependency_overrides[get_otp] = lambda: otp.client
         app.dependency_overrides[get_static] = lambda: static or FakeStatic()
         app.dependency_overrides[get_realtime] = lambda: rt or realtime()
         app.dependency_overrides[get_clock] = lambda: lambda: now
+        app.dependency_overrides[get_usual_delays] = lambda: usual or UsualDelays()
         return TestClient(app)
 
     yield configure
@@ -516,6 +519,46 @@ def test_without_live_data_otp_delays_are_not_shown(setup: Callable[..., TestCli
     assert c3["departure"]["estimated"] is None
     status = body["realtime"][0]
     assert status["feed"] == "cercanias" and status["status"] == "unavailable"
+
+
+def _c3_usual() -> UsualDelays:
+    # Line-wide figures only: the fixture's station ids do not matter.
+    return UsualDelays.of(
+        [Figure("C3", ALL, ALL, 120, 9, 4 * 60, 9 * 60), Figure("C2", ALL, ALL, 80, 8, 60, 120)]
+    )
+
+
+def test_train_without_live_time_says_how_late_it_usually_is(
+    setup: Callable[..., TestClient],
+) -> None:
+    body = plan(
+        setup(FakeOtp(load("sol_bernabeu")), usual=_c3_usual()), **{"from": None, "to": None, **SOL}
+    )
+    c3 = next(
+        j
+        for j in body["journeys"]
+        if len(j["legs"]) == 3 and j["legs"][1]["line"]["short_name"] == "C3"
+    )
+    assert c3["legs"][1]["usual_delay"] == {
+        "minutes": 4,
+        "often_minutes": 9,
+        "sample": 120,
+        "days": 9,
+        "scope": "line",
+    }
+    assert all(lg["usual_delay"] is None for lg in c3["legs"] if lg["mode"] == "walk")
+
+
+def test_a_live_time_replaces_the_usual_delay(setup: Callable[..., TestClient]) -> None:
+    rt = realtime(_sol_snapshot(RECORDED - timedelta(seconds=10)))
+    body = plan(
+        setup(FakeOtp(load("sol_bernabeu")), rt=rt, usual=_c3_usual()),
+        **{"from": None, "to": None, **SOL},
+    )
+    for j in body["journeys"]:
+        for lg in j["legs"]:
+            if lg["departure"]["status"] == "live":
+                assert lg["usual_delay"] is None
 
 
 def test_r4_stale_renfe_data_is_never_shown_live(setup: Callable[..., TestClient]) -> None:

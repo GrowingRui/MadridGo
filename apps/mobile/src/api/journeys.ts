@@ -1,7 +1,15 @@
 // Types and call for the backend's journey planner (services/api/app/journeys.py).
 
 import { getJson } from './client';
-import type { DataNotice, Line, Mode, RealtimeInfo, ServiceAlert, SourceStatus } from './stops';
+import type {
+  DataNotice,
+  Line,
+  Mode,
+  RealtimeInfo,
+  ServiceAlert,
+  SourceStatus,
+  UsualDelay,
+} from './stops';
 
 /**
  * live: a live estimate exists (`estimated`); scheduled: timetable only; frequency: a
@@ -49,6 +57,8 @@ export interface Leg {
   geometry?: string | null;
   /** Step-free travel: Cercanías rides only (Renfe's data); absent for other modes. */
   accessibility?: LegAccess | null;
+  /** Cercanías rides without a live time: how late this train usually is where you board. */
+  usual_delay?: UsualDelay | null;
 }
 
 /** For a wheelchair user: the train, and the stations where you board and get off. null: no information. */

@@ -42,6 +42,10 @@ export const en = {
   'status.cancelled': 'Cancelled',
   'status.everyN': 'Every ~{n} min',
   'status.everyGeneric': 'Every ~N min',
+  // How late a Cercanías train usually is, from past days (no live time yet)
+  'usual.late': 'Usually ~{n} min late',
+  'usual.onTime': 'Usually on time',
+  'usual.a11yOften': ', often up to {n} min',
   'transfer.comfortable': 'Comfortable change',
   'transfer.tight': 'Tight change',
   'transfer.at_risk': 'Change at risk',
@@ -517,6 +521,8 @@ export const en = {
   'about.label.notDeparted':
     'The train is still at its first station. Renfe reports it on time until it leaves, so it may come a few minutes later.',
   'about.label.scheduled': 'From the official timetable. The vehicle may be early or late.',
+  'about.label.usual':
+    'Cercanías trains with no live time yet: how late this train usually is at this station and time of day, from the arrivals MadridGo has seen in the last four weeks. Shown only with at least a week of data. A live time replaces it.',
   'about.label.every': 'The operator publishes only a frequency, not exact times.',
   'about.label.estimated': 'Estimated from the timetable',
   'about.label.estimatedBody':

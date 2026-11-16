@@ -14,7 +14,7 @@ from datetime import UTC, datetime, timedelta
 import asyncpg
 import httpx
 
-from app.realtime import emt, renfe
+from app.realtime import emt, renfe, usual
 from app.realtime.accuracy import Sampler, aggregate_and_prune
 from app.realtime.cache import (
     EMT_ALERTS,
@@ -252,6 +252,11 @@ class Worker:
             await aggregate_and_prune(self.pool, self._now())
         except (OSError, asyncpg.PostgresError) as exc:
             log.warning("prune failed: %s", type(exc).__name__)
+        try:
+            kept = await usual.refresh(self.pool, self._now())
+            log.info("usual delays: %s figures", kept)
+        except (OSError, asyncpg.PostgresError) as exc:
+            log.warning("usual delay refresh failed: %s", type(exc).__name__)
         if self.sampler is not None:
             self.sampler.forget_plans()
         self.starts.clear()
