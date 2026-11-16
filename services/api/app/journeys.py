@@ -26,7 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.access import ACCESS_FEEDS, LegAccess, stop_access, trip_access
 from app.boarding import TripStop, board_nearer, decode, encode, walks_to_frequency_buses
 from app.dbpool import get_pool
-from app.feeds import ExpiryState, expiry_state
+from app.feeds import ExpiryState, expiry_state, feed_state
 from app.i18n import tr
 from app.ingest.sources import SOURCES_BY_KEY
 from app.otp import OtpClient, OtpUnavailable, get_otp
@@ -206,6 +206,8 @@ class JourneyPlan(BaseModel):
 class FeedInfo:
     service_end: dict[str, date | None]  # active feeds
     route_ids: dict[str, list[str]]  # native route ids of expired feeds (for exclusion)
+    # Feeds running on a borrowed calendar -> last day of their own (app/ingest/carry.py).
+    carried_from: dict[str, date] = field(default_factory=dict)
 
 
 class StaticData:
@@ -225,9 +227,10 @@ class StaticData:
 
     async def feeds(self, today: date) -> FeedInfo:
         rows = await self.pool.fetch(
-            "SELECT id, source, service_end FROM feed_version WHERE is_active"
+            "SELECT id, source, service_end, carried_from FROM feed_version WHERE is_active"
         )
         ends = {r["source"]: r["service_end"] for r in rows}
+        carried = {r["source"]: r["carried_from"] for r in rows if r["carried_from"]}
         expired = [
             r["id"]
             for r in rows
@@ -242,7 +245,7 @@ class StaticData:
                 expired,
             ):
                 routes[r["source"]].append(r["native_id"])
-        return FeedInfo(service_end=ends, route_ids=dict(routes))
+        return FeedInfo(service_end=ends, route_ids=dict(routes), carried_from=carried)
 
     async def frequencies(
         self, trips: list[tuple[str, str]]
@@ -1112,9 +1115,11 @@ def plan_notices(info: FeedInfo, used: set[str], today: date) -> list[DataNotice
         src = SOURCES_BY_KEY.get(key)
         if src is None:
             continue
-        state, days = expiry_state(end, today, src.expiry_warning_days)
+        state, days = feed_state(end, info.carried_from.get(key), today, src.expiry_warning_days)
         if state == "expired":
             msg = tr("notice.expired_journeys", operator=src.operator_name, end=end)
+        elif state == "estimated" and key in used:
+            msg = tr("notice.estimated", operator=src.operator_name, end=info.carried_from[key])
         elif state == "expiring" and key in used:
             msg = tr("notice.expiring", operator=src.operator_name, days=days)
         else:
@@ -1223,7 +1228,7 @@ async def journeys(
         "origin": loc(otp_origin),
         "destination": loc(otp_destination),
         "first": limit,
-        "exclude": excluded,
+        "filters": [{"exclude": [{"routes": excluded}]}] if excluded else [],
         **_PREFERENCES.get(sort, {}),
     }
     if cursor:

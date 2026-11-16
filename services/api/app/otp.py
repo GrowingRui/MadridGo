@@ -21,19 +21,20 @@ log = logging.getLogger(__name__)
 #   through side streets instead of straight along the main one (found 2026-11-12, Parla).
 # - `intermediatePlaces` rather than `stopCalls`: OTP 2.10 cannot build stop calls for
 #   frequency-based trips (EMT) and fails with "Cannot find times for Trip".
-# - Agencies of expired feeds are excluded through `$exclude` (R6).
+# - Routes of expired feeds are excluded through `$filters` (R6). The whole filter list is a
+#   variable because OTP rejects an empty `routes` list, and usually nothing is excluded.
 PLAN_QUERY = """
 query Plan(
   $origin: PlanLabeledLocationInput!, $destination: PlanLabeledLocationInput!,
   $dateTime: PlanDateTimeInput, $first: Int, $after: String, $before: String,
-  $exclude: [String!], $transferCost: Cost, $walkReluctance: Reluctance
+  $filters: [TransitFilterInput!], $transferCost: Cost, $walkReluctance: Reluctance
 ) {
   planConnection(
     origin: $origin, destination: $destination, dateTime: $dateTime,
     first: $first, after: $after, before: $before,
     preferences: {
       transit: {
-        filters: [{ exclude: [{ routes: $exclude }] }]
+        filters: $filters
         transfer: { cost: $transferCost }
       }
       street: { walk: { reluctance: $walkReluctance, safetyFactor: 0 } }

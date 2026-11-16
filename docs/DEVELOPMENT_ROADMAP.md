@@ -33,7 +33,7 @@
 - OTP 2.10.0: graph build takes 4 min 12 s (5 GB heap); the graph is 279 MB; serving uses about 1.8 GB of RAM; a cold query takes 3.7 s. From stop 8_16825 to Atocha it returns C4a/C4b itineraries, with bus 3 or ML4 feeders.
 - Renfe GTFS-RT trip IDs match static IDs exactly (see DATA_SOURCE_ANALYSIS.md §4).
 - Stop boards answer in under 0.3 s for the largest interchange (Plaza de Castilla).
-- **Open decision (risk R1):** the Metro GTFS is still expired (last updated 2025-05-30). Metro gets no scheduled times and no routing; the app says so in red on affected stop boards. The options are listed in DATA_SOURCE_ANALYSIS.md §2.2.
+- **Open decision (risk R1):** the Metro GTFS is still expired (last updated 2025-05-30). Metro gets no scheduled times and no routing; the app says so in red on affected stop boards. The options are listed in DATA_SOURCE_ANALYSIS.md §2.2. **Decided 2026-11-16:** CRTM replied that it can't update the file and has no date, and NAP has the same file, so Metro now runs on Metro Ligero's calendar, labelled as an estimate on boards, journeys and the data status in More.
 - Deferred: `shape` table (needed for the Phase 5 map), `stop_mapping` (Renfe ↔ CRTM station links) and `transfer_rule`.
 
 ## Phase 3 — Real-time (L)

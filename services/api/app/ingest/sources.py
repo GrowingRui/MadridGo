@@ -2,12 +2,19 @@
 
 from dataclasses import dataclass
 
+from app.ingest.patch import RouteExtension, RouteRestore
+
 ARCGIS_ITEM = "https://www.arcgis.com/sharing/rest/content/items/{item}/data"
 CRTM_LICENCE = "https://www.crtm.es/licencia-de-uso"
 # Renfe's own Cercanías GTFS (all of Spain's networks, CC BY 4.0). Renfe publishes it
 # before CRTM republishes the Madrid part, so it is the source for Madrid Cercanías.
 RENFE_CERCANIAS_URL = "https://ssl.renfe.com/ftransit/Fichero_CER_FOMENTO/fomento_transit.zip"
 RENFE_CERCANIAS_LICENCE = "https://data.renfe.com/dataset/horarios-cercanias"
+# CRTM's Metro GTFS of March 2025 (service 2025-03-26 -> 2026-03-26), as kept by Mobility
+# Database. Source of Line 3, which CRTM's later file leaves without trips.
+METRO_MARCH_2025_URL = (
+    "https://files.mobilitydatabase.org/mdb-794/mdb-794-202503270057/mdb-794-202503270057.zip"
+)
 
 
 @dataclass(frozen=True)
@@ -33,10 +40,25 @@ class GtfsSource:
     # Stops the feed puts in the wrong place: (stop_id, lat, lon) to use instead. Applied
     # when the feed is cut down (route_prefix), so only for such feeds.
     stop_positions: tuple[tuple[str, float, float], ...] = ()
+    # Key of a current feed whose calendar replaces this feed's once this one has run out
+    # (app/ingest/carry.py). The times are then an estimate and the app says so.
+    calendar_from: str | None = None
+    # Lines the feed leaves out or cuts short (app/ingest/patch.py), applied before the
+    # calendar is carried forward. Each acts only while the feed still has the gap.
+    restore_routes: tuple[RouteRestore, ...] = ()
+    extend_routes: tuple[RouteExtension, ...] = ()
 
 
 def _crtm(
-    key: str, name: str, mode: str, item: str, namespace: str = "crtm", warn: int = 14
+    key: str,
+    name: str,
+    mode: str,
+    item: str,
+    namespace: str = "crtm",
+    warn: int = 14,
+    calendar_from: str | None = None,
+    restore_routes: tuple[RouteRestore, ...] = (),
+    extend_routes: tuple[RouteExtension, ...] = (),
 ) -> GtfsSource:
     return GtfsSource(
         key=key,
@@ -47,13 +69,54 @@ def _crtm(
         attribution="Powered by CRTM",
         id_namespace=namespace,
         expiry_warning_days=warn,
+        calendar_from=calendar_from,
+        restore_routes=restore_routes,
+        extend_routes=extend_routes,
     )
 
 
 # CRTM republishes EMT's GTFS, so the separate EMT download is not used (it would
 # duplicate every EMT trip in OTP).
 GTFS_SOURCES: tuple[GtfsSource, ...] = (
-    _crtm("metro", "Metro de Madrid", "metro", "5c7f2951962540d69ffe8f640d94c246"),
+    # Metro: CRTM's last file ended 2026-05-27 and CRTM can't say when a new one will come
+    # (reply of 2026-11-16), so it runs on Metro Ligero's calendar: same publisher, same day
+    # types and holidays. Labelled as an estimate in the app.
+    _crtm(
+        "metro",
+        "Metro de Madrid",
+        "metro",
+        "5c7f2951962540d69ffe8f640d94c246",
+        calendar_from="ml",
+        # Line 3: CRTM's May 2025 file has the line but no trips (its 18 stations had no
+        # service); the March 2025 file, otherwise identical, has them. Kept by Mobility
+        # Database (feed mdb-794); found 2026-11-16 from a user report (San Fermín-Orcasur).
+        restore_routes=(
+            RouteRestore(
+                route_id="4__3___",
+                url=METRO_MARCH_2025_URL,
+                sha256="6930d31dd6c0bcdafab665f7d1ea2c34f37db06b8def6034e6008b8241ed46db",
+            ),
+        ),
+        # Line 3 runs on from Villaverde Alto to El Casar since 2025-04-21 (CRTM network
+        # layer M4_Red, station 349; the March file predates it). Run time from CRTM's
+        # section data: 2,978-3,007 m at 24.99 km/h = 433 s, plus 12 s dwell (the same
+        # formula gives the timetable's next section within 12 s). Station point from
+        # M4_Estaciones.
+        extend_routes=(
+            RouteExtension(
+                route_id="4__3___",
+                at_stop="par_4_273",
+                stop_id="par_4_349",
+                stop_code="349",
+                name="EL CASAR",
+                lat=40.3185577,
+                lon=-3.7095030,
+                run_s=445,
+                # One interchange with Line 12's El Casar (est_4_228).
+                parent_station="est_4_228",
+            ),
+        ),
+    ),
     _crtm("ml", "Metro Ligero", "light_rail", "aaed26cc0ff64b0c947ac0bc3e033196"),
     # Cercanías: Renfe's national feed cut down to the Madrid network (route IDs "10…"),
     # about one month of validity. CRTM's copy (item 1a25440bf66f499bae2657ec7fb40144) is

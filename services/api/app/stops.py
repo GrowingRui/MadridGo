@@ -21,7 +21,7 @@ from pydantic import BaseModel
 
 from app.access import ACCESS_FEEDS, accessible, stop_access
 from app.dbpool import get_pool
-from app.feeds import ExpiryState, expiry_state
+from app.feeds import ExpiryState, feed_state
 from app.i18n import tr
 from app.ingest.gtfs import fold
 from app.ingest.sources import SOURCES_BY_KEY
@@ -420,18 +420,26 @@ _FREQUENCIES_SQL = {k: _frequencies_sql(k) for k in ("departures", "arrivals")}
 
 
 def _notices(
-    sources: list[str], service_end: dict[str, date | None], today: date
+    sources: list[str],
+    service_end: dict[str, date | None],
+    today: date,
+    carried_from: dict[str, date] | None = None,
 ) -> list[DataNotice]:
+    carried_from = carried_from or {}
     notices = []
     for src_key in sorted(set(sources)):
         src = SOURCES_BY_KEY.get(src_key)
         if src is None:
             continue
-        state, days = expiry_state(service_end.get(src_key), today, src.expiry_warning_days)
+        state, days = feed_state(
+            service_end.get(src_key), carried_from.get(src_key), today, src.expiry_warning_days
+        )
         if state == "expired":
             msg = tr(
                 "notice.expired_board", operator=src.operator_name, end=service_end.get(src_key)
             )
+        elif state == "estimated":
+            msg = tr("notice.estimated", operator=src.operator_name, end=carried_from[src_key])
         elif state == "expiring":
             msg = tr("notice.expiring", operator=src.operator_name, days=days)
         else:
@@ -614,10 +622,11 @@ async def _board(
         statuses.append(live.no_realtime_status(src, _operator(src)))
     statuses.sort(key=lambda st: (_feed_order(st.feed), st.feed))
 
-    service_end = {
-        r["source"]: r["service_end"]
-        for r in await pool.fetch("SELECT source, service_end FROM feed_version WHERE is_active")
-    }
+    feeds = await pool.fetch(
+        "SELECT source, service_end, carried_from FROM feed_version WHERE is_active"
+    )
+    service_end = {r["source"]: r["service_end"] for r in feeds}
+    carried_from = {r["source"]: r["carried_from"] for r in feeds if r["carried_from"]}
     shown = rows[:limit]
     any_live = any(d.status != "scheduled" for d in shown) or bool(live_arrivals)
     return StopBoard(
@@ -631,7 +640,7 @@ async def _board(
         arrivals=shown if kind == "arrivals" else [],
         frequencies=_merge_frequencies(freq_rows, freq_day, start, end, kind),
         live_arrivals=live_arrivals,
-        notices=_notices(sources, service_end, now.date()),
+        notices=_notices(sources, service_end, now.date(), carried_from),
         realtime=statuses,
         alerts=await _alerts(rt, summary, shown, now),
         step_free=(await stop_access(pool, [summary.id])).get(summary.id) if has_rail else None,

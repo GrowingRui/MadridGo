@@ -148,6 +148,14 @@ MESSAGES: dict[str, dict[str, str]] = {
         "es": "El horario oficial de {operator} caducó el {end}. "
         "No hay horarios programados disponibles.",
     },
+    "notice.estimated": {
+        "en": "{operator} times are estimates: its last official timetable ended on {end} "
+        "and no newer one has been published, so MadridGo uses that timetable on today's "
+        "calendar. Lines and frequencies may have changed since.",
+        "es": "Los horarios de {operator} son estimados: su último horario oficial terminó el "
+        "{end} y no se ha publicado otro, así que MadridGo usa ese horario con el calendario "
+        "actual. Las líneas y frecuencias pueden haber cambiado.",
+    },
     "notice.expiring": {
         "en": "The {operator} timetable ends in {days} days.",
         "es": "El horario de {operator} termina dentro de {days} días.",
