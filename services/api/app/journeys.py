@@ -43,6 +43,7 @@ from app.timetable import MADRID, display_name, mode_for, seconds_into
 from app.transfers import TransferLabel, TransferSide, worst
 from app.transfers import assess as assess_transfer
 from app.trips import distance_m
+from app.untimed import untimed_lines, untimed_message
 
 router = APIRouter(tags=["journeys"])
 
@@ -290,6 +291,10 @@ class StaticData:
             [t[1] for t in trips],
         )
         return {(r["source"], r["trip_id"]): r["name"] for r in rows}
+
+    async def untimed(self, stop_ids: list[str]) -> dict[str, list[str]]:
+        """Stop -> lines stopping there that have no published timetable (app/untimed.py)."""
+        return await untimed_lines(self.pool, stop_ids)
 
     async def nearest_stop(self, lat: float, lon: float) -> tuple[float, float] | None:
         """(lat, lon) of the stop nearest to a point, within NEAR_M, or None."""
@@ -1147,6 +1152,24 @@ def plan_notices(info: FeedInfo, used: set[str], today: date) -> list[DataNotice
     return out
 
 
+def untimed_notices(places: list[Place], lines: dict[str, list[str]]) -> list[DataNotice]:
+    """Start or destination stops served by lines without a timetable: the connections
+    shown may not be the best ones."""
+    out = []
+    for p in places:
+        if p.stop_id and lines.get(p.stop_id):
+            out.append(
+                DataNotice(
+                    source=f"untimed:{p.stop_id}",  # one per stop (the app keys by source)
+                    operator="CRTM",
+                    expiry="ok",
+                    service_end=None,
+                    message=untimed_message(lines[p.stop_id], p.name),
+                )
+            )
+    return out
+
+
 def _operator(feed: str) -> str:
     src = SOURCES_BY_KEY.get(feed)
     return src.operator_name if src else feed
@@ -1341,6 +1364,9 @@ async def journeys(
             j.model_copy(update={"alerts": journey_alerts(alert_snaps, j, now)}) for j in result
         ]
 
+    ends = [p for p in (origin, destination) if p.stop_id]
+    untimed = await static.untimed([p.stop_id for p in ends if p.stop_id]) if ends else {}
+
     errors = [e.get("code") for e in data.get("routingErrors") or []]
     code = errors[0] if errors else None
     page = data.get("pageInfo") or {}
@@ -1354,7 +1380,7 @@ async def journeys(
         journeys=result,
         earlier_cursor=f"b:{page['startCursor']}" if page.get("hasPreviousPage") else None,
         later_cursor=f"a:{page['endCursor']}" if page.get("hasNextPage") else None,
-        notices=plan_notices(info, used, now.date()),
+        notices=plan_notices(info, used, now.date()) + untimed_notices(ends, untimed),
         realtime=statuses,
         routing_error=code,
         message=routing_message(code) if code else None,

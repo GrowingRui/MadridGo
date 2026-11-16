@@ -31,6 +31,7 @@ from app.ingest.patch import extend_route, restore_route
 from app.ingest.shapes import repair_shapes
 from app.ingest.sources import GTFS_SOURCES, OSM_MADRID_URL, SOURCES_BY_KEY, GtfsSource
 from app.ingest.subset import subset
+from app.ingest.untimed import record_untimed
 from app.ingest.validate import validate
 
 log = logging.getLogger("ingest")
@@ -88,6 +89,11 @@ async def update_source(
     )
     if active_sha == dl.sha256 and not force and not await donor_is_newer(conn, source):
         print(f"[{source.key}] unchanged ({dl.sha256[:12]}), already active")
+        # The network map changes on its own, so its stops are read again anyway.
+        fv = await conn.fetchval(
+            "SELECT id FROM feed_version WHERE source = $1 AND is_active", source.key
+        )
+        await untimed_lines(conn, source, fv)
         return True
     flat_dir = root / "gtfs" / "flat"
     flat_dir.mkdir(parents=True, exist_ok=True)
@@ -136,6 +142,7 @@ async def update_source(
             result.feed_version_id,
             carried.original_end,
         )
+    await untimed_lines(conn, source, result.feed_version_id)
     took = (datetime.now(UTC) - started).total_seconds()
     print(
         f"[{source.key}] active as version {result.feed_version_id} in {took:.0f}s: "
@@ -160,6 +167,20 @@ def patch_routes(source: GtfsSource, flat: Path, root: Path) -> None:
         n = extend_route(flat, ext)
         if n:
             print(f"[{source.key}] {ext.route_id}: {ext.name} added to {n} trips")
+
+
+async def untimed_lines(conn: asyncpg.Connection, source: GtfsSource, fv: int) -> None:
+    """Record where the feed's lines without trips stop (untimed.py)."""
+    if not source.network_layer:
+        return
+    found = await record_untimed(conn, fv, source.network_layer, date.today())
+    if found is None:
+        print(f"[{source.key}] network map unavailable: lines without trips not updated")
+    elif found[0]:
+        print(
+            f"[{source.key}] {len(found[0])} lines have no trips; {found[1]} of their stops "
+            f"from the network map get a notice"
+        )
 
 
 async def donor_is_newer(conn: asyncpg.Connection, source: GtfsSource) -> bool:

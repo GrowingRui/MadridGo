@@ -160,6 +160,21 @@ MESSAGES: dict[str, dict[str, str]] = {
         "en": "The {operator} timetable ends in {days} days.",
         "es": "El horario de {operator} termina dentro de {days} días.",
     },
+    # Lines CRTM lists without a timetable (app/untimed.py). {where}: notice.untimed_here/at.
+    "notice.untimed": {
+        "en": "Lines {lines} also stop {where}, but CRTM publishes no timetable for them, "
+        "so MadridGo cannot show their times or use them in connections.",
+        "es": "Las líneas {lines} también paran {where}, pero el CRTM no publica su horario, "
+        "así que MadridGo no puede mostrar sus horas ni usarlas en los trayectos.",
+    },
+    "notice.untimed_one": {
+        "en": "Line {lines} also stops {where}, but CRTM publishes no timetable for it, "
+        "so MadridGo cannot show its times or use it in connections.",
+        "es": "La línea {lines} también para {where}, pero el CRTM no publica su horario, "
+        "así que MadridGo no puede mostrar sus horas ni usarla en los trayectos.",
+    },
+    "notice.untimed_here": {"en": "here", "es": "aquí"},
+    "notice.untimed_at": {"en": "at {stop}", "es": "en {stop}"},
     # --- Journey problems ----------------------------------------------------------------
     "issue.cancelled": {
         "en": "{line} {time} from {stop} is cancelled.",
