@@ -12,6 +12,8 @@ import { t, useLanguage } from './i18n';
 import type { Leg } from './api/journeys';
 import { type BusPosition, getBusPosition } from './api/buses';
 import { type TripPosition, getTripPosition } from './api/trips';
+import { type LiveTrains, getLiveTrains } from './api/trains';
+import { mergeTrains } from './utils/liveTrains';
 import { busKeepForward, busQuery, canTrackBus } from './utils/busPosition';
 import { canTrack, keepForward } from './utils/trainPosition';
 
@@ -170,6 +172,53 @@ export function useTripPosition(
     };
   }, [track, tripId, from]);
   return track && pos?.trip_id === tripId ? pos : null;
+}
+
+/**
+ * Every Cercanías train (Plan > Map > Live trains), polled every ~15 s (the server's
+ * poll_after_s) while `track` and the app is in the foreground. A train never jumps back a
+ * station between answers (mergeTrains). `failed`: the last poll did not answer; the trains
+ * already drawn stay until they are too old (they hide themselves).
+ */
+export function useLiveTrains(track: boolean): { data: LiveTrains | null; failed: boolean } {
+  const [data, setData] = useState<LiveTrains | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!track) return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = (s: number) => {
+      clearTimeout(timer);
+      timer = setTimeout(poll, s * 1000);
+    };
+    function poll() {
+      if (stopped || AppState.currentState !== 'active') return; // resumed when active
+      getLiveTrains()
+        .then((next) => {
+          if (stopped) return;
+          setFailed(false);
+          setData((prev) =>
+            prev ? { ...next, trains: mergeTrains(prev.trains, next.trains, Date.now()) } : next,
+          );
+          schedule(next.poll_after_s || 15);
+        })
+        .catch(() => {
+          if (stopped) return;
+          setFailed(true);
+          schedule(15);
+        });
+    }
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') poll();
+    });
+    poll();
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      sub.remove();
+    };
+  }, [track]);
+  return { data: track ? data : null, failed: track && failed };
 }
 
 /**
