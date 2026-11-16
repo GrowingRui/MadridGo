@@ -467,9 +467,11 @@ export const en = {
   'expiry.expiring': 'Expires soon',
   'expiry.expired': 'Expired',
   'expiry.missing': 'Missing',
+  'expiry.estimated': 'Estimated',
   'feed.validUntil': 'Valid until {date}',
   'feed.daysLeft': ' · {n} days left',
   'feed.notImported': 'Not imported yet',
+  'feed.estimated': 'Old timetable (ended {date}) on the current calendar',
   // Disruptions
   'nav.disruptions': 'Disruptions',
   'dis.title': 'Disruptions',

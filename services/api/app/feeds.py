@@ -8,7 +8,9 @@ from pydantic import BaseModel
 
 from app.ingest.sources import GTFS_SOURCES, SOURCES_BY_KEY
 
-ExpiryState = Literal["ok", "expiring", "expired"]
+# "estimated": a timetable kept in use on a borrowed calendar after its own ran out
+# (app/ingest/carry.py, feed_version.carried_from).
+ExpiryState = Literal["ok", "expiring", "expired", "estimated"]
 
 
 def expiry_state(
@@ -23,6 +25,16 @@ def expiry_state(
     return ("expiring" if days <= warning_days else "ok"), days
 
 
+def feed_state(
+    service_end: date | None, carried_from: date | None, today: date, warning_days: int
+) -> tuple[ExpiryState, int]:
+    """Like expiry_state, but a carried-forward timetable that still runs is "estimated"."""
+    state, days = expiry_state(service_end, today, warning_days)
+    if carried_from is not None and state != "expired":
+        return "estimated", days
+    return state, days
+
+
 class FeedStatus(BaseModel):
     source: str
     operator: str
@@ -34,6 +46,7 @@ class FeedStatus(BaseModel):
     service_end: date | None = None
     expiry: ExpiryState | None = None
     days_left: int | None = None
+    carried_from: date | None = None  # set when "estimated": last day of its own timetable
     validation_status: str | None = None
     attribution: str
     licence_url: str
@@ -41,7 +54,8 @@ class FeedStatus(BaseModel):
 
 async def feed_statuses(pool: asyncpg.Pool, today: date) -> list[FeedStatus]:
     rows = await pool.fetch(
-        """SELECT source, id, feed_version_label, service_start, service_end, validation_status
+        """SELECT source, id, feed_version_label, service_start, service_end, validation_status,
+                  carried_from
            FROM feed_version WHERE is_active"""
     )
     by_source = {r["source"]: r for r in rows}
@@ -57,7 +71,9 @@ async def feed_statuses(pool: asyncpg.Pool, today: date) -> list[FeedStatus]:
             licence_url=src.licence_url,
         )
         if r is not None:
-            state, days = expiry_state(r["service_end"], today, src.expiry_warning_days)
+            state, days = feed_state(
+                r["service_end"], r["carried_from"], today, src.expiry_warning_days
+            )
             base = base.model_copy(
                 update={
                     "feed_version_id": r["id"],
@@ -66,6 +82,7 @@ async def feed_statuses(pool: asyncpg.Pool, today: date) -> list[FeedStatus]:
                     "service_end": r["service_end"],
                     "expiry": state,
                     "days_left": days,
+                    "carried_from": r["carried_from"],
                     "validation_status": r["validation_status"],
                 }
             )

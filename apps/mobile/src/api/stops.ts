@@ -144,7 +144,8 @@ export interface FrequencyService {
 export interface DataNotice {
   source: string;
   operator: string;
-  expiry: 'ok' | 'expiring' | 'expired';
+  /** estimated: an old timetable kept in use on a current calendar (Metro de Madrid). */
+  expiry: 'ok' | 'expiring' | 'expired' | 'estimated';
   service_end: string | null;
   message: string;
 }
@@ -179,8 +180,10 @@ export interface FeedStatus {
   feed_version_label: string | null;
   service_start: string | null;
   service_end: string | null;
-  expiry: 'ok' | 'expiring' | 'expired' | null;
+  expiry: 'ok' | 'expiring' | 'expired' | 'estimated' | null;
   days_left: number | null;
+  /** When estimated: the last day of the operator's own timetable. */
+  carried_from?: string | null;
   validation_status: string | null;
   attribution: string;
   licence_url: string;
@@ -196,7 +199,7 @@ export const stopBoard = (stopId: string, minutes = 90, kind: BoardKind = 'depar
   getJson<StopBoard>(`/stops/${encodeURIComponent(stopId)}/${kind}`, { minutes, limit: 60 });
 
 /**
- * A timetable that has run out (Metro de Madrid since 2026-05-27): an empty board then means
+ * A timetable that has run out: an empty board then means
  * "no data", not "no service", and says so.
  */
 export function expiredNotice(b: StopBoard): DataNotice | null {

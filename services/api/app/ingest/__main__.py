@@ -22,10 +22,12 @@ import asyncpg
 
 from app.config import get_settings
 from app.db import migrate
-from app.feeds import expiry_state
+from app.feeds import feed_state
+from app.ingest.carry import Carried, carry_forward
 from app.ingest.download import download
 from app.ingest.gtfs import GtfsZip
 from app.ingest.importer import delete_version, import_feed
+from app.ingest.patch import extend_route, restore_route
 from app.ingest.shapes import repair_shapes
 from app.ingest.sources import GTFS_SOURCES, OSM_MADRID_URL, SOURCES_BY_KEY, GtfsSource
 from app.ingest.subset import subset
@@ -84,7 +86,7 @@ async def update_source(
     active_sha = await conn.fetchval(
         "SELECT sha256 FROM feed_version WHERE source = $1 AND is_active", source.key
     )
-    if active_sha == dl.sha256 and not force:
+    if active_sha == dl.sha256 and not force and not await donor_is_newer(conn, source):
         print(f"[{source.key}] unchanged ({dl.sha256[:12]}), already active")
         return True
     flat_dir = root / "gtfs" / "flat"
@@ -103,6 +105,9 @@ async def update_source(
             f"{fixed.reversed} reversed, {fixed.stitched} stitched ({fixed.straight_hops} hops "
             f"on no shape), {fixed.dropped} dropped (drawn straight)"
         )
+
+    patch_routes(source, flat, root)
+    carried = await carry_calendar(conn, source, flat)
 
     summary = None
     if not skip_validate:
@@ -125,6 +130,12 @@ async def update_source(
             summary.warnings,
             str(summary.report_dir),
         )
+    if carried:
+        await conn.execute(
+            "UPDATE feed_version SET carried_from = $2 WHERE id = $1",
+            result.feed_version_id,
+            carried.original_end,
+        )
     took = (datetime.now(UTC) - started).total_seconds()
     print(
         f"[{source.key}] active as version {result.feed_version_id} in {took:.0f}s: "
@@ -133,8 +144,67 @@ async def update_source(
     return True
 
 
+def patch_routes(source: GtfsSource, flat: Path, root: Path) -> None:
+    """Put back lines the feed leaves out, and extend lines it cuts short (patch.py)."""
+    for fix in source.restore_routes:
+        dl = download(fix.url, root / "gtfs" / "archive", f"{source.key}-{fix.route_id}")
+        if dl.sha256 != fix.sha256:
+            raise RuntimeError(
+                f"[{source.key}] archive for {fix.route_id} changed ({dl.sha256[:12]}), "
+                f"expected {fix.sha256[:12]}: check it before using it"
+            )
+        n = restore_route(flat, dl.path, fix.route_id)
+        if n:
+            print(f"[{source.key}] {fix.route_id} had no trips: restored {n} from {fix.url}")
+    for ext in source.extend_routes:
+        n = extend_route(flat, ext)
+        if n:
+            print(f"[{source.key}] {ext.route_id}: {ext.name} added to {n} trips")
+
+
+async def donor_is_newer(conn: asyncpg.Connection, source: GtfsSource) -> bool:
+    """True if the feed `source` borrows its calendar from was imported after `source` (so an
+    unchanged file still needs importing again, with the new calendar)."""
+    if not source.calendar_from:
+        return False
+    return bool(
+        await conn.fetchval(
+            """SELECT d.imported_at > s.imported_at
+               FROM feed_version s, feed_version d
+               WHERE s.source = $1 AND s.is_active AND d.source = $2 AND d.is_active""",
+            source.key,
+            source.calendar_from,
+        )
+    )
+
+
+async def carry_calendar(
+    conn: asyncpg.Connection, source: GtfsSource, flat: Path
+) -> Carried | None:
+    """For a feed whose calendar has run out, use the calendar of `source.calendar_from`."""
+    if not source.calendar_from:
+        return None
+    donor = await conn.fetchval(
+        "SELECT file_path FROM feed_version WHERE source = $1 AND is_active", source.calendar_from
+    )
+    if donor is None:
+        raise RuntimeError(
+            f"[{source.key}] needs the calendar of '{source.calendar_from}': import it first"
+        )
+    carried = carry_forward(flat, Path(donor), date.today())
+    if carried:
+        print(
+            f"[{source.key}] own calendar ended {carried.original_end}: using the calendar of "
+            f"'{source.calendar_from}' ({carried.start} -> {carried.end}, {carried.services} "
+            f"services, {carried.exceptions} holiday exceptions); times are an estimate"
+        )
+    return carried
+
+
 async def cmd_update(keys: list[str], force: bool, skip_validate: bool) -> int:
     sources = [SOURCES_BY_KEY[k] for k in keys] if keys else list(GTFS_SOURCES)
+    # Feeds that borrow another feed's calendar go after it.
+    sources.sort(key=lambda s: s.calendar_from is not None)
     root = data_dir()
     conn = await _connect()
     failed = []
@@ -200,7 +270,7 @@ async def cmd_status() -> int:
     try:
         rows = await conn.fetch(
             """SELECT source, id, feed_version_label, service_start, service_end,
-                      validation_status, validation_errors, imported_at
+                      validation_status, validation_errors, imported_at, carried_from
                FROM feed_version WHERE is_active ORDER BY source"""
         )
     finally:
@@ -210,13 +280,16 @@ async def cmd_status() -> int:
     worst = 0
     for r in rows:
         src = SOURCES_BY_KEY.get(r["source"])
-        state, days = expiry_state(r["service_end"], today, src.expiry_warning_days if src else 14)
-        worst = max(worst, {"ok": 0, "expiring": 1, "expired": 2}[state])
+        state, days = feed_state(
+            r["service_end"], r["carried_from"], today, src.expiry_warning_days if src else 14
+        )
+        worst = max(worst, {"ok": 0, "estimated": 0, "expiring": 1, "expired": 2}[state])
         print(
             f"{r['source']:<11} v{r['id']:<4} label={r['feed_version_label'] or '-':<9} "
             f"{r['service_start']} -> {r['service_end']}  {state.upper():<8} ({days:+d} d)  "
             f"validation={r['validation_status']}"
             + (f" ({r['validation_errors']} errors)" if r["validation_errors"] else "")
+            + (f"  own timetable ended {r['carried_from']}" if r["carried_from"] else "")
         )
     for key in sorted(missing):
         print(f"{key:<11} NOT IMPORTED")

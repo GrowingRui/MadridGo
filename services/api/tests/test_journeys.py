@@ -216,8 +216,16 @@ def test_request_to_otp(setup: Callable[..., TestClient]) -> None:
     assert v["origin"]["label"] == "Av. Leguario - Luis Chamizo"
     assert v["dateTime"] == {"earliestDeparture": "2026-11-09T20:36:20+01:00"}  # naive = Madrid
     assert v["first"] == 4
-    assert v["exclude"] == ["metro:4__1___", "metro:4__2___"]  # R6: expired feed not routed
+    # R6: expired feed not routed
+    assert v["filters"] == [{"exclude": [{"routes": ["metro:4__1___", "metro:4__2___"]}]}]
     assert "after" not in v and "before" not in v
+
+
+def test_nothing_expired_sends_no_filter(setup: Callable[..., TestClient]) -> None:
+    # OTP rejects `exclude: [{routes: []}]` ("must not be empty"), so send no filter at all.
+    otp = FakeOtp(load("parla_atocha"))
+    plan(setup(otp, FakeStatic()))
+    assert otp.variables["filters"] == []
 
 
 def test_recorded_parla_atocha_answer(setup: Callable[..., TestClient]) -> None:

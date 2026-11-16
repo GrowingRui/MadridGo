@@ -472,9 +472,11 @@ export const es: Record<MessageKey, string> = {
   'expiry.expiring': 'Caduca pronto',
   'expiry.expired': 'Caducado',
   'expiry.missing': 'Falta',
+  'expiry.estimated': 'Estimado',
   'feed.validUntil': 'Válido hasta el {date}',
   'feed.daysLeft': ' · quedan {n} días',
   'feed.notImported': 'Aún no importado',
+  'feed.estimated': 'Horario antiguo (terminó el {date}) con el calendario actual',
   // Incidencias
   'nav.disruptions': 'Incidencias',
   'dis.title': 'Incidencias',

@@ -53,6 +53,7 @@ const EXPIRY = themed(() => ({
   ok: { color: colors.live, icon: 'check-circle' },
   expiring: { color: colors.warning, icon: 'alert-circle' },
   expired: { color: colors.delay, icon: 'close-circle' },
+  estimated: { color: colors.warning, icon: 'history' },
 }) as const);
 
 export default function MoreScreen() {
@@ -402,7 +403,9 @@ function FeedRow({ f }: { f: FeedStatus }) {
       <View style={{ flex: 1 }}>
         <Text style={styles.title}>{f.operator}</Text>
         <Text style={styles.small}>
-          {f.imported
+          {f.imported && f.expiry === 'estimated' && f.carried_from
+            ? t('feed.estimated', { date: formatIsoDate(f.carried_from) })
+            : f.imported
             ? t('feed.validUntil', { date: f.service_end ? formatIsoDate(f.service_end) : '?' }) +
               (f.days_left != null && f.days_left >= 0
                 ? t('feed.daysLeft', { n: f.days_left })
