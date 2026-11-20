@@ -69,6 +69,15 @@ The API then serves:
 - `GET /stops/{id}` and `GET /stops/{id}/departures`: scheduled departures. Metro and EMT publish only frequencies, so their lines are returned as "every ~N min", never as invented times.
 - `GET /feeds`: which timetable versions are active and when they expire
 
+Refresh the timetables in one go (download, import, rebuild OTP only if something changed, restart it, check health and expiry). Renfe's feed lasts about four weeks, so this should run weekly:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scriptsefresh-feeds.ps1          # add -Force to rebuild OTP anyway
+powershell -ExecutionPolicy Bypass -File scriptsegister-refresh-task.ps1  # schedule it, Sundays 04:00 (-Remove to undo)
+```
+
+Log: `data/logs/refresh-feeds.log`. Exit code 2 means a feed is expired, about to expire or missing.
+
 Rebuild the API image after pulling (`docker compose ... up -d --build`) so the container has the new endpoints.
 
 ### Journey planner engine (OpenTripPlanner)
