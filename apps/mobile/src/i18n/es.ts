@@ -353,6 +353,8 @@ export const es: Record<MessageKey, string> = {
   'trains.legend': 'Solo Cercanías (Renfe) · punto hueco = posición estimada',
   'trains.late': 'Unos {n} min de retraso',
   'trains.onTime': 'Puntual',
+  'trains.follow': 'Seguir este tren',
+  'trains.following': 'Siguiendo',
   'trains.showStops': 'Ver todas las paradas',
   'section.saved': 'Guardadas',
   'section.recent': 'Recientes',

@@ -110,11 +110,15 @@ export function TrainsStatus({ text, tone }: { text: string; tone: 'info' | 'pro
 export function TrainCard({
   train,
   now,
+  following,
+  onFollow,
   onClose,
   onShowStops,
 }: {
   train: LiveTrain;
   now: number;
+  following: boolean;
+  onFollow: () => void;
   onClose: () => void;
   onShowStops: () => void;
 }) {
@@ -158,13 +162,34 @@ export function TrainCard({
             <Text style={styles.time}>{formatTime(train.expected_at_next)}</Text>
           </View>
         ) : null}
-        <Pressable
-          onPress={onShowStops}
-          accessibilityRole="button"
-          style={({ pressed }) => [styles.button, pressed && { opacity: 0.85 }]}>
-          <Text style={styles.buttonText}>{t('trains.showStops')}</Text>
-          <MaterialCommunityIcons name="chevron-right" size={20} color={colors.onPrimary} />
-        </Pressable>
+        <View style={styles.buttons}>
+          <Pressable
+            onPress={onFollow}
+            accessibilityRole="button"
+            accessibilityState={{ selected: following }}
+            style={({ pressed }) => [
+              styles.button,
+              styles.buttonHalf,
+              !following && styles.buttonOutline,
+              pressed && { opacity: 0.85 },
+            ]}>
+            <MaterialCommunityIcons
+              name={following ? 'crosshairs-gps' : 'crosshairs'}
+              size={20}
+              color={following ? colors.onPrimary : colors.brand}
+            />
+            <Text style={[styles.buttonText, !following && { color: colors.brand }]}>
+              {t(following ? 'trains.following' : 'trains.follow')}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={onShowStops}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.button, styles.buttonHalf, pressed && { opacity: 0.85 }]}>
+            <Text style={styles.buttonText}>{t('trains.showStops')}</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={colors.onPrimary} />
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -237,6 +262,9 @@ const styles = themed(() =>
     },
     rowLabel: { ...type.body, color: colors.text, flexShrink: 1 },
     time: { ...type.timeL, color: colors.text },
+    buttons: { flexDirection: 'row', gap: space.sm, marginTop: space.sm },
+    buttonHalf: { flex: 1, marginTop: 0 },
+    buttonOutline: { backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.primary },
     button: {
       marginTop: space.sm,
       flexDirection: 'row',
