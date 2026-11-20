@@ -159,7 +159,7 @@ export const es: Record<MessageKey, string> = {
   'conn.unsave': 'Quitar esta conexión de guardadas',
   'conn.map': 'Ver el recorrido en el mapa',
   'trips.title': 'Viajes',
-  'trips.subtitle': 'Tus conexiones guardadas, hasta que llegues',
+  'trips.subtitle': 'Tus rutas y conexiones guardadas',
   'trips.leavesIn': 'Sale en {n} min',
   'trips.leavesAt': 'Sale a las {time}',
   'trips.leavingNow': 'Sale ahora',
@@ -170,6 +170,14 @@ export const es: Record<MessageKey, string> = {
   'trips.emptyBody':
     'Guarda una conexión con ☆ en el horario para tenerla aquí. Verás sus horas en tiempo real, retrasos y avisos durante el viaje, y desaparecerá cuando hayas llegado.',
   'trips.plan': 'Planificar un viaje',
+  'commute.title': 'Mis rutas',
+  'commute.save': 'Guardar como ruta',
+  'commute.savedGo': 'Ruta guardada · verla en Viajes',
+  'commute.swap': 'Cambiar sentido',
+  'commute.remove': 'Quitar esta ruta',
+  'commute.loading': 'Buscando salidas…',
+  'commute.none': 'Ahora no hay salidas para esta ruta.',
+  'commute.more': 'Más conexiones',
 
   // Guía del viaje paso a paso (pestaña Viajes)
   'steps.title': 'Paso a paso',

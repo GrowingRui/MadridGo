@@ -160,7 +160,7 @@ export const en = {
   'conn.unsave': 'Remove this saved connection',
   'conn.map': 'Show the route on a map',
   'trips.title': 'Trips',
-  'trips.subtitle': 'Your saved connections, until you arrive',
+  'trips.subtitle': 'Your routes and saved connections',
   'trips.leavesIn': 'Leaves in {n} min',
   'trips.leavesAt': 'Leaves at {time}',
   'trips.leavingNow': 'Leaving now',
@@ -171,6 +171,14 @@ export const en = {
   'trips.emptyBody':
     'Save a connection with ☆ in the timetable to keep it here. You will see its live times, delays and alerts during your journey, and it disappears once you have arrived.',
   'trips.plan': 'Plan a journey',
+  'commute.title': 'My routes',
+  'commute.save': 'Save as route',
+  'commute.savedGo': 'Route saved · see it in Trips',
+  'commute.swap': 'Swap direction',
+  'commute.remove': 'Remove this route',
+  'commute.loading': 'Looking for departures…',
+  'commute.none': 'No departures found for this route right now.',
+  'commute.more': 'More connections',
 
   // Step-by-step trip guide (Trips tab)
   'steps.title': 'Step by step',

@@ -4,18 +4,22 @@
 
 import { useIsFocused } from 'expo-router';
 
+import { CommuteSection } from '../../components/commute';
 import { DisruptionsButton } from '../../components/disruptions';
 import { BrandHeader, Screen } from '../../components/layout';
 import { NoTrips, TripList } from '../../components/trips';
 import { useIsWide } from '../../hooks';
 import { useT } from '../../i18n';
+import { useCommutes } from '../../state/commutes';
 import { useSavedConnections, useTripRefresh } from '../../state/connections';
 
 export default function TripsScreen() {
   const { t } = useT();
   const isWide = useIsWide();
   const trips = useSavedConnections(15_000);
-  useTripRefresh(useIsFocused() && trips.length > 0);
+  const focused = useIsFocused();
+  const { commutes } = useCommutes();
+  useTripRefresh(focused && trips.length > 0);
   return (
     <Screen
       header={
@@ -25,7 +29,8 @@ export default function TripsScreen() {
           right={isWide ? undefined : <DisruptionsButton />}
         />
       }>
-      {trips.length ? <TripList trips={trips} /> : <NoTrips />}
+      <CommuteSection active={focused} />
+      {trips.length ? <TripList trips={trips} /> : commutes.length ? null : <NoTrips />}
     </Screen>
   );
 }
