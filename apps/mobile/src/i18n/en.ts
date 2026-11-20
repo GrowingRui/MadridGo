@@ -350,6 +350,8 @@ export const en = {
   'trains.legend': 'Cercanías only (Renfe) · hollow point = estimated position',
   'trains.late': 'About {n} min late',
   'trains.onTime': 'On time',
+  'trains.follow': 'Follow this train',
+  'trains.following': 'Following',
   'trains.showStops': 'Show all stops',
   'section.saved': 'Saved',
   'section.recent': 'Recent',

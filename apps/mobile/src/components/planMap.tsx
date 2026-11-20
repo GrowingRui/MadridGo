@@ -56,10 +56,13 @@ export function PlanMap() {
   const lines = useAsync(trainsOn ? getTrainLines : null, trainsOn ? 'lines' : '');
   const now = useNow(trainsOn ? 1000 : 60_000);
   const [selected, setSelected] = useState<string | null>(null);
+  const [follow, setFollow] = useState(false);
   const all = trains.data?.trains ?? [];
   const dots = trainsOn ? trainDots(all, now, trainLine) : [];
   const picked = selected ? all.find((x) => x.trip_id === selected) : undefined;
   const pickedShown = picked && dots.some((d) => d.id === picked.trip_id) ? picked : undefined;
+  // Following lasts while that train's card is open and the train is on the map.
+  const followId = follow && pickedShown ? pickedShown.trip_id : null;
 
   // Rebuilt only when the language changes (it reloads the map). A new scheme re-mounts the
   // screen (app/_layout.tsx), so the map style follows it.
@@ -102,6 +105,9 @@ export function PlanMap() {
       router.push({ pathname: '/stop/[id]', params: { id: String(msg.id) } });
     } else if (msg.type === 'trainTap') {
       setSelected(String(msg.id));
+      setFollow(false);
+    } else if (msg.type === 'unfollow') {
+      setFollow(false);
     }
   };
 
@@ -130,12 +136,14 @@ export function PlanMap() {
       type: 'trains',
       trains: JSON.parse(dotsKey),
       selected: pickedId,
+      follow: followId,
       glide: !reduceMotion,
     });
-  }, [mapReady, dotsKey, pickedId, reduceMotion]);
+  }, [mapReady, dotsKey, pickedId, followId, reduceMotion]);
 
   const toggleTrains = () => {
     setSelected(null);
+    setFollow(false);
     // Switched on: the whole network in view, from Guadalajara to Aranjuez and El Escorial.
     if (!trainsOn) post({ type: 'center', lat: MADRID.lat, lon: MADRID.lon, zoom: TRAINS_ZOOM });
     setPlanner({ liveTrains: !trainsOn });
@@ -258,7 +266,12 @@ export function PlanMap() {
         <TrainCard
           train={pickedShown}
           now={now}
-          onClose={() => setSelected(null)}
+          following={followId != null}
+          onFollow={() => setFollow(followId == null)}
+          onClose={() => {
+            setSelected(null);
+            setFollow(false);
+          }}
           onShowStops={showStops}
         />
       ) : status ? (

@@ -8,7 +8,7 @@
 //               | {type:'tracks', lines: [{color, dim, coords}]} (Live trains: the Cercanías
 //                 lines under the trains; [] hides them)
 //               | {type:'trains', trains: [{id, lon, lat, color, estimated, label}], selected,
-//                 glide} (Live trains: every train; each glides from where it is drawn)
+//                 follow (id the map keeps in the centre, or null), glide} (Live trains: every train; each glides from where it is drawn)
 //   map -> app: {type:'ready'} | {type:'moved', lat, lon, zoom} | {type:'stop', id}
 //               | {type:'trainTap', id}
 // Loading MapLibre from a CDN keeps it out of the app bundle and works in Expo Go.
@@ -88,7 +88,7 @@ export function mapHtml(
   map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
   var me = null, popup = null, routeMode = false, hint = document.getElementById('hint');
   var routeBounds = null, train = null, trainEl = null, trainAt = null, trainAnim = 0, trainFitted = false;
-  var trainsMode = false, trainsAt = {}, trainsAnim = 0;
+  var trainsMode = false, trainsAt = {}, trainsAnim = 0, followId = null;
 
   // Live trains: all of them glide together from where they are drawn to their new places.
   function showTrains(msg) {
@@ -97,6 +97,14 @@ export function mapHtml(
       return { t: t, from: trainsAt[t.id] || [t.lon, t.lat], to: [t.lon, t.lat] };
     });
     cancelAnimationFrame(trainsAnim);
+    var follow = msg.follow || null;
+    if (follow !== followId) {
+      followId = follow;
+      // Start of a follow: close enough to see the train and its track.
+      var f = follow && msg.trains.filter(function (t) { return t.id === follow; })[0];
+      if (f) map.jumpTo({ center: [f.lon, f.lat], zoom: Math.max(map.getZoom(), 13) }, { follow: true });
+      else moved();
+    }
     var start = performance.now(), dur = msg.glide ? 900 : 0;
     var frame = function (now) {
       var k = dur ? Math.min(1, (now - start) / dur) : 1;
@@ -109,6 +117,8 @@ export function mapHtml(
             sel: i.t.id === msg.selected } };
       }) });
       trainsAt = at;
+      // Following a train: the map keeps it in the centre (zoom and rotation stay as they are).
+      if (followId && at[followId]) map.jumpTo({ center: at[followId] }, { follow: true });
       if (k < 1) trainsAnim = requestAnimationFrame(frame);
     };
     trainsAnim = requestAnimationFrame(frame);
@@ -243,7 +253,10 @@ export function mapHtml(
     hint.style.display = !routeMode && !trainsMode && z < ${STOPS_MIN_ZOOM} ? 'block' : 'none';
     send({ type: 'moved', lat: c.lat, lon: c.lng, zoom: z });
   }
-  map.on('moveend', moved);
+  // Moves made to follow a train do not reload the stops every second.
+  map.on('moveend', function (e) { if (!e.follow) moved(); });
+  // Dragging the map by hand ends the follow.
+  map.on('dragstart', function () { if (followId) { followId = null; send({ type: 'unfollow' }); } });
 
   window.madridgoMap = function (msg) {
     if (msg.type === 'center') {
