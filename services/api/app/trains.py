@@ -268,14 +268,16 @@ class NetworkCache:
     def __init__(self) -> None:
         self.network: Network | None = None
         self.loaded_at = 0.0
-        self.failed_at = 0.0
+        # None until a read fails. (0.0 would count as "just failed" on a machine that booted
+        # less than NETWORK_RETRY_S ago, since time.monotonic() starts at boot.)
+        self.failed_at: float | None = None
         self.lock = asyncio.Lock()
 
     async def get(self, otp: OtpClient) -> Network | None:
         clock = time.monotonic()
         if self.network and clock - self.loaded_at < NETWORK_TTL_S:
             return self.network
-        if clock - self.failed_at < NETWORK_RETRY_S:
+        if self.failed_at is not None and clock - self.failed_at < NETWORK_RETRY_S:
             return self.network  # the old one (or none) until the next try
         async with self.lock:
             if self.network and time.monotonic() - self.loaded_at < NETWORK_TTL_S:
