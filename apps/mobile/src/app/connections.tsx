@@ -5,6 +5,7 @@
 
 import { router } from 'expo-router';
 
+import { SaveRouteButton } from '../components/commute';
 import { ConnectionList } from '../components/connectionList';
 import { BrandHeader, EmptyState, Screen } from '../components/layout';
 import { PlannerCard } from '../components/planner';
@@ -43,16 +44,19 @@ export default function ConnectionsScreen() {
           exclude={other}
         />
       ) : from && to ? (
-        // Keyed so "Earlier/Later" reset when the search changes.
-        <ConnectionList
-          key={`${placeKey(from)}|${placeKey(to)}|${when}|${arriveBy}|${sort}|${avoid.join(',')}`}
-          from={from}
-          to={to}
-          when={when}
-          arriveBy={arriveBy}
-          sort={sort}
-          avoid={avoid}
-        />
+        <>
+          <SaveRouteButton from={from} to={to} />
+          {/* Keyed so "Earlier/Later" reset when the search changes. */}
+          <ConnectionList
+            key={`${placeKey(from)}|${placeKey(to)}|${when}|${arriveBy}|${sort}|${avoid.join(',')}`}
+            from={from}
+            to={to}
+            when={when}
+            arriveBy={arriveBy}
+            sort={sort}
+            avoid={avoid}
+          />
+        </>
       ) : (
         <EmptyState icon="map-marker-path" title={t('conns.choose')} />
       )}
