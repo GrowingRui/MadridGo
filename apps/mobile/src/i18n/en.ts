@@ -179,6 +179,7 @@ export const en = {
   'commute.loading': 'Looking for departures…',
   'commute.none': 'No departures found for this route right now.',
   'commute.more': 'More connections',
+  'commute.full': 'You can keep up to {n} routes. Remove one in Trips to save this one.',
 
   // Step-by-step trip guide (Trips tab)
   'steps.title': 'Step by step',
