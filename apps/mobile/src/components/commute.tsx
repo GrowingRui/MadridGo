@@ -6,7 +6,7 @@
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { planJourneys } from '../api/journeys';
@@ -16,6 +16,7 @@ import {
   type Commute,
   addCommute,
   canSaveRoute,
+  MAX_COMMUTES,
   isRouteSaved,
   removeCommute,
   swapCommute,
@@ -170,14 +171,16 @@ function IconButton({
 export function SaveRouteButton({ from, to }: { from: Place | null; to: Place | null }) {
   const { t } = useT();
   const { commutes } = useCommutes();
+  const [full, setFull] = useState(false);
   if (!from || !to || !canSaveRoute(from, to)) return null;
   const saved = isRouteSaved(from, to, commutes);
   const press = () => {
     if (saved) router.navigate('/trips');
-    else addCommute(from, to);
+    else setFull(addCommute(from, to) === 'full');
   };
   return (
-    <Pressable
+    <View>
+      <Pressable
       onPress={press}
       accessibilityRole="button"
       accessibilityLabel={saved ? t('commute.savedGo') : t('commute.save')}
@@ -191,7 +194,13 @@ export function SaveRouteButton({ from, to }: { from: Place | null; to: Place | 
         color={colors.brand}
       />
       <Text style={styles.saveText}>{saved ? t('commute.savedGo') : t('commute.save')}</Text>
-    </Pressable>
+      </Pressable>
+      {full && !saved ? (
+        <Text style={styles.full} accessibilityRole="alert">
+          {t('commute.full', { n: MAX_COMMUTES })}
+        </Text>
+      ) : null}
+    </View>
   );
 }
 
@@ -246,6 +255,7 @@ const styles = themed(() =>
       borderWidth: 1,
       borderColor: colors.border,
     },
+    full: { ...type.small, color: colors.warning, marginHorizontal: space.lg, marginTop: space.xs },
     saveText: { ...type.bodyStrong, color: colors.brand },
   }),
 );
