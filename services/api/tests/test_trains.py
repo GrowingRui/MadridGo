@@ -6,11 +6,13 @@ tests/test_trips.py does. No docker needed.
 
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app import trains
 from app.main import app
 from app.otp import OtpUnavailable, get_otp
 from app.realtime.models import TripRealtime
@@ -280,3 +282,14 @@ def test_lines_without_otp_come_without_tracks(client: TestClient, otp: FakeOtp)
     assert all(x["paths"] == [] for x in body["lines"])
     client.get("/trains/lines")
     assert otp.calls == 1  # not asked again at once after a failure
+
+
+def test_tracks_are_read_on_a_machine_that_has_just_booted(
+    client: TestClient, otp: FakeOtp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """time.monotonic() counts from boot: a fresh CI runner or server must not count as "OTP
+    failed a moment ago" (found 2026-11-20: three tests failed only on a new runner)."""
+    monkeypatch.setattr(trains, "time", SimpleNamespace(monotonic=lambda: 5.0))
+    body = client.get("/trains/lines").json()
+    assert body["available"] is True
+    assert otp.calls == 1
