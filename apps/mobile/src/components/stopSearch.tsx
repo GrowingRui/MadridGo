@@ -11,7 +11,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { PLACE_MIN_CHARS, type PlaceResult, placeIcon, searchPlaces } from '../api/places';
 import { type StopSummary, bestTime, nearbyStops, searchStops, stopBoard } from '../api/stops';
-import { useAsync, useDebounced } from '../hooks';
+import { useAsync, useDebounced, useNow } from '../hooks';
 import { t, useT } from '../i18n';
 import { type SavedStop, isFavorite, toSaved, toggleFavorite, useSaved } from '../state/saved';
 import { colors, space, themed, type } from '../theme';
@@ -340,6 +340,7 @@ interface Next {
 function NextUp({ stopId }: { stopId: string }) {
   const { t } = useT();
   const board = useAsync(() => stopBoard(stopId, 60), stopId);
+  const now = useNow();
   if (board.error) return <Text style={styles.nextHint}>{t('nearby.nextFail')}</Text>;
   if (!board.data) return <Text style={styles.nextHint}>…</Text>;
   const b = board.data;
@@ -353,7 +354,7 @@ function NextUp({ stopId }: { stopId: string }) {
       .filter((a) => a.time)
       .map((a, i) => ({ key: `l:${a.line.route_id}:${i}`, line: a.line, at: a.time as string })),
   ]
-    .filter((n) => Date.parse(n.at) > Date.now() - 60_000)
+    .filter((n) => Date.parse(n.at) > now - 60_000)
     .sort((a, c) => Date.parse(a.at) - Date.parse(c.at))
     .slice(0, 3);
   const freq = timed.length ? [] : b.frequencies.slice(0, 2);
@@ -364,7 +365,7 @@ function NextUp({ stopId }: { stopId: string }) {
       {timed.map((n) => (
         <View key={n.key} style={styles.nextItem}>
           <LinePill line={n.line} size="sm" />
-          <Text style={styles.nextTime}>{countdownShort(n.at) ?? ''}</Text>
+          <Text style={styles.nextTime}>{countdownShort(n.at, now) ?? ''}</Text>
         </View>
       ))}
       {freq.map((f, i) => (
