@@ -10,14 +10,16 @@ import { Fragment, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { PLACE_MIN_CHARS, type PlaceResult, placeIcon, searchPlaces } from '../api/places';
-import { type StopSummary, nearbyStops, searchStops } from '../api/stops';
-import { useAsync, useDebounced } from '../hooks';
+import { type StopSummary, bestTime, nearbyStops, searchStops, stopBoard } from '../api/stops';
+import { useAsync, useDebounced, useNow } from '../hooks';
 import { t, useT } from '../i18n';
 import { type SavedStop, isFavorite, toSaved, toggleFavorite, useSaved } from '../state/saved';
 import { colors, space, themed, type } from '../theme';
 import { LocationError, type Point, getCurrentPoint } from '../utils/location';
+import { countdownShort } from '../utils/time';
 import { Card, Divider, EmptyState, ErrorState, Loading, SectionTitle } from './layout';
 import { StarButton, StopRow } from './stops';
+import { LinePill } from './transit';
 
 const detail = (s: StopSummary) =>
   [
@@ -312,11 +314,67 @@ export function NearbyStops({
                   />
                 }
               />
+              {i < NEXT_LIMIT ? <NextUp stopId={s.id} /> : null}
             </View>
           ))}
         </Card>
       )}
     </>
+  );
+}
+
+/** Only the nearest stops fetch a board, so a crowded area does not fire dozens of requests. */
+const NEXT_LIMIT = 6;
+
+interface Next {
+  key: string;
+  line: StopSummary['lines'][number];
+  at: string;
+}
+
+/**
+ * The next few departures at a nearby stop, as line pills with minutes away (live times when
+ * known). Metro and EMT lines with no exact times show their frequency instead. Fails quietly:
+ * the stop row above still works.
+ */
+function NextUp({ stopId }: { stopId: string }) {
+  const { t } = useT();
+  const board = useAsync(() => stopBoard(stopId, 60), stopId);
+  const now = useNow();
+  if (board.error) return <Text style={styles.nextHint}>{t('nearby.nextFail')}</Text>;
+  if (!board.data) return <Text style={styles.nextHint}>…</Text>;
+  const b = board.data;
+  const timed: Next[] = [
+    ...b.departures.filter((d) => d.status !== 'cancelled').map((d) => ({
+      key: `d:${d.trip_id}`,
+      line: d.line,
+      at: bestTime(d),
+    })),
+    ...b.live_arrivals
+      .filter((a) => a.time)
+      .map((a, i) => ({ key: `l:${a.line.route_id}:${i}`, line: a.line, at: a.time as string })),
+  ]
+    .filter((n) => Date.parse(n.at) > now - 60_000)
+    .sort((a, c) => Date.parse(a.at) - Date.parse(c.at))
+    .slice(0, 3);
+  const freq = timed.length ? [] : b.frequencies.slice(0, 2);
+  if (!timed.length && !freq.length)
+    return <Text style={styles.nextHint}>{t('nearby.nextNone')}</Text>;
+  return (
+    <View style={styles.next}>
+      {timed.map((n) => (
+        <View key={n.key} style={styles.nextItem}>
+          <LinePill line={n.line} size="sm" />
+          <Text style={styles.nextTime}>{countdownShort(n.at, now) ?? ''}</Text>
+        </View>
+      ))}
+      {freq.map((f, i) => (
+        <View key={`f${i}`} style={styles.nextItem}>
+          <LinePill line={f.line} size="sm" />
+          <Text style={styles.nextTime}>{t('nearby.nextFreq', { n: f.headway_min })}</Text>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -334,6 +392,23 @@ function DropdownGroup({ children, first }: { children: React.ReactNode; first?:
 }
 
 const styles = themed(() => StyleSheet.create({
+  next: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: space.md,
+    paddingLeft: 56,
+    paddingRight: space.lg,
+    paddingBottom: space.md,
+  },
+  nextItem: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  nextTime: { ...type.smallStrong, color: colors.live },
+  nextHint: {
+    ...type.small,
+    color: colors.textFaint,
+    paddingLeft: 56,
+    paddingRight: space.lg,
+    paddingBottom: space.md,
+  },
   hint: { ...type.small, color: colors.textMuted, padding: space.lg },
   credit: {
     ...type.small,
