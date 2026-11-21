@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from app.config import Settings, get_settings
 from app.dbpool import get_pool
 from app.disruptions import LineLookup, fallback_line, get_line_lookup
-from app.realtime import accuracy, board, emt, renfe
+from app.realtime import accuracy, board, emt, renfe, usual
 from app.realtime.models import Freshness, ServiceAlert
 from app.realtime.resilience import UpstreamStatus
 from app.realtime.service import Realtime, crtm_realtime_enabled, get_realtime, now_utc
@@ -240,3 +240,68 @@ async def live_accuracy(
         del _accuracy_cache[key]
     _accuracy_cache[(last, days)] = (time.monotonic() + ACCURACY_TTL_S, out)
     return out
+
+
+class PunctualityEntry(BaseModel):
+    minutes: int  # median lateness, rounded; 0 or 1 = on time
+    often_minutes: int  # 80% of trains came within this
+    sample: int
+    days: int
+
+
+class LinePunctuality(BaseModel):
+    line: Line
+    overall: PunctualityEntry | None
+    # By time of the week (usual.Band); a band without enough data is left out.
+    bands: dict[str, PunctualityEntry]
+
+
+class PunctualityReport(BaseModel):
+    operator_name: str
+    generated_at: datetime
+    # False until usual.MIN_DAYS days of observations exist: no line is listed before that.
+    available: bool
+    min_days: int
+    lines: list[LinePunctuality]
+
+
+def _entry(f: usual.Figure) -> PunctualityEntry:
+    return PunctualityEntry(
+        minutes=round(f.median_s / 60),
+        often_minutes=round(f.often_s / 60),
+        sample=f.n,
+        days=f.days,
+    )
+
+
+@router.get("/punctuality", response_model=PunctualityReport)
+async def line_punctuality(
+    response: Response,
+    delays: Annotated[usual.UsualDelays, Depends(usual.get_usual_delays)],
+    lookup: Annotated[LineLookup, Depends(get_line_lookup)],
+) -> PunctualityReport:
+    """How late each Cercanías line usually is, overall and by time of the week: the figures
+    behind "Usually ~N min late" (app/realtime/usual.py), over the last 28 days."""
+    response.headers["Cache-Control"] = "public, max-age=600"
+    per_line = delays.lines()
+    known: dict[str, Line] = {}
+    for ln in await lookup.lines("cercanias", {n.upper() for n in per_line}, by="name"):
+        known.setdefault(ln.short_name.upper(), ln)  # Renfe has one route per direction
+    lines = sorted(
+        (
+            LinePunctuality(
+                line=known.get(name.upper()) or fallback_line("cercanias", name),
+                overall=_entry(overall) if overall else None,
+                bands={b: _entry(f) for b, f in bands.items()},
+            )
+            for name, (overall, bands) in per_line.items()
+        ),
+        key=lambda lp: line_sort_key(lp.line.short_name),
+    )
+    return PunctualityReport(
+        operator_name="Renfe Cercanías",
+        generated_at=now_utc(),
+        available=bool(lines),
+        min_days=usual.MIN_DAYS,
+        lines=lines,
+    )

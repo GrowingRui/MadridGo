@@ -136,6 +136,12 @@ export function Footer() {
           <Text
             style={styles.footerLink}
             accessibilityRole="link"
+            onPress={() => router.navigate('/punctuality')}>
+            {t('pun.title')}
+          </Text>
+          <Text
+            style={styles.footerLink}
+            accessibilityRole="link"
             onPress={() => router.navigate('/accuracy')}>
             {t('acc.title')}
           </Text>
