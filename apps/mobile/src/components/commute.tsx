@@ -22,9 +22,11 @@ import {
   useCommutes,
 } from '../state/commutes';
 import { journeyCache } from '../state/journeys';
+import { copySavedAt, planAsTimetable, withOfflineCopy } from '../state/offlineCopies';
 import { type Place, planPlace, startSearch } from '../state/planner';
 import { colors, radius, space, themed, type } from '../theme';
 import { Divider, SectionTitle } from './layout';
+import { OfflineLine } from './offline';
 import { ConnectionCard } from './planner';
 
 /** Departures shown per route. */
@@ -49,9 +51,15 @@ function CommuteCard({ commute, active }: { commute: Commute; active: boolean })
   const { t } = useT();
   const now = useNow(REFRESH_MS);
   const plan = useAsync(
-    () => planJourneys({ from: planPlace(commute.from), to: planPlace(commute.to), at: null }),
+    () =>
+      withOfflineCopy(
+        `commute:${commute.id}`,
+        () => planJourneys({ from: planPlace(commute.from), to: planPlace(commute.to), at: null }),
+        planAsTimetable,
+      ),
     commute.id,
   );
+  const savedAt = copySavedAt(plan.data);
   // Asks again when the tab comes to the front and every minute while it is (not on mount:
   // useAsync has just asked).
   const { reload } = plan;
@@ -94,6 +102,12 @@ function CommuteCard({ commute, active }: { commute: Commute; active: boolean })
           onPress={() => removeCommute(commute.id)}
         />
       </View>
+      {savedAt ? (
+        <>
+          <Divider />
+          <OfflineLine savedAt={savedAt} />
+        </>
+      ) : null}
       {journeys.length ? (
         journeys.map((j) => (
           <View key={j.id}>

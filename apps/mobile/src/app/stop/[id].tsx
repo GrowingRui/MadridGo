@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { BoardKind, DataNotice, SourceStatus } from '../../api/stops';
-import { bestTime, boardRows, expiredNotice, hasArrivals, stopBoard } from '../../api/stops';
+import { bestTime, boardRows, expiredNotice, hasArrivals, stopBoardWithCopy } from '../../api/stops';
 import {
   BrandHeader,
   Card,
@@ -29,12 +29,14 @@ import { addRecent, isFavorite, toSaved, toggleFavorite, useSaved } from '../../
 import { colors, radius, space, themed, type } from '../../theme';
 import { formatIsoDate, formatTime } from '../../utils/time';
 import { AccessLine } from '../../components/access';
+import { OfflineNotice } from '../../components/offline';
+import { copySavedAt } from '../../state/offlineCopies';
 
 export default function StopBoardScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useT();
   const [kind, setKind] = useState<BoardKind>('departures');
-  const board = useAsync(() => stopBoard(id, 90, kind), `${id}|${kind}`);
+  const board = useAsync(() => stopBoardWithCopy(id, 90, kind), `${id}|${kind}`);
   const saved = useSaved();
   const now = useNow();
   const stop = board.data?.stop;
@@ -129,6 +131,7 @@ export default function StopBoardScreen() {
         <Loading label={t(arrivals ? 'arr.loading' : 'board.loading')} />
       ) : (
         <>
+          {copySavedAt(current) ? <OfflineNotice savedAt={copySavedAt(current) as number} /> : null}
           <AccessLine
             ok={current.step_free}
             yes={t('access.stationBoard')}

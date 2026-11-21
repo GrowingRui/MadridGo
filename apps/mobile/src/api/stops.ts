@@ -1,5 +1,6 @@
 // Types and calls for the backend's stop endpoints (services/api/app/stops.py).
 
+import { boardAsTimetable, withOfflineCopy } from '../state/offlineCopies';
 import { getJson } from './client';
 
 export type Mode = 'rail' | 'metro' | 'light_rail' | 'bus';
@@ -213,6 +214,10 @@ export const nearbyStops = (lat: number, lon: number, radius_m = 600, limit?: nu
 
 export const stopBoard = (stopId: string, minutes = 90, kind: BoardKind = 'departures') =>
   getJson<StopBoard>(`/stops/${encodeURIComponent(stopId)}/${kind}`, { minutes, limit: 60 });
+
+/** A stop's own board screen: the last good board is kept to show when there is no connection. */
+export const stopBoardWithCopy = (stopId: string, minutes = 90, kind: BoardKind = 'departures') =>
+  withOfflineCopy(`board:${stopId}:${kind}`, () => stopBoard(stopId, minutes, kind), boardAsTimetable);
 
 /**
  * A timetable that has run out: an empty board then means
