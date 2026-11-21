@@ -150,6 +150,18 @@ export default function MoreScreen() {
         </Pressable>
         <Divider inset={space.lg} />
         <Pressable
+          onPress={() => router.push('/punctuality')}
+          accessibilityRole="link"
+          style={({ pressed, hovered }: PressState) => [
+            styles.row,
+            (pressed || hovered) && { backgroundColor: colors.pressed },
+          ]}>
+          <MaterialCommunityIcons name="clock-check-outline" size={20} color={colors.brand} />
+          <Text style={[styles.title, { flex: 1 }]}>{t('pun.link')}</Text>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textFaint} />
+        </Pressable>
+        <Divider inset={space.lg} />
+        <Pressable
           onPress={() => router.push('/accuracy')}
           accessibilityRole="link"
           style={({ pressed, hovered }: PressState) => [

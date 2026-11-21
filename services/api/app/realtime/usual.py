@@ -132,6 +132,20 @@ class UsualDelays:
     def of(cls, figs: list[Figure]) -> "UsualDelays":
         return cls({(f.line, f.stop_id, f.band): f for f in figs})
 
+    def lines(self) -> dict[str, tuple[Figure | None, dict[str, Figure]]]:
+        """Per line: the figure for the whole line at any time, and for each time of the week
+        (the "line" and "line_time" levels), for the punctuality page."""
+        out: dict[str, tuple[Figure | None, dict[str, Figure]]] = {}
+        for (line, stop, band), f in sorted(self.by_key.items()):
+            if stop != ALL:
+                continue
+            overall, bands = out.setdefault(line, (None, {}))
+            if band == ALL:
+                out[line] = (f, bands)
+            else:
+                bands[band] = f
+        return out
+
     def lookup(self, line: str | None, stop_id: str | None, at: datetime) -> UsualDelay | None:
         """The most detailed figure for a train of `line` due at `stop_id` at `at`."""
         if not line or not self.by_key:
