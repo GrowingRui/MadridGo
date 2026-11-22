@@ -70,3 +70,36 @@ export function linesRunning(trains: LiveTrain[], nowMs: number, order: string[]
 export function standing(train: LiveTrain, nowMs: number): boolean {
   return train.status === 'at_stop' && !shownProgress(train, nowMs);
 }
+
+export interface StationTrain {
+  train: LiveTrain;
+  /** at: standing at the station; arriving: its next station is this one. */
+  state: 'at' | 'arriving';
+  /** Predicted (or estimated) arrival; null when standing at the station. */
+  at: string | null;
+  estimated: boolean;
+}
+
+/** Longest wait shown: a train further away than this is not "approaching". */
+const APPROACH_MAX_MS = 30 * 60_000;
+
+/**
+ * The trains standing at a station or heading for it as their next stop, soonest first.
+ * Only recent positions count (isShown); trains with no arrival time are left out.
+ */
+export function trainsAtStation(trains: LiveTrain[], stopId: string, nowMs: number): StationTrain[] {
+  const out: StationTrain[] = [];
+  for (const train of trains) {
+    if (!isShown(train, nowMs)) continue;
+    const estimated = train.kind === 'estimated';
+    if (train.status === 'at_stop' && train.last_stop?.stop_id === stopId) {
+      out.push({ train, state: 'at', at: null, estimated });
+    } else if (train.status === 'between' && train.next_stop?.stop_id === stopId) {
+      const due = train.expected_at_next ? Date.parse(train.expected_at_next) : NaN;
+      if (Number.isNaN(due) || due < nowMs - 60_000 || due - nowMs > APPROACH_MAX_MS) continue;
+      out.push({ train, state: 'arriving', at: train.expected_at_next!, estimated });
+    }
+  }
+  const key = (s: StationTrain) => (s.at ? Date.parse(s.at) : 0);
+  return out.sort((a, b) => key(a) - key(b));
+}

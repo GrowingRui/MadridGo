@@ -1,6 +1,13 @@
 import type { Line } from '../api/stops';
 import type { LiveTrain } from '../api/trains';
-import { DEFAULT_TRAIN_COLOR, linesRunning, mergeTrains, standing, trainDots } from './liveTrains';
+import {
+  DEFAULT_TRAIN_COLOR,
+  linesRunning,
+  mergeTrains,
+  standing,
+  trainDots,
+  trainsAtStation,
+} from './liveTrains';
 
 const T0 = Date.parse('2026-11-16T20:00:00Z');
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -109,5 +116,28 @@ describe('standing at a station', () => {
   it('a live train at_stop stands; one between stations does not', () => {
     expect(standing(train({ status: 'at_stop', progress: 0 }), T0)).toBe(true);
     expect(standing(train({}), T0)).toBe(false);
+  });
+});
+
+describe('trainsAtStation', () => {
+  const now = T0;
+  const base = { last_stop: stop(1, 0, 0), next_stop: stop(2, 0, 0.1), observed_at: iso(now - 10_000) };
+  it('lists trains heading for the station, soonest first, and trains standing at it', () => {
+    const trains = [
+      train({ ...base, trip_id: 'a', expected_at_next: iso(now + 9 * 60_000) }),
+      train({ ...base, trip_id: 'b', expected_at_next: iso(now + 3 * 60_000) }),
+      train({ ...base, trip_id: 'c', status: 'at_stop', last_stop: stop(2, 0, 0.1), next_stop: stop(3, 0, 0.2) }),
+    ];
+    const r = trainsAtStation(trains, 'renfe:2', now);
+    expect(r.map((s) => s.train.trip_id)).toEqual(['c', 'b', 'a']);
+    expect(r[0].state).toBe('at');
+  });
+  it('leaves out trains for other stations, too far away, or already past', () => {
+    const trains = [
+      train({ ...base, trip_id: 'far', expected_at_next: iso(now + 45 * 60_000) }),
+      train({ ...base, trip_id: 'gone', expected_at_next: iso(now - 5 * 60_000) }),
+      train({ ...base, trip_id: 'other', next_stop: stop(9, 0, 0.1), expected_at_next: iso(now + 60_000) }),
+    ];
+    expect(trainsAtStation(trains, 'renfe:2', now)).toEqual([]);
   });
 });
