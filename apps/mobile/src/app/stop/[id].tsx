@@ -29,6 +29,7 @@ import { addRecent, isFavorite, toSaved, toggleFavorite, useSaved } from '../../
 import { colors, radius, space, themed, type } from '../../theme';
 import { formatIsoDate, formatTime } from '../../utils/time';
 import { AccessLine } from '../../components/access';
+import { TrainsNow } from '../../components/trainsNow';
 import { OfflineNotice } from '../../components/offline';
 import { copySavedAt } from '../../state/offlineCopies';
 
@@ -181,6 +182,8 @@ export default function StopBoardScreen() {
               </Card>
             </>
           ) : null}
+
+          {!arrivals && stop?.id.startsWith('renfe:') ? <TrainsNow stopId={stop.id} /> : null}
 
           {liveArrivals.length ? (
             <>
