@@ -3,7 +3,7 @@
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { DisruptionsButton } from '../../components/disruptions';
@@ -13,13 +13,24 @@ import { useIsWide } from '../../hooks';
 import { useT } from '../../i18n';
 import { type SavedStop, addRecent, clearRecents, useSaved } from '../../state/saved';
 import { colors, radius, space, themed, type } from '../../theme';
-import type { Point } from '../../utils/location';
+import { type Point, getPointIfAllowed } from '../../utils/location';
 
 export default function DeparturesScreen() {
   const saved = useSaved();
   const { t } = useT();
   const isWide = useIsWide(); // the website links the page from its top navigation
   const [near, setNear] = useState<Point | null>(null);
+  // Opening the tab finds the stops near you when location access was already allowed (never
+  // asks by itself; otherwise the "Current location" row is still there to tap).
+  useEffect(() => {
+    let live = true;
+    getPointIfAllowed().then((p) => {
+      if (live && p) setNear((cur) => cur ?? p);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
   const open = (s: SavedStop) => {
     addRecent(s);
     router.push({ pathname: '/stop/[id]', params: { id: s.id } });

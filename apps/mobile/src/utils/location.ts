@@ -25,6 +25,20 @@ export function inMadridArea({ lat, lon }: Point): boolean {
 /** A recent fix is good enough for finding stops; a fresh one is asked for otherwise. */
 const MAX_AGE_MS = 60_000;
 
+/**
+ * The position only if location access was already granted earlier: never shows a permission
+ * prompt, so it is safe to call when a screen opens. Null when not granted, outside the Madrid
+ * area, or no fix.
+ */
+export async function getPointIfAllowed(): Promise<Point | null> {
+  try {
+    if (!(await Location.getForegroundPermissionsAsync()).granted) return null;
+    return await getCurrentPoint();
+  } catch {
+    return null;
+  }
+}
+
 export async function getCurrentPoint(): Promise<Point> {
   let granted = false;
   try {
