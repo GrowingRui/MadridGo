@@ -151,8 +151,8 @@
     1. **Offline mode** (chosen to start first): keep the saved routes, starred stops and the last timetable answers on the device so they open without signal (Metro tunnels). Labelled as saved, with the time they were fetched; live data is never shown from the cache as if it were current.
     2. **Reliability badge per line:** "this line is usually X min late at this hour" from the accuracy sampling; possible from 2026-11-22 (7 days of data). Extends "Usually ~N min late".
     3. **Departure alerts:** a notification such as "leave in 5 min" or "your train is delayed" for My routes (needs a service worker; on iPhone the app must be installed to the home screen; real-phone test).
-    4. **Arrive-by planning:** enter the arrival time, get the latest departure that still works (reuses the connection search).
-    5. **Auto-locate on Departures:** load nearby stops when the tab opens instead of waiting for the tap (small).
+    4. **Already built (found 2026-11-22):** **Arrive-by planning:** enter the arrival time, get the latest departure that still works (reuses the connection search).
+    5. **Built 2026-11-22:** **Auto-locate on Departures** (`getPointIfAllowed` in `utils/location.ts`; only when location access was already granted, never prompts by itself): load nearby stops when the tab opens instead of waiting for the tap (small).
     6. **Station facilities:** lifts, escalators and exits, extending the wheelchair icons.
     7. **Fare and zone info** per trip (see "to decide" below) and **journey history** with simple punctuality stats for the user's usual routes.
   - Then to decide: **fare per connection** (Madrid zone fares are rule-based; check it can be shown without being wrong), **BiciMAD** through the EMT MobilityLabs account (and check whether EMT exposes bus occupancy), **trains approaching a station** (a "Trains now" section on a station board, reusing `GET /trains/live`).
