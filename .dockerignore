@@ -1,0 +1,12 @@
+# Keep the Docker build context small (infra/caddy/Dockerfile builds from the repo root).
+**/node_modules
+**/.expo
+**/dist
+**/.venv
+**/__pycache__
+data
+.git
+apps/mobile/ios
+apps/mobile/android
+.env
+.env.*

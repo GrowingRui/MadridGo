@@ -33,14 +33,14 @@ Repeat both before every release. Phase 7 adds them to CI.
 | # | Severity | Finding | Fix |
 |---|---|---|---|
 | 1 | **High** (fixed in code 2026-11-23) | **Access logs contain location.** uvicorn logs every request with its full URL, so `GET /stops/nearby?lat=40.42&lon=-3.70` is written to the log with the client's IP address (confirmed 2026-11-22). That is personal data the privacy policy must not claim to avoid. | Switch off uvicorn's access log in production (`--no-access-log`) and log only method, path without query, status and duration from our own middleware; the same for Caddy's log (drop the query string and truncate IPs). Keep logs 14 days at most. |
-| 2 | Medium | **No rate limiting.** Anyone can hammer `/stops/search`, `/places/search` (which calls CartoCiudad) or `/trains/live` (which reads OTP). | Rate limit per IP at the reverse proxy (Caddy) and a small per-IP limit on the places search; cache `/trains/live` for a few seconds server-side. |
-| 3 | Medium | **API port is published on all interfaces** (`api` service, for phones on the LAN in development). | In production compose, publish nothing: only Caddy (TLS) is reachable. Use `127.0.0.1` binding or no `ports:`. |
+| 2 | Medium (fixed 2026-11-23) | **No rate limiting.** Anyone can hammer `/stops/search`, `/places/search` (which calls CartoCiudad) or `/trains/live` (which reads OTP). | Rate limit per IP at the reverse proxy (Caddy) and a small per-IP limit on the places search; cache `/trains/live` for a few seconds server-side. |
+| 3 | Medium (fixed 2026-11-23) | **API port is published on all interfaces** (`api` service, for phones on the LAN in development). | In production compose, publish nothing: only Caddy (TLS) is reachable. Use `127.0.0.1` binding or no `ports:`. |
 | 4 | Medium (fixed 2026-11-23) | **Map library loaded from unpkg.com without Subresource Integrity** (`mapHtml.ts`). If unpkg were compromised the map page could run foreign code. | Add an `integrity` hash for the pinned version (5.24.0), or bundle the library with the app. |
-| 5 | Low | **CORS** defaults to the Expo dev server and allows any request header. | Production: set `MADRIDGO_CORS_ORIGINS` to the real web origin only. |
+| 5 | Low (fixed 2026-11-23) | **CORS** defaults to the Expo dev server and allows any request header. | Production: set `MADRIDGO_CORS_ORIGINS` to the real web origin only. |
 | 6 | Low (fixed in code 2026-11-23) | `/health` reports the PostGIS version and `/docs` is public. | Production: serve `/health` details only to the monitor, or drop the detail string; disable `/docs` and `/openapi.json`. |
-| 7 | Low | No security headers on the web build. | Caddy: `Strict-Transport-Security`, `X-Content-Type-Options`, `Referrer-Policy`, and a Content-Security-Policy that allows the tile and geocoder hosts. |
+| 7 | Low (fixed 2026-11-23) | No security headers on the web build. | Caddy: `Strict-Transport-Security`, `X-Content-Type-Options`, `Referrer-Policy`, and a Content-Security-Policy that allows the tile and geocoder hosts. |
 | 8 | Low (fixed 2026-11-23) | No dependency audit in CI. | Add `pip-audit` and `npm audit --omit=dev` to the GitHub workflow (fail on high). |
-| 9 | Info | Backups, uptime monitoring and log retention do not exist yet. | Phase 7 (VPS): nightly Postgres dump off the server, uptime check on `/health`, logs kept 14 days at most. |
+| 9 | Info (partly fixed 2026-11-23) | Backups, uptime monitoring and log retention do not exist yet. | Phase 7 (VPS): nightly Postgres dump off the server, uptime check on `/health`, logs kept 14 days at most. |
 
 ## Status of the fixes (2026-11-23)
 
@@ -54,7 +54,16 @@ Repeat both before every release. Phase 7 adds them to CI.
 - **#6** With `MADRIDGO_ENVIRONMENT=production` `/docs`, `/redoc` and `/openapi.json` answer 404 and
   `/health` no longer reports the PostGIS version.
 - **#8** CI runs `pip-audit --skip-editable` and `npm audit --omit=dev --audit-level=high`.
-- Open (production setup): #2, #3, #5, #7, #9 and the Caddy half of #1.
+- **Production setup (same day, `infra/docker-compose.prod.yml`, `infra/caddy/`, docs/DEPLOYMENT.md):**
+  #1 Caddy's log has no query string, IPs cut to /16 or /32, no headers, 14 days; #2 per-address
+  rate limits in Caddy (429 + `Retry-After`) and `/trains/live` reused for 5 s; #3 only Caddy
+  publishes ports; #5 CORS: the site's origin only, header `Accept-Language` only; #7 HSTS, CSP,
+  `nosniff`, `Referrer-Policy`, `Permissions-Policy`; #9 nightly dumps (7 kept, restore tested) and
+  container restarts. All tried on the development PC with `MADRIDGO_DOMAIN=localhost`.
+- Still open: copying dumps off the server, the external uptime monitor and server-side feed
+  refresh (with the hosting choice), and checking on the real server that Caddy sees client
+  addresses (DEPLOYMENT.md, step 5). The website's CSP needs `'unsafe-inline'` scripts for the
+  map's srcdoc page.
 
 ## Privacy-relevant data flows (for the privacy policy)
 

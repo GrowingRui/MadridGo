@@ -1,0 +1,155 @@
+# MadridGo production stack (docs/DEPLOYMENT.md). Only Caddy is reachable from outside
+# (ports 80 and 443); the API, database, Redis and OTP listen on the internal network only.
+#   docker compose -f infra/docker-compose.prod.yml --env-file .env.production up -d --build
+name: madridgo
+
+x-logging: &logging
+  # Container logs (stdout/stderr) are capped at 3 x 10 MB per service.
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-db-url: &db-url postgresql://${POSTGRES_USER:-madridgo}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-madridgo}
+
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-madridgo}
+      POSTGRES_USER: ${POSTGRES_USER:-madridgo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+    logging: *logging
+
+  api:
+    build: ../services/api
+    restart: unless-stopped
+    environment:
+      MADRIDGO_ENVIRONMENT: production
+      MADRIDGO_DATABASE_URL: *db-url
+      MADRIDGO_REDIS_URL: redis://redis:6379/0
+      # Only the website may call the API from a browser (the apps are not browsers).
+      MADRIDGO_CORS_ORIGINS: ${MADRIDGO_SITE_ORIGIN:-https://${MADRIDGO_DOMAIN:?set MADRIDGO_DOMAIN}}
+      MADRIDGO_OTP_URL: http://otp:8080
+      EMT_CLIENT_ID: ${EMT_CLIENT_ID:-}
+      EMT_PASS_KEY: ${EMT_PASS_KEY:-}
+    # No ports: reached through Caddy only (SECURITY_REVIEW.md #3).
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/feeds', timeout=5)"]
+      interval: 30s
+      timeout: 6s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging: *logging
+
+  realtime:
+    build: ../services/api
+    restart: unless-stopped
+    command: ["python", "-m", "app.realtime", "run"]
+    environment:
+      MADRIDGO_ENVIRONMENT: production
+      MADRIDGO_DATABASE_URL: *db-url
+      MADRIDGO_REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging: *logging
+
+  otp:
+    image: opentripplanner/opentripplanner:2.10.0
+    restart: unless-stopped
+    command: ["--load", "--serve"]
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx${OTP_HEAP:-3g}"
+    volumes: &otp-volumes
+      - ../data/otp:/var/opentripplanner
+      - ./otp/build-config.json:/var/opentripplanner/build-config.json:ro
+      - ./otp/router-config.json:/var/opentripplanner/router-config.json:ro
+      - ./otp/otp-config.json:/var/opentripplanner/otp-config.json:ro
+    logging: *logging
+
+  # Graph build, run by hand or by the feed refresh: ... --profile otp-build run --rm otp-build
+  otp-build:
+    image: opentripplanner/opentripplanner:2.10.0
+    profiles: ["otp-build"]
+    command: ["--build", "--save"]
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx${OTP_BUILD_HEAP:-5g}"
+    volumes: *otp-volumes
+
+  caddy:
+    build:
+      context: ..
+      dockerfile: infra/caddy/Dockerfile
+      args:
+        EXPO_PUBLIC_API_URL: ${MADRIDGO_API_ORIGIN:-https://api.${MADRIDGO_DOMAIN}}
+    restart: unless-stopped
+    environment:
+      MADRIDGO_DOMAIN: ${MADRIDGO_DOMAIN}
+      MADRIDGO_API_ORIGIN: ${MADRIDGO_API_ORIGIN:-https://api.${MADRIDGO_DOMAIN}}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL (Let's Encrypt expiry notices)}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"   # HTTP/3
+    volumes:
+      - caddy-data:/data          # certificates: keep, or Let's Encrypt limits may be hit
+      - caddy-config:/config
+      - caddy-logs:/var/log/caddy
+    depends_on:
+      - api
+    logging: *logging
+
+  # Nightly database dump at 03:30 Madrid time, 7 kept (infra/backup/backup.sh). Copy the
+  # backups volume off the server as well (docs/DEPLOYMENT.md, "Backups").
+  backup:
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    environment:
+      TZ: Europe/Madrid
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-madridgo}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-madridgo}
+      BACKUP_KEEP: ${BACKUP_KEEP:-7}
+    volumes:
+      - ./backup/backup.sh:/backup.sh:ro
+      - backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *logging
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:
+  caddy-logs:
+  backups:

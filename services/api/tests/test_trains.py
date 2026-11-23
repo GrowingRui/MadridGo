@@ -19,11 +19,13 @@ from app.realtime.models import TripRealtime
 from app.realtime.service import get_realtime
 from app.stops import Line
 from app.trains import (
+    LiveCache,
     Network,
     NetworkCache,
     TrainInfo,
     build_network,
     decode_polyline,
+    get_live_cache,
     get_network_cache,
     get_train_timetable,
     line_order,
@@ -253,6 +255,8 @@ def client(otp: FakeOtp) -> Iterator[TestClient]:
     app.dependency_overrides[get_realtime] = lambda: realtime_with(snap)
     app.dependency_overrides[get_otp] = lambda: otp
     app.dependency_overrides[get_network_cache] = lambda: cache
+    live = LiveCache()
+    app.dependency_overrides[get_live_cache] = lambda: live
     yield TestClient(app)
     app.dependency_overrides.clear()
 
@@ -266,6 +270,25 @@ def test_live_endpoint(client: TestClient, otp: FakeOtp) -> None:
     assert f"cercanias:{C7_MOVING}" in ids or ids <= {f"cercanias:{t}" for t in TIMETABLE}
     client.get("/trains/live")
     assert otp.calls == 1  # the tracks are read from OTP once
+
+
+def test_live_answer_is_reused_for_a_few_seconds_per_language(client: TestClient) -> None:
+    rt = app.dependency_overrides[get_realtime]()
+    calls = 0
+    real = rt.renfe_snapshot
+
+    async def counting():  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        return await real()
+
+    rt.renfe_snapshot = counting  # type: ignore[method-assign]
+    app.dependency_overrides[get_realtime] = lambda: rt
+    first = client.get("/trains/live").json()
+    assert client.get("/trains/live").json() == first
+    assert calls == 1
+    client.get("/trains/live", headers={"Accept-Language": "es"})
+    assert calls == 2  # each language has its own answer
 
 
 def test_lines_endpoint_in_line_order(client: TestClient) -> None:

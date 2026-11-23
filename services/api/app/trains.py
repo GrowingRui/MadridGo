@@ -30,7 +30,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.dbpool import get_pool
-from app.i18n import tr
+from app.i18n import current_lang, tr
 from app.otp import OtpClient, OtpUnavailable, get_otp
 from app.realtime import renfe
 from app.realtime.board import renfe_freshness
@@ -300,6 +300,24 @@ def get_network_cache() -> NetworkCache:
     return _network
 
 
+# Renfe's feed changes every ~30 s; one answer per language is reused for this long so many
+# map viewers (or one client polling too fast) cost one computation (SECURITY_REVIEW.md #2).
+LIVE_TTL_S = 5.0
+
+
+class LiveCache:
+    def __init__(self) -> None:
+        self.answers: dict[str, tuple[float, LiveTrains]] = {}
+        self.lock = asyncio.Lock()
+
+
+_live = LiveCache()
+
+
+def get_live_cache() -> LiveCache:
+    return _live
+
+
 class TrainTimetable:
     """The timetable and line of many Cercanías trips at once (one query each)."""
 
@@ -422,9 +440,26 @@ async def trains_live(
     timetable: Annotated[TrainTimetable, Depends(get_train_timetable)],
     cache: Annotated[NetworkCache, Depends(get_network_cache)],
     otp: Annotated[OtpClient, Depends(get_otp)],
+    live: Annotated[LiveCache, Depends(get_live_cache)],
 ) -> LiveTrains:
     """Every Cercanías train on its way now, from Renfe's live data. Poll every
     `poll_after_s`; between answers the app moves each train as on the trip screen."""
+    lang = current_lang()
+    hit = live.answers.get(lang)
+    if hit and time.monotonic() - hit[0] < LIVE_TTL_S:
+        return hit[1]
+    async with live.lock:
+        hit = live.answers.get(lang)
+        if hit and time.monotonic() - hit[0] < LIVE_TTL_S:
+            return hit[1]
+        answer = await _trains_live(rt, timetable, cache, otp)
+        live.answers[lang] = (time.monotonic(), answer)
+        return answer
+
+
+async def _trains_live(
+    rt: Realtime, timetable: TrainTimetable, cache: NetworkCache, otp: OtpClient
+) -> LiveTrains:
     snap = await rt.renfe_snapshot()
     natives = sorted(set(snap.trips) | set(snap.vehicles)) if snap else []
     if not natives:

@@ -47,6 +47,11 @@ jobs:
       - run: ruff format --check .
       - run: mypy
       - run: pytest -q
+      - name: Production compose file is valid
+        working-directory: .
+        run: >-
+          MADRIDGO_DOMAIN=example.org ACME_EMAIL=ci@example.org POSTGRES_PASSWORD=x
+          docker compose -f infra/docker-compose.prod.yml config -q
       - name: Dependency audit (known vulnerabilities)
         run: |
           python -m pip install --upgrade pip pip-audit

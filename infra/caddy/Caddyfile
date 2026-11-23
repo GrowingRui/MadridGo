@@ -1,0 +1,100 @@
+# MadridGo production web server (docs/DEPLOYMENT.md).
+#   https://{$MADRIDGO_DOMAIN}       the website (Expo web export in /srv/site)
+#   https://api.{$MADRIDGO_DOMAIN}   the API (container api:8000; nothing else is published)
+# Certificates come from Let's Encrypt automatically. With MADRIDGO_DOMAIN=localhost Caddy
+# uses its own local CA instead (for trying the setup on a PC).
+
+{
+	email {$ACME_EMAIL}
+	order rate_limit before reverse_proxy
+}
+
+# Request logs without personal data (SECURITY_REVIEW.md #1): no query string (it can hold
+# coordinates), IP addresses cut to /16 (IPv4) or /32 (IPv6), no request or response headers.
+# Files roll at 10 MB and are deleted after 14 days.
+(private_log) {
+	log {
+		output file /var/log/caddy/{args[0]}.log {
+			roll_size 10MiB
+			roll_keep_for 336h
+		}
+		format filter {
+			request>uri regexp \?.*$ ""
+			request>remote_ip ip_mask 16 32
+			request>client_ip ip_mask 16 32
+			request>remote_port delete
+			request>headers delete
+			request>tls delete
+			resp_headers delete
+		}
+	}
+}
+
+(common_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+}
+
+{$MADRIDGO_DOMAIN} {
+	import private_log site
+	import common_headers
+	encode zstd gzip
+	header {
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(self), camera=(), microphone=(), payment=()"
+		# The map runs in a srcdoc iframe that inherits this policy: MapLibre from unpkg.com
+		# (pinned and checked with SRI), its inline script and styles, blob: workers, and
+		# OpenFreeMap's styles, tiles, fonts and sprites.
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self' data:; connect-src 'self' {$MADRIDGO_API_ORIGIN} https://tiles.openfreemap.org; worker-src 'self' blob:; child-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+	}
+	root * /srv/site
+	# Hashed bundles never change; everything else is checked on each visit.
+	@hashed path /_expo/static/*
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+	# Single-page app: unknown paths get index.html.
+	try_files {path} /index.html
+	file_server
+}
+
+api.{$MADRIDGO_DOMAIN} {
+	import private_log api
+	import common_headers
+	encode zstd gzip
+	header {
+		Referrer-Policy "no-referrer"
+		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+	}
+
+	# Per client address (SECURITY_REVIEW.md #2). Generous for people, tight enough that one
+	# address cannot keep the server busy. The searches call CartoCiudad or scan many names.
+	rate_limit {
+		zone search {
+			match {
+				path /stops/search /places/search
+			}
+			key {remote_host}
+			events 40
+			window 1m
+		}
+		zone journeys {
+			match {
+				path /journeys
+			}
+			key {remote_host}
+			events 30
+			window 1m
+		}
+		zone all {
+			key {remote_host}
+			events 300
+			window 1m
+		}
+	}
+
+	# No active health checks: /health answers 503 when a dependency fails, and the uptime
+	# monitor should see that answer, not Caddy's 502.
+	reverse_proxy api:8000
+}
