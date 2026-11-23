@@ -16,6 +16,11 @@
   data/logs/refresh-feeds.log. Exit code: 0 ok, 1 a step failed, 2 a feed is expired or
   within its warning window (or missing) after the refresh (so a scheduler or a person notices).
 
+  Built to be started often (weekly at 04:00 and again after every logon, because the computer
+  is not always on at 04:00): it writes its first log line before anything else, waits up to 20
+  minutes for Docker Desktop, starts the database and Redis if they are not running, and does nothing when a refresh finished less than 3 days ago
+  (unless -Force). An unexpected error is logged (exit 1) instead of vanishing.
+
 .PARAMETER Sources
   Comma-separated feed keys; default "cercanias".
 
@@ -59,6 +64,34 @@ function Run([string]$title, [string]$command) {
   return $code
 }
 
+# Started again after each logon: nothing to do if a refresh finished recently.
+function Get-LastFinished {
+  if (-not (Test-Path $log)) { return $null }
+  $m = Select-String -Path $log -Pattern '^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d) refresh finished$' | Select-Object -Last 1
+  if ($m) { return [datetime]::ParseExact($m.Matches[0].Groups[1].Value, 'yyyy-MM-dd HH:mm:ss', $null) }
+  return $null
+}
+
+Say "refresh started (sources: $Sources)"
+$last = Get-LastFinished
+if (-not $Force -and $last -and ((Get-Date) - $last).TotalDays -lt 3) {
+  Say ('skipped: the last refresh finished {0:yyyy-MM-dd HH:mm} (use -Force to run anyway)' -f $last)
+  exit 0
+}
+
+# Docker Desktop may still be starting (this task also runs after logon).
+$dockerUp = $false
+for ($i = 0; $i -lt 80 -and -not $dockerUp; $i++) {
+  cmd /c 'docker info >nul 2>nul'
+  if ($LASTEXITCODE -eq 0) { $dockerUp = $true } else { if ($i -eq 0) { Say 'waiting for Docker Desktop...' }; Start-Sleep -Seconds 15 }
+}
+if (-not $dockerUp) { Say '!! Docker Desktop did not start within 20 minutes'; exit 1 }
+
+# The import needs the database (and Redis); start them if the stack is not up (no-op if it is).
+$dc0 = 'docker ' + ($compose -join ' ')
+if ((Run 'start database and Redis' "$dc0 up -d --wait db redis") -ne 0) { exit 1 }
+
+try {
 # The API reads its settings from .env (MADRIDGO_DATABASE_URL and so on).
 Get-Content (Join-Path $root '.env') | ForEach-Object {
   if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
@@ -66,8 +99,6 @@ Get-Content (Join-Path $root '.env') | ForEach-Object {
   }
 }
 Set-Location $api
-
-Say "refresh started (sources: $Sources)"
 
 if ((Run 'import feeds' "`"$py`" -m app.ingest update -s $Sources") -ne 0) { exit 1 }
 $unchanged = (Test-Path $step) -and ((Get-Content $step -Raw) -match 'already active') -and `
@@ -108,3 +139,7 @@ if ($code -eq 2 -or $statusText -match 'EXPIRING|EXPIRED|NOT IMPORTED') {
 }
 Say 'refresh finished'
 exit 0
+} catch {
+  Say "!! unexpected error: $($_.Exception.Message)"
+  exit 1
+}
