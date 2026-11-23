@@ -50,7 +50,10 @@ violation.
    and fill it in (`POSTGRES_PASSWORD` from `openssl rand -base64 32`, EMT keys, domain, email).
 3. Data. The simplest is to bring the development database and OTP graph:
    - on the PC: `docker compose -f infra/docker-compose.yml --env-file .env exec db pg_dump -U madridgo -Fc -Z6 madridgo > madridgo.dump`
-     and copy `madridgo.dump` and the folder `data/otp/` to the server (`data/otp/` next to `infra/`);
+     and copy `madridgo.dump` and the folders `data/otp/` (the built graph, ~400 MB) and
+     `data/gtfs/flat/` (the imported timetables, ~120 MB) to the server, under `data/` next to `infra/`.
+     The database remembers where each timetable file was on the PC; on the server the refresh
+     script finds it by name in `data/gtfs/flat/`;
    - on the server: `docker compose -f infra/docker-compose.prod.yml --env-file .env.production up -d db`,
      then `docker compose ... exec -T db pg_restore -U madridgo -d madridgo --no-owner < madridgo.dump`.
 4. Start everything: `docker compose -f infra/docker-compose.prod.yml --env-file .env.production up -d --build`
@@ -72,10 +75,43 @@ violation.
 The database volume, certificates, logs and backups survive. A new database migration runs when
 the realtime worker starts (as in development).
 
-**Timetable refresh is not on the server yet** (the Windows task does it on the development PC).
-Next step of Phase 7: a Linux version of `scripts/refresh-feeds.ps1` run weekly by cron on the
-server. Until then, Renfe's feed (about four weeks at a time; currently to 2026-12-22) must be
-refreshed by hand.
+## Feed refresh
+
+Renfe publishes about four weeks of timetable at a time (currently to 2026-12-22), so the
+server refreshes it itself. `scripts/refresh-feeds.sh` (the Linux counterpart of
+`refresh-feeds.ps1`, which does the same on the development PC):
+
+1. starts the database and Redis if needed;
+2. imports the feeds in a one-off container of the API image (`python -m app.ingest update`);
+3. if a feed changed: `otp-prepare`, builds the OTP graph (~5 minutes, 5 GB of RAM), recreates `otp`;
+4. waits until `/journeys` answers a real request (OTP needs ~1 minute to load);
+5. prints `python -m app.ingest status`.
+
+If the import fails nothing changes: the old data and the running OTP stay. It skips itself when
+a refresh finished less than 3 days ago (`--force` overrides), runs one copy at a time, and logs
+to `data/logs/refresh-feeds.log`. Exit code 0 = fine, 1 = a step failed, **2 = a feed is expired,
+about to expire or missing** after the refresh (the publisher has nothing newer).
+
+Cron (as the user that owns the repository and may use Docker):
+
+```
+MAILTO=you@example.com
+0 4 * * 0   cd /srv/madridgo && scripts/refresh-feeds.sh >/dev/null
+@reboot     sleep 300 && cd /srv/madridgo && scripts/refresh-feeds.sh >/dev/null
+```
+
+Cron mails the output only when you leave it unredirected; the simplest alert is the exit code
+checked by the uptime monitor's "heartbeat" feature (or `|| curl` a monitor URL). Test it once by
+hand after the first deployment: `scripts/refresh-feeds.sh --force` (takes about 7 minutes; the
+site's journey search is unavailable for about 1 minute while OTP restarts).
+
+The GTFS validator is not run on the server (it needs Docker inside the container). The import
+does not depend on it; run `python -m app.ingest validate` on a workstation for a report.
+Tried on 2026-11-23 on the development PC against the production compose file: a forced run
+took 6 min 26 s and ended with all feeds OK.
+
+Metro, Metro Ligero and the CRTM bus feeds are not refreshed by default (`-s cercanias`): CRTM
+has no schedule for them. When it publishes, run `scripts/refresh-feeds.sh --force -s metro,ml,urban,interurban`.
 
 ## Backups
 

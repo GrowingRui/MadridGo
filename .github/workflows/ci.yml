@@ -47,6 +47,11 @@ jobs:
       - run: ruff format --check .
       - run: mypy
       - run: pytest -q
+      - name: Shell scripts parse
+        working-directory: .
+        run: |
+          bash -n scripts/refresh-feeds.sh
+          sh -n infra/backup/backup.sh
       - name: Production compose file is valid
         working-directory: .
         run: >-

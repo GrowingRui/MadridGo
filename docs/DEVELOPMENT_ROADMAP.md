@@ -166,7 +166,8 @@
 - VPS deployment (Docker Compose, Caddy TLS, backups, uptime monitoring).
   - **Security fixes: built 2026-11-23** (PR #51): API access log without query or address, SRI for MapLibre, no `/docs` and no versions in `/health` in production, `pip-audit` and `npm audit` in CI.
   - **Production stack: built 2026-11-23** (`infra/docker-compose.prod.yml`, `infra/caddy/`, `infra/backup/`, docs/DEPLOYMENT.md): Caddy with automatic HTTPS serving the website (built into its image) and the API; only Caddy publishes ports; security headers and CSP; per-address rate limits; private request logs kept 14 days; nightly database dumps (7 kept); CORS for the site only. Tried end to end on the development PC with `localhost`.
-  - Next: Linux feed refresh run by cron on the server; then choose hosting and domain, copy dumps off the server, external uptime monitor.
+  - **Feed refresh on the server: built 2026-11-23** (`scripts/refresh-feeds.sh`, run weekly by cron; see docs/DEPLOYMENT.md, "Feed refresh"). Imports in a one-off API container, rebuilds OTP only when a feed changed, waits for a real `/journeys` answer, exits 2 when a feed is expired or about to be. Tried against the production compose file (6 min 26 s). Found on the way: the database stores the absolute path where each timetable was imported, which breaks when the database is moved to another machine; `feed_file` in `app/ingest/__main__.py` now finds the file by name in `data/gtfs/flat`.
+  - Next: choose hosting and domain, copy dumps off the server, external uptime monitor.
 - App Store / Google Play listings, privacy labels, review.
 
 ## Critical path

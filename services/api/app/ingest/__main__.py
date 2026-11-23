@@ -16,7 +16,7 @@ import shutil
 import sys
 import zipfile
 from datetime import UTC, date, datetime
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import asyncpg
 
@@ -61,6 +61,24 @@ def flatten(src: Path, dest: Path) -> Path:
                 with zin.open(info) as r, zout.open(info.filename.removeprefix(prefix), "w") as w:
                     shutil.copyfileobj(r, w, 1 << 20)
     return dest
+
+
+def feed_file(root: Path, stored: str) -> Path:
+    """Where a feed version's file is on this machine.
+
+    `feed_version.file_path` is the path where the import ran (a Windows path on the
+    development PC, /data/... in the refresh container, and so on). After a database has been
+    moved to another machine the file is looked up by name in data/gtfs/flat (and raw).
+    """
+    path = Path(stored)
+    if path.exists():
+        return path
+    name = PureWindowsPath(stored).name  # also handles a Windows path read on Linux
+    for folder in ("flat", "raw"):
+        candidate = root / "gtfs" / folder / name
+        if candidate.exists():
+            return candidate
+    return path  # the caller reports the missing file
 
 
 async def _connect() -> asyncpg.Connection:
@@ -212,7 +230,7 @@ async def carry_calendar(
         raise RuntimeError(
             f"[{source.key}] needs the calendar of '{source.calendar_from}': import it first"
         )
-    carried = carry_forward(flat, Path(donor), date.today())
+    carried = carry_forward(flat, feed_file(data_dir(), donor), date.today())
     if carried:
         print(
             f"[{source.key}] own calendar ended {carried.original_end}: using the calendar of "
@@ -262,10 +280,9 @@ async def cmd_validate(keys: list[str]) -> int:
         for r in rows:
             if keys and r["source"] not in keys:
                 continue
-            print(f"[{r['source']}] validating {Path(r['file_path']).name}")
-            summary = validate(
-                Path(r["file_path"]), root / "validation" / r["source"] / r["sha256"][:12]
-            )
+            print(f"[{r['source']}] validating {PureWindowsPath(r['file_path']).name}")
+            report_dir = root / "validation" / r["source"] / r["sha256"][:12]
+            summary = validate(feed_file(root, r["file_path"]), report_dir)
             await conn.execute(
                 """UPDATE feed_version SET validation_status = $2, validation_errors = $3,
                        validation_warnings = $4, validation_report = $5 WHERE id = $1""",
@@ -331,8 +348,9 @@ async def cmd_otp_prepare() -> int:
         old.unlink()
     for r in rows:
         dest = otp / f"{r['source']}-gtfs.zip"  # OTP detects GTFS by 'gtfs' in the name
-        shutil.copyfile(r["file_path"], dest)
-        print(f"{dest.name} <- {Path(r['file_path']).name}")
+        source_file = feed_file(root, r["file_path"])
+        shutil.copyfile(source_file, dest)
+        print(f"{dest.name} <- {source_file.name}")
     osm = otp / "madrid.osm.pbf"
     if not osm.exists():
         print("downloading Geofabrik Madrid OSM extract")

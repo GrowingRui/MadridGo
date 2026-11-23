@@ -60,8 +60,8 @@ Repeat both before every release. Phase 7 adds them to CI.
   publishes ports; #5 CORS: the site's origin only, header `Accept-Language` only; #7 HSTS, CSP,
   `nosniff`, `Referrer-Policy`, `Permissions-Policy`; #9 nightly dumps (7 kept, restore tested) and
   container restarts. All tried on the development PC with `MADRIDGO_DOMAIN=localhost`.
-- Still open: copying dumps off the server, the external uptime monitor and server-side feed
-  refresh (with the hosting choice), and checking on the real server that Caddy sees client
+- Server-side feed refresh: `scripts/refresh-feeds.sh` (2026-11-23).
+- Still open: copying dumps off the server and the external uptime monitor (with the hosting choice), and checking on the real server that Caddy sees client
   addresses (DEPLOYMENT.md, step 5). The website's CSP needs `'unsafe-inline'` scripts for the
   map's srcdoc page.
 
