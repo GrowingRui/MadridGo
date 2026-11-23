@@ -16,6 +16,17 @@
 import { modeColors, palettes, type Scheme } from '../theme';
 
 export const MAPLIBRE_VERSION = '5.24.0';
+/**
+ * Subresource Integrity hashes of the pinned MapLibre files on unpkg.com: the browser refuses
+ * to run them if the CDN ever serves anything else. Change both when the version changes
+ * (curl the file, then `openssl dgst -sha384 -binary FILE | openssl base64 -A`).
+ */
+export const MAPLIBRE_SRI: Record<string, { js: string; css: string }> = {
+  '5.24.0': {
+    js: 'sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp',
+    css: 'sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK',
+  },
+};
 export const MAP_STYLES: Record<Scheme, string> = {
   light: 'https://tiles.openfreemap.org/styles/positron',
   dark: 'https://tiles.openfreemap.org/styles/dark',
@@ -30,6 +41,7 @@ export function mapHtml(
 ): string {
   const p = palettes[scheme];
   const cdn = `https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist`;
+  const sri = MAPLIBRE_SRI[MAPLIBRE_VERSION];
   const colors = {
     rail: modeColors.rail.bg,
     metro: modeColors.metro.bg,
@@ -40,8 +52,8 @@ export function mapHtml(
 <html><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<link rel="stylesheet" href="${cdn}/maplibre-gl.css">
-<script src="${cdn}/maplibre-gl.js"></script>
+<link rel="stylesheet" href="${cdn}/maplibre-gl.css" integrity="${sri.css}" crossorigin="anonymous">
+<script src="${cdn}/maplibre-gl.js" integrity="${sri.js}" crossorigin="anonymous"></script>
 <style>
   html, body, #map { margin: 0; padding: 0; width: 100%; height: 100%; font-family: system-ui, sans-serif; }
   html, body { background: ${p.bg}; }

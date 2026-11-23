@@ -70,7 +70,7 @@ services:
   # OpenTripPlanner (Phase 2). Inputs come from `python -m app.ingest otp-prepare` (data/otp/).
   # Build the graph once per data update:
   #   docker compose -f infra/docker-compose.yml --profile otp-build run --rm otp-build
-  # Then serve it (http://127.0.0.1:8080):
+  # Then serve it (http://127.0.0.1:${OTP_HOST_PORT:-8080}):
   #   docker compose -f infra/docker-compose.yml --profile otp up -d otp
   otp-build:
     image: opentripplanner/opentripplanner:2.10.0
@@ -91,7 +91,7 @@ services:
     environment:
       JAVA_TOOL_OPTIONS: "-Xmx${OTP_HEAP:-3g}"
     ports:
-      - "127.0.0.1:8080:8080"   # localhost only; the API is the public entry point
+      - "127.0.0.1:${OTP_HOST_PORT:-8080}:8080"   # localhost only (set OTP_HOST_PORT if 8080 is taken); the API is the public entry point
     volumes: *otp-volumes
 
 volumes:

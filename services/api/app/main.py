@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__, buses, disruptions, journeys, places, stops, trains, trips
+from app.accesslog import AccessLogMiddleware, setup_access_log
 from app.config import Settings, get_settings
 from app.dbpool import close_pool, get_pool
 from app.feeds import FeedStatus, feed_statuses
@@ -41,7 +42,17 @@ def create_app() -> FastAPI:
         await close_kv()
         await close_pool()
 
-    app = FastAPI(title="MadridGo API", version=__version__, lifespan=lifespan)
+    setup_access_log()
+    # In production the interactive docs and the schema are not served (SECURITY_REVIEW.md #6).
+    public_docs = settings.environment != "production"
+    app = FastAPI(
+        title="MadridGo API",
+        version=__version__,
+        lifespan=lifespan,
+        docs_url="/docs" if public_docs else None,
+        redoc_url="/redoc" if public_docs else None,
+        openapi_url="/openapi.json" if public_docs else None,
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
@@ -50,6 +61,8 @@ def create_app() -> FastAPI:
     )
     # Outermost: messages in the app's language (Accept-Language: es | en).
     app.add_middleware(LanguageMiddleware)
+    # Added last, so it wraps everything: logs every request without query string or address.
+    app.add_middleware(AccessLogMiddleware)
 
     @app.get("/health", response_model=HealthResponse, tags=["system"])
     async def health(

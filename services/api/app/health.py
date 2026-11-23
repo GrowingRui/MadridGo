@@ -88,8 +88,13 @@ def make_redis_check(settings: Settings) -> Check:
 async def run_checks(checks: dict[str, Check], settings: Settings) -> HealthResponse:
     names = list(checks)
     results = await asyncio.gather(*(checks[n]() for n in names))
-    by_name = dict(zip(names, results, strict=True))
     overall: Status = "ok" if all(r.status == "ok" for r in results) else "error"
+    if settings.environment == "production":
+        # No component versions (e.g. the PostGIS version) for anyone who asks.
+        results = [
+            r.model_copy(update={"detail": None}) if r.status == "ok" else r for r in results
+        ]
+    by_name = dict(zip(names, results, strict=True))
     return HealthResponse(
         status=overall,
         version=__version__,
