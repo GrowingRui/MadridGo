@@ -57,7 +57,8 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
         allow_methods=["GET"],
-        allow_headers=["*"],
+        # The app sends only Accept-Language (SECURITY_REVIEW.md #5).
+        allow_headers=["Accept-Language"],
     )
     # Outermost: messages in the app's language (Accept-Language: es | en).
     app.add_middleware(LanguageMiddleware)
