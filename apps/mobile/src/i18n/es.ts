@@ -178,6 +178,7 @@ export const es: Record<MessageKey, string> = {
   'commute.loading': 'Buscando salidas…',
   'commute.none': 'Ahora no hay salidas para esta ruta.',
   'commute.more': 'Más conexiones',
+  'commute.full': 'Puedes guardar hasta {n} rutas. Quita una en Viajes para guardar esta.',
 
   // Guía del viaje paso a paso (pestaña Viajes)
   'steps.title': 'Paso a paso',
