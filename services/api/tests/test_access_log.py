@@ -10,22 +10,22 @@ from app.health import CheckResult, run_checks
 from app.main import create_app
 
 
-def _client_with_records() -> tuple[TestClient, list[logging.LogRecord]]:
+def test_access_log_has_path_status_and_time_but_no_query_or_address() -> None:
     records: list[logging.LogRecord] = []
 
     class Grab(logging.Handler):
         def emit(self, record: logging.LogRecord) -> None:
             records.append(record)
 
-    logger.addHandler(Grab())
-    return TestClient(create_app()), records
-
-
-def test_access_log_has_path_status_and_time_but_no_query_or_address() -> None:
-    client, records = _client_with_records()
-    client.get("/stops/nearby?lat=40.4201&lon=-3.7012")
+    grab = Grab()
+    logger.addHandler(grab)
+    try:
+        # A path that needs no database: the middleware logs 404s the same way.
+        TestClient(create_app()).get("/no-such-path?lat=40.4201&lon=-3.7012")
+    finally:
+        logger.removeHandler(grab)
     text = " ".join(r.getMessage() for r in records)
-    assert "GET /stops/nearby " in text
+    assert "GET /no-such-path 404 " in text
     assert "40.4201" not in text and "-3.7012" not in text and "lat=" not in text
     assert "testclient" not in text and "127.0.0.1" not in text
     assert text.rstrip().endswith("ms")
