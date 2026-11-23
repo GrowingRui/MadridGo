@@ -181,19 +181,19 @@ export function SaveRouteButton({ from, to }: { from: Place | null; to: Place | 
   return (
     <View>
       <Pressable
-      onPress={press}
-      accessibilityRole="button"
-      accessibilityLabel={saved ? t('commute.savedGo') : t('commute.save')}
-      style={({ pressed, hovered }: PressState) => [
-        styles.save,
-        (pressed || hovered) && { backgroundColor: colors.pressed },
-      ]}>
-      <MaterialCommunityIcons
-        name={saved ? 'bookmark-check' : 'bookmark-plus-outline'}
-        size={20}
-        color={colors.brand}
-      />
-      <Text style={styles.saveText}>{saved ? t('commute.savedGo') : t('commute.save')}</Text>
+        onPress={press}
+        accessibilityRole="button"
+        accessibilityLabel={saved ? t('commute.savedGo') : t('commute.save')}
+        style={({ pressed, hovered }: PressState) => [
+          styles.save,
+          (pressed || hovered) && { backgroundColor: colors.pressed },
+        ]}>
+        <MaterialCommunityIcons
+          name={saved ? 'bookmark-check' : 'bookmark-plus-outline'}
+          size={20}
+          color={colors.brand}
+        />
+        <Text style={styles.saveText}>{saved ? t('commute.savedGo') : t('commute.save')}</Text>
       </Pressable>
       {full && !saved ? (
         <Text style={styles.full} accessibilityRole="alert">
